@@ -159,9 +159,14 @@ const App: React.FC = () => {
               <div className="bg-orange-600 p-2 rounded-lg shadow-neon">
                 <Flame className="text-white" size={24} fill="currentColor" />
               </div>
-              <h1 className="text-xl sm:text-2xl font-display font-bold text-white tracking-wider">
-                KAL DO <span className="text-orange-500">ESPETINHO</span>
-              </h1>
+              <div className="flex flex-col justify-center">
+                <h1 className="text-xl sm:text-2xl font-display font-bold text-white tracking-wider leading-none">
+                  KAL DO <span className="text-orange-500">ESPETINHO</span>
+                </h1>
+                <span className="text-[10px] sm:text-xs text-neutral-400 font-sans tracking-widest uppercase">
+                  Arataca - Ba
+                </span>
+              </div>
             </div>
 
             {/* Desktop Categories */}
@@ -290,9 +295,12 @@ const App: React.FC = () => {
       {/* Footer */}
       <footer className="bg-neutral-900 border-t border-neutral-800 py-12 mt-12 relative">
         <div className="max-w-7xl mx-auto px-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-             <Flame className="text-orange-500" size={20} fill="currentColor" />
-             <span className="font-display font-bold text-xl text-white uppercase">Kal do Espetinho</span>
+          <div className="flex flex-col items-center justify-center mb-4">
+             <div className="flex items-center gap-2">
+                <Flame className="text-orange-500" size={20} fill="currentColor" />
+                <span className="font-display font-bold text-xl text-white uppercase">Kal do Espetinho</span>
+             </div>
+             <span className="text-xs text-neutral-500 uppercase tracking-widest mt-1">Arataca - Ba</span>
           </div>
           <p className="text-neutral-500 text-sm mb-4">
             © {new Date().getFullYear()} Todos os direitos reservados.

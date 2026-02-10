@@ -65,8 +65,9 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
         return;
       }
       
-      // Converte string "50,00" ou "50.00" para float
-      paidAmount = parseFloat(orderDetails.changeFor.replace(',', '.'));
+      // Sanitização e conversão
+      const cleanValue = orderDetails.changeFor.replace(/[^\d.,]/g, '').replace(',', '.');
+      paidAmount = parseFloat(cleanValue);
       
       if (isNaN(paidAmount) || paidAmount < total) {
         alert(`O valor para troco (R$ ${paidAmount.toFixed(2)}) deve ser maior que o total do pedido (R$ ${total.toFixed(2)}).`);
@@ -115,10 +116,19 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
     }
 
     // Usar o número dinâmico passado via props
-    const targetNumber = whatsappNumber.replace(/\D/g, ''); // Remove caracteres não numéricos
+    const targetNumber = whatsappNumber.replace(/\D/g, ''); 
     const encodedMessage = encodeURIComponent(message);
     window.open(`https://wa.me/${targetNumber}?text=${encodedMessage}`, '_blank');
   };
+
+  // Helper para exibir o valor restante do troco na UI
+  const getChangeValue = () => {
+      const cleanValue = orderDetails.changeFor.replace(/[^\d.,]/g, '').replace(',', '.');
+      const val = parseFloat(cleanValue);
+      if (isNaN(val)) return 0;
+      return val - total;
+  };
+  const changeVal = getChangeValue();
 
   return (
     <>
@@ -220,7 +230,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
                   </div>
 
                   {orderDetails.deliveryMethod === 'delivery' ? (
-                    <div className="space-y-3 animate-fade-in">
+                    <div className="space-y-3">
                       <div className="grid grid-cols-3 gap-3">
                         <div className="col-span-2">
                            <input 
@@ -321,7 +331,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
 
                       {/* Configuração de Troco */}
                       {orderDetails.paymentMethod === 'cash' && (
-                        <div className="ml-8 mt-2 p-3 bg-neutral-900 border border-neutral-800 rounded-lg animate-fade-in">
+                        <div className="ml-8 mt-2 p-3 bg-neutral-950 border border-neutral-700 rounded-lg">
                           <label className="flex items-center gap-2 mb-2 cursor-pointer">
                             <input 
                               type="checkbox" 
@@ -340,11 +350,16 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
                                 placeholder="Ex: 50,00"
                                 value={orderDetails.changeFor}
                                 onChange={(e) => handleInputChange('changeFor', e.target.value)}
-                                className="w-full bg-neutral-950 border border-neutral-800 rounded p-2 text-white text-sm focus:border-orange-500 focus:outline-none"
+                                className="w-full bg-neutral-900 border border-neutral-800 rounded p-2 text-white text-sm focus:border-orange-500 focus:outline-none"
                               />
-                              {orderDetails.changeFor && !isNaN(parseFloat(orderDetails.changeFor.replace(',', '.'))) && parseFloat(orderDetails.changeFor.replace(',', '.')) >= total && (
+                              {changeVal > 0 && (
                                 <p className="text-xs text-orange-400 mt-2 font-bold">
-                                  Troco a receber: R$ {(parseFloat(orderDetails.changeFor.replace(',', '.')) - total).toFixed(2)}
+                                  Troco a receber: R$ {changeVal.toFixed(2)}
+                                </p>
+                              )}
+                              {changeVal < 0 && orderDetails.changeFor && (
+                                <p className="text-xs text-red-400 mt-2">
+                                  Valor insuficiente. Total: R$ {total.toFixed(2)}
                                 </p>
                               )}
                              </div>
