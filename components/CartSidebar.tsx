@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { X, Trash2, ShoppingBag, Send, MapPin, Store, CreditCard, Banknote, QrCode } from 'lucide-react';
-import { CartItem, OrderDetails } from '../types';
+import { X, Trash2, ShoppingBag, Send, MapPin, Store, CreditCard, Banknote, QrCode, Utensils, Copy, Check, AlertCircle, MessageSquare } from 'lucide-react';
+import { CartItem, OrderDetails, Order } from '../types';
 
 interface CartSidebarProps {
   isOpen: boolean;
@@ -9,13 +9,18 @@ interface CartSidebarProps {
   onRemove: (id: string) => void;
   onUpdateQuantity: (id: string, delta: number) => void;
   whatsappNumber: string;
+  pixKey: string;
+  deliveryFee: number;
+  onPlaceOrder: (order: Order) => void;
 }
 
-const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemove, onUpdateQuantity, whatsappNumber }) => {
+const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemove, onUpdateQuantity, whatsappNumber, pixKey, deliveryFee, onPlaceOrder }) => {
   // Estado do formulário
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
     customerName: '',
-    deliveryMethod: 'delivery',
+    customerPhone: '',
+    deliveryMethod: 'table',
+    tableNumber: '',
     address: {
       street: '',
       number: '',
@@ -24,15 +29,44 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
     },
     paymentMethod: 'pix',
     needChange: false,
-    changeFor: ''
+    changeFor: '',
+    observations: ''
   });
 
-  const total = useMemo(() => {
+  // Estado para erros de validação
+  const [errors, setErrors] = useState<Record<string, boolean>>({});
+
+  const [copiedPix, setCopiedPix] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Calcula subtotal (apenas itens)
+  const subtotal = useMemo(() => {
     return cart.reduce((acc, item) => acc + item.price * item.quantity, 0);
   }, [cart]);
 
+  // Calcula frete
+  const currentDeliveryFee = orderDetails.deliveryMethod === 'delivery' ? deliveryFee : 0;
+
+  // Calcula total final
+  const total = subtotal + currentDeliveryFee;
+
+  // Função auxiliar para classes de input com erro
+  const getInputClass = (fieldName: string, isAddress = false) => {
+    const hasError = isAddress ? errors[`address.${fieldName}`] : errors[fieldName];
+    
+    return `w-full bg-neutral-950 border rounded-lg p-3 text-white text-sm focus:outline-none transition-all duration-300 ${
+      hasError 
+        ? 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.6)] animate-pulse placeholder-red-400/50' 
+        : 'border-neutral-800 focus:border-orange-500'
+    }`;
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setOrderDetails(prev => ({ ...prev, [field]: value }));
+    // Limpa o erro ao digitar
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: false }));
+    }
   };
 
   const handleAddressChange = (field: string, value: string) => {
@@ -40,88 +74,83 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
       ...prev,
       address: { ...prev.address, [field]: value }
     }));
+    // Limpa o erro ao digitar
+    if (errors[`address.${field}`]) {
+      setErrors(prev => ({ ...prev, [`address.${field}`]: false }));
+    }
   };
 
-  const handleCheckout = () => {
+  const handleCopyPix = () => {
+    navigator.clipboard.writeText(pixKey);
+    setCopiedPix(true);
+    setTimeout(() => setCopiedPix(false), 2000);
+  };
+
+  const handleCheckout = async () => {
     if (cart.length === 0) return;
 
-    // Validação básica
-    if (!orderDetails.customerName.trim()) {
-      alert("Por favor, digite seu nome.");
-      return;
-    }
-    if (orderDetails.deliveryMethod === 'delivery' && (!orderDetails.address.street || !orderDetails.address.number || !orderDetails.address.neighborhood)) {
-      alert("Por favor, preencha o endereço de entrega.");
-      return;
-    }
+    const newErrors: Record<string, boolean> = {};
+    let hasError = false;
+
+    // Validação Campos Básicos
+    if (!orderDetails.customerName.trim()) { newErrors.customerName = true; hasError = true; }
+    if (!orderDetails.customerPhone.trim()) { newErrors.customerPhone = true; hasError = true; }
     
-    // Validação e cálculo do troco
-    let changeAmount = 0;
-    let paidAmount = 0;
-
-    if (orderDetails.paymentMethod === 'cash' && orderDetails.needChange) {
-      if (!orderDetails.changeFor) {
-        alert("Por favor, informe para quanto precisa de troco.");
-        return;
-      }
-      
-      // Sanitização e conversão
-      const cleanValue = orderDetails.changeFor.replace(/[^\d.,]/g, '').replace(',', '.');
-      paidAmount = parseFloat(cleanValue);
-      
-      if (isNaN(paidAmount) || paidAmount < total) {
-        alert(`O valor para troco (R$ ${paidAmount.toFixed(2)}) deve ser maior que o total do pedido (R$ ${total.toFixed(2)}).`);
-        return;
-      }
-
-      changeAmount = paidAmount - total;
-    }
-
-    // Construção da mensagem
-    let message = `*🔥 NOVO PEDIDO - KAL DO ESPETINHO 🔥*\n\n`;
-    
-    message += `*Cliente:* ${orderDetails.customerName}\n`;
-    message += `*Tipo:* ${orderDetails.deliveryMethod === 'delivery' ? '🛵 Entrega' : '🏪 Retirada no Local'}\n\n`;
-
-    message += `*🛒 ITENS DO PEDIDO:*\n`;
-    cart.forEach(item => {
-      message += `▪️ ${item.quantity}x ${item.name} - R$ ${(item.price * item.quantity).toFixed(2)}\n`;
-    });
-    
-    message += `\n*💰 TOTAL: R$ ${total.toFixed(2)}*\n`;
-    message += `----------------------------------\n`;
-
+    // Validação Delivery
     if (orderDetails.deliveryMethod === 'delivery') {
-      message += `*📍 ENDEREÇO DE ENTREGA:*\n`;
-      message += `${orderDetails.address.street}, ${orderDetails.address.number}\n`;
-      message += `Bairro: ${orderDetails.address.neighborhood}\n`;
-      if (orderDetails.address.complement) message += `Comp: ${orderDetails.address.complement}\n`;
-      message += `----------------------------------\n`;
+      if (!orderDetails.address.street.trim()) { newErrors['address.street'] = true; hasError = true; }
+      if (!orderDetails.address.number.trim()) { newErrors['address.number'] = true; hasError = true; }
+      if (!orderDetails.address.neighborhood.trim()) { newErrors['address.neighborhood'] = true; hasError = true; }
     }
 
-    message += `*💳 FORMA DE PAGAMENTO:*\n`;
-    switch (orderDetails.paymentMethod) {
-      case 'pix': message += `✅ PIX`; break;
-      case 'credit_card': message += `💳 Cartão de Crédito`; break;
-      case 'debit_card': message += `💳 Cartão de Débito`; break;
-      case 'cash': 
-        message += `💵 Dinheiro`;
-        if (orderDetails.needChange) {
-          message += `\n⚠️ *Precisa de troco para:* R$ ${paidAmount.toFixed(2)}`;
-          message += `\n👉 *Levar de troco:* R$ ${changeAmount.toFixed(2)}`;
+    // Validação Mesa
+    if (orderDetails.deliveryMethod === 'table') {
+      if (!orderDetails.tableNumber.trim()) { newErrors.tableNumber = true; hasError = true; }
+    }
+    
+    // Validação Troco
+    if (orderDetails.paymentMethod === 'cash' && orderDetails.needChange) {
+      const val = parseFloat(orderDetails.changeFor.replace(/[^\d.,]/g, '').replace(',', '.'));
+      if (isNaN(val) || val < total) {
+        newErrors.changeFor = true; 
+        hasError = true;
+        // Se for erro de valor inválido (não vazio), alertamos também
+        if (!orderDetails.changeFor.trim()) {
+           // Apenas highlight visual se estiver vazio
         } else {
-          message += `\n(Não precisa de troco)`;
+           alert(`O valor para troco deve ser maior que o total (R$ ${total.toFixed(2)}).`);
         }
-        break;
+      }
     }
 
-    // Usar o número dinâmico passado via props
-    const targetNumber = whatsappNumber.replace(/\D/g, ''); 
-    const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/${targetNumber}?text=${encodedMessage}`, '_blank');
+    if (hasError) {
+      setErrors(newErrors);
+      // Vibrate para celular (feedback tátil)
+      if (navigator.vibrate) navigator.vibrate(200);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    // Create Order Object
+    const newOrder: Order = {
+      id: `#${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`,
+      customer: orderDetails,
+      items: cart,
+      total: total,
+      deliveryFee: currentDeliveryFee > 0 ? currentDeliveryFee : undefined,
+      status: 'pending',
+      createdAt: Date.now()
+    };
+
+    // Simulate Network delay slightly for UX
+    setTimeout(() => {
+      onPlaceOrder(newOrder);
+      setIsSubmitting(false);
+      onClose();
+    }, 1000);
   };
 
-  // Helper para exibir o valor restante do troco na UI
   const getChangeValue = () => {
       const cleanValue = orderDetails.changeFor.replace(/[^\d.,]/g, '').replace(',', '.');
       const val = parseFloat(cleanValue);
@@ -132,39 +161,27 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
 
   return (
     <>
-      {/* Overlay */}
       <div 
         className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
 
-      {/* Sidebar */}
       <div className={`fixed inset-y-0 right-0 w-full sm:w-[450px] bg-neutral-900 border-l border-orange-500/30 z-50 transform transition-transform duration-300 shadow-neon flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
           
-          {/* Header */}
           <div className="p-5 border-b border-neutral-800 flex justify-between items-center bg-neutral-950 shrink-0">
             <h2 className="text-xl font-display font-bold text-orange-500 flex items-center gap-2">
               <ShoppingBag className="text-orange-500" />
-              Seu Pedido
+              Finalizar Pedido
             </h2>
-            <button onClick={onClose} className="text-neutral-400 hover:text-white transition-colors">
-              <X size={24} />
-            </button>
+            <button onClick={onClose} className="text-neutral-400 hover:text-white transition-colors"><X size={24} /></button>
           </div>
 
-          {/* Content (Scrollable) */}
           <div className="flex-1 overflow-y-auto p-5 space-y-6 custom-scrollbar">
-            {/* 1. Items List */}
+            {/* Items */}
             <div>
               <h3 className="text-white font-bold mb-3 text-sm uppercase tracking-wider border-l-2 border-orange-500 pl-2">Itens</h3>
               {cart.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-10 text-neutral-500 space-y-4">
-                  <ShoppingBag size={48} className="opacity-20" />
-                  <p>Seu carrinho está vazio.</p>
-                  <button onClick={onClose} className="text-orange-500 hover:underline">
-                    Ver Cardápio
-                  </button>
-                </div>
+                <div className="text-center py-10 text-neutral-500"><p>Seu carrinho está vazio.</p></div>
               ) : (
                 <div className="space-y-3">
                   {cart.map((item) => (
@@ -173,16 +190,13 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
                       <div className="flex-1">
                         <h4 className="font-semibold text-white text-sm">{item.name}</h4>
                         <p className="text-orange-400 font-bold text-xs">R$ {item.price.toFixed(2)}</p>
-                        
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex items-center gap-2 bg-neutral-900 rounded px-2 py-0.5">
                             <button onClick={() => onUpdateQuantity(item.id, -1)} className="text-neutral-400 hover:text-white">-</button>
                             <span className="text-sm font-medium w-4 text-center">{item.quantity}</span>
                             <button onClick={() => onUpdateQuantity(item.id, 1)} className="text-neutral-400 hover:text-white">+</button>
                           </div>
-                          <button onClick={() => onRemove(item.id)} className="text-neutral-600 hover:text-red-500 transition-colors">
-                            <Trash2 size={14} />
-                          </button>
+                          <button onClick={() => onRemove(item.id)} className="text-neutral-600 hover:text-red-500 transition-colors"><Trash2 size={14} /></button>
                         </div>
                       </div>
                     </div>
@@ -194,176 +208,126 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
             {cart.length > 0 && (
               <>
                 <hr className="border-neutral-800" />
-
-                {/* 2. Personal Info */}
+                {/* User Info */}
                 <div>
-                   <h3 className="text-white font-bold mb-3 text-sm uppercase tracking-wider border-l-2 border-orange-500 pl-2">Seus Dados</h3>
-                   <input 
-                      type="text" 
-                      placeholder="Seu Nome Completo"
-                      value={orderDetails.customerName}
-                      onChange={(e) => handleInputChange('customerName', e.target.value)}
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm focus:border-orange-500 focus:outline-none"
-                    />
+                   <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-white font-bold text-sm uppercase tracking-wider border-l-2 border-orange-500 pl-2">Seus Dados</h3>
+                      {(errors.customerName || errors.customerPhone) && <span className="text-xs text-orange-500 font-bold animate-pulse flex items-center gap-1"><AlertCircle size={12}/> Preencha os dados</span>}
+                   </div>
+                   <div className="space-y-3">
+                     <input 
+                        type="text" 
+                        placeholder="Seu Nome Completo *"
+                        value={orderDetails.customerName}
+                        onChange={(e) => handleInputChange('customerName', e.target.value)}
+                        className={getInputClass('customerName')}
+                      />
+                     <input 
+                        type="text" 
+                        placeholder="Seu WhatsApp (com DDD) *"
+                        value={orderDetails.customerPhone}
+                        onChange={(e) => handleInputChange('customerPhone', e.target.value)}
+                        className={getInputClass('customerPhone')}
+                      />
+                   </div>
                 </div>
 
                 <hr className="border-neutral-800" />
-
-                {/* 3. Delivery Method */}
+                {/* Delivery */}
                 <div>
-                  <h3 className="text-white font-bold mb-3 text-sm uppercase tracking-wider border-l-2 border-orange-500 pl-2">Entrega</h3>
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    <button 
-                      onClick={() => handleInputChange('deliveryMethod', 'delivery')}
-                      className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${orderDetails.deliveryMethod === 'delivery' ? 'bg-orange-600/20 border-orange-500 text-orange-500' : 'bg-neutral-800 border-neutral-700 text-neutral-400'}`}
-                    >
-                      <MapPin size={20} className="mb-1" />
-                      <span className="text-xs font-bold">Entrega</span>
+                  <h3 className="text-white font-bold mb-3 text-sm uppercase tracking-wider border-l-2 border-orange-500 pl-2">Modo de Pedido</h3>
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <button onClick={() => handleInputChange('deliveryMethod', 'table')} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${orderDetails.deliveryMethod === 'table' ? 'bg-orange-600/20 border-orange-500 text-orange-500' : 'bg-neutral-800 border-neutral-700 text-neutral-400'}`}>
+                      <Utensils size={20} className="mb-1" />
+                      <span className="text-[10px] font-bold uppercase">Mesa</span>
                     </button>
-                    <button 
-                      onClick={() => handleInputChange('deliveryMethod', 'pickup')}
-                      className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${orderDetails.deliveryMethod === 'pickup' ? 'bg-orange-600/20 border-orange-500 text-orange-500' : 'bg-neutral-800 border-neutral-700 text-neutral-400'}`}
-                    >
+                    <button onClick={() => handleInputChange('deliveryMethod', 'delivery')} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${orderDetails.deliveryMethod === 'delivery' ? 'bg-orange-600/20 border-orange-500 text-orange-500' : 'bg-neutral-800 border-neutral-700 text-neutral-400'}`}>
+                      <MapPin size={20} className="mb-1" />
+                      <span className="text-[10px] font-bold uppercase">Entrega</span>
+                    </button>
+                    <button onClick={() => handleInputChange('deliveryMethod', 'pickup')} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${orderDetails.deliveryMethod === 'pickup' ? 'bg-orange-600/20 border-orange-500 text-orange-500' : 'bg-neutral-800 border-neutral-700 text-neutral-400'}`}>
                       <Store size={20} className="mb-1" />
-                      <span className="text-xs font-bold">Retirada</span>
+                      <span className="text-[10px] font-bold uppercase">Retirada</span>
                     </button>
                   </div>
 
-                  {orderDetails.deliveryMethod === 'delivery' ? (
-                    <div className="space-y-3">
+                  {orderDetails.deliveryMethod === 'delivery' && (
+                    <div className="space-y-3 animate-fade-in">
+                       <div className="bg-orange-900/20 border border-orange-500/30 p-3 rounded-lg flex items-center justify-between mb-2">
+                         <span className="text-orange-400 text-xs font-bold uppercase">Taxa de Entrega</span>
+                         <span className="text-white font-bold">R$ {deliveryFee.toFixed(2)}</span>
+                       </div>
+                       {(errors['address.street'] || errors['address.number'] || errors['address.neighborhood']) && <p className="text-xs text-orange-500 font-bold mb-1 animate-pulse">Endereço obrigatório</p>}
                       <div className="grid grid-cols-3 gap-3">
-                        <div className="col-span-2">
-                           <input 
-                              type="text" 
-                              placeholder="Rua / Avenida"
-                              value={orderDetails.address.street}
-                              onChange={(e) => handleAddressChange('street', e.target.value)}
-                              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm focus:border-orange-500 focus:outline-none"
-                           />
-                        </div>
-                        <div className="col-span-1">
-                           <input 
-                              type="text" 
-                              placeholder="Nº"
-                              value={orderDetails.address.number}
-                              onChange={(e) => handleAddressChange('number', e.target.value)}
-                              className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm focus:border-orange-500 focus:outline-none"
-                           />
-                        </div>
+                        <div className="col-span-2"><input type="text" placeholder="Rua / Avenida *" value={orderDetails.address.street} onChange={(e) => handleAddressChange('street', e.target.value)} className={getInputClass('street', true)}/></div>
+                        <div className="col-span-1"><input type="text" placeholder="Nº *" value={orderDetails.address.number} onChange={(e) => handleAddressChange('number', e.target.value)} className={getInputClass('number', true)}/></div>
                       </div>
-                      <input 
-                        type="text" 
-                        placeholder="Bairro"
-                        value={orderDetails.address.neighborhood}
-                        onChange={(e) => handleAddressChange('neighborhood', e.target.value)}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm focus:border-orange-500 focus:outline-none"
-                      />
-                      <input 
-                        type="text" 
-                        placeholder="Complemento (opcional)"
-                        value={orderDetails.address.complement}
-                        onChange={(e) => handleAddressChange('complement', e.target.value)}
-                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm focus:border-orange-500 focus:outline-none"
-                      />
-                    </div>
-                  ) : (
-                    <div className="bg-neutral-800/50 p-3 rounded-lg border border-neutral-700 text-center">
-                      <p className="text-orange-400 font-bold text-sm">📍 Endereço para Retirada:</p>
-                      <p className="text-neutral-300 text-sm">Av. Principal do Espetinho, 123</p>
-                      <p className="text-neutral-400 text-xs">Centro - São Paulo/SP</p>
+                      <input type="text" placeholder="Bairro *" value={orderDetails.address.neighborhood} onChange={(e) => handleAddressChange('neighborhood', e.target.value)} className={getInputClass('neighborhood', true)}/>
+                      <input type="text" placeholder="Complemento" value={orderDetails.address.complement} onChange={(e) => handleAddressChange('complement', e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm focus:border-orange-500 focus:outline-none"/>
                     </div>
                   )}
+
+                  {orderDetails.deliveryMethod === 'table' && (
+                    <div className="animate-fade-in">
+                       {errors.tableNumber && <p className="text-xs text-orange-500 font-bold mb-1 animate-pulse">Informe o número da mesa</p>}
+                       <input type="text" placeholder="Número da Mesa *" value={orderDetails.tableNumber} onChange={(e) => handleInputChange('tableNumber', e.target.value)} className={`${getInputClass('tableNumber')} text-lg font-bold text-center`}/>
+                    </div>
+                  )}
+
+                  {/* Observações */}
+                  <div className="mt-4 animate-fade-in">
+                     <label className="flex items-center gap-2 text-white font-bold text-sm uppercase tracking-wider mb-2">
+                        <MessageSquare size={14} className="text-orange-500"/> Observações
+                     </label>
+                     <textarea 
+                        value={orderDetails.observations}
+                        onChange={(e) => handleInputChange('observations', e.target.value)}
+                        placeholder="Ex: Sem cebola, ponto da carne, retirar maionese..."
+                        className="w-full bg-neutral-950 border border-neutral-800 rounded-lg p-3 text-white text-sm focus:border-orange-500 focus:outline-none h-20 resize-none"
+                     />
+                  </div>
                 </div>
 
                 <hr className="border-neutral-800" />
-
-                {/* 4. Payment Method */}
+                {/* Payment */}
                 <div>
                    <h3 className="text-white font-bold mb-3 text-sm uppercase tracking-wider border-l-2 border-orange-500 pl-2">Pagamento</h3>
                    <div className="space-y-2">
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'pix' ? 'bg-orange-600/10 border-orange-500' : 'bg-neutral-800/30 border-neutral-800 hover:border-neutral-600'}`}>
-                        <input type="radio" name="payment" className="hidden" 
-                          checked={orderDetails.paymentMethod === 'pix'} 
-                          onChange={() => handleInputChange('paymentMethod', 'pix')}
-                        />
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${orderDetails.paymentMethod === 'pix' ? 'border-orange-500' : 'border-neutral-500'}`}>
-                          {orderDetails.paymentMethod === 'pix' && <div className="w-2 h-2 rounded-full bg-orange-500" />}
-                        </div>
-                        <QrCode size={18} className="text-teal-400" />
-                        <span className="text-sm text-white">PIX</span>
+                      <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'pix' ? 'bg-orange-600/10 border-orange-500' : 'bg-neutral-800/30 border-neutral-800'}`}>
+                        <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'pix'} onChange={() => handleInputChange('paymentMethod', 'pix')}/>
+                        <QrCode size={18} className="text-teal-400" /><span className="text-sm text-white">PIX (Chave/QR Code)</span>
+                      </label>
+                      <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'credit_card' ? 'bg-orange-600/10 border-orange-500' : 'bg-neutral-800/30 border-neutral-800'}`}>
+                        <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'credit_card'} onChange={() => handleInputChange('paymentMethod', 'credit_card')}/>
+                        <CreditCard size={18} className="text-blue-400" /><span className="text-sm text-white">Cartão de Crédito</span>
+                      </label>
+                      <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'cash' ? 'bg-orange-600/10 border-orange-500' : 'bg-neutral-800/30 border-neutral-800'}`}>
+                        <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'cash'} onChange={() => handleInputChange('paymentMethod', 'cash')}/>
+                        <Banknote size={18} className="text-green-400" /><span className="text-sm text-white">Dinheiro</span>
                       </label>
 
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'credit_card' ? 'bg-orange-600/10 border-orange-500' : 'bg-neutral-800/30 border-neutral-800 hover:border-neutral-600'}`}>
-                        <input type="radio" name="payment" className="hidden" 
-                          checked={orderDetails.paymentMethod === 'credit_card'} 
-                          onChange={() => handleInputChange('paymentMethod', 'credit_card')}
-                        />
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${orderDetails.paymentMethod === 'credit_card' ? 'border-orange-500' : 'border-neutral-500'}`}>
-                          {orderDetails.paymentMethod === 'credit_card' && <div className="w-2 h-2 rounded-full bg-orange-500" />}
-                        </div>
-                        <CreditCard size={18} className="text-blue-400" />
-                        <span className="text-sm text-white">Cartão de Crédito (Maquininha)</span>
-                      </label>
-                      
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'debit_card' ? 'bg-orange-600/10 border-orange-500' : 'bg-neutral-800/30 border-neutral-800 hover:border-neutral-600'}`}>
-                        <input type="radio" name="payment" className="hidden" 
-                          checked={orderDetails.paymentMethod === 'debit_card'} 
-                          onChange={() => handleInputChange('paymentMethod', 'debit_card')}
-                        />
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${orderDetails.paymentMethod === 'debit_card' ? 'border-orange-500' : 'border-neutral-500'}`}>
-                          {orderDetails.paymentMethod === 'debit_card' && <div className="w-2 h-2 rounded-full bg-orange-500" />}
-                        </div>
-                        <CreditCard size={18} className="text-purple-400" />
-                        <span className="text-sm text-white">Cartão de Débito (Maquininha)</span>
-                      </label>
-
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'cash' ? 'bg-orange-600/10 border-orange-500' : 'bg-neutral-800/30 border-neutral-800 hover:border-neutral-600'}`}>
-                        <input type="radio" name="payment" className="hidden" 
-                          checked={orderDetails.paymentMethod === 'cash'} 
-                          onChange={() => handleInputChange('paymentMethod', 'cash')}
-                        />
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${orderDetails.paymentMethod === 'cash' ? 'border-orange-500' : 'border-neutral-500'}`}>
-                          {orderDetails.paymentMethod === 'cash' && <div className="w-2 h-2 rounded-full bg-orange-500" />}
-                        </div>
-                        <Banknote size={18} className="text-green-400" />
-                        <span className="text-sm text-white">Dinheiro</span>
-                      </label>
-
-                      {/* Configuração de Troco */}
                       {orderDetails.paymentMethod === 'cash' && (
                         <div className="ml-8 mt-2 p-3 bg-neutral-950 border border-neutral-700 rounded-lg">
-                          <label className="flex items-center gap-2 mb-2 cursor-pointer">
-                            <input 
-                              type="checkbox" 
-                              checked={orderDetails.needChange}
-                              onChange={(e) => handleInputChange('needChange', e.target.checked)}
-                              className="accent-orange-500"
-                            />
-                            <span className="text-sm text-neutral-300">Precisa de troco?</span>
-                          </label>
-                          
+                          <label className="flex items-center gap-2 mb-2"><input type="checkbox" checked={orderDetails.needChange} onChange={(e) => handleInputChange('needChange', e.target.checked)} className="accent-orange-500"/><span className="text-sm text-neutral-300">Precisa de troco?</span></label>
                           {orderDetails.needChange && (
                              <div>
-                               <label className="block text-xs text-neutral-500 mb-1">Vou pagar com nota de:</label>
-                               <input 
-                                type="text" 
-                                placeholder="Ex: 50,00"
-                                value={orderDetails.changeFor}
-                                onChange={(e) => handleInputChange('changeFor', e.target.value)}
-                                className="w-full bg-neutral-900 border border-neutral-800 rounded p-2 text-white text-sm focus:border-orange-500 focus:outline-none"
-                              />
-                              {changeVal > 0 && (
-                                <p className="text-xs text-orange-400 mt-2 font-bold">
-                                  Troco a receber: R$ {changeVal.toFixed(2)}
-                                </p>
-                              )}
-                              {changeVal < 0 && orderDetails.changeFor && (
-                                <p className="text-xs text-red-400 mt-2">
-                                  Valor insuficiente. Total: R$ {total.toFixed(2)}
-                                </p>
-                              )}
+                               <input type="text" placeholder="Troco para... *" value={orderDetails.changeFor} onChange={(e) => handleInputChange('changeFor', e.target.value)} className={getInputClass('changeFor')}/>
+                               {changeVal > 0 && <p className="text-xs text-orange-400 mt-2 font-bold">Receber: R$ {changeVal.toFixed(2)}</p>}
                              </div>
                           )}
+                        </div>
+                      )}
+
+                      {orderDetails.paymentMethod === 'pix' && pixKey && (
+                        <div className="ml-0 mt-2 p-4 bg-neutral-950 border border-teal-900/50 rounded-lg text-center animate-fade-in">
+                          <p className="text-teal-500 text-xs font-bold mb-2 uppercase">Chave PIX para Pagamento</p>
+                          <div className="flex items-center gap-2 bg-black p-2 rounded border border-neutral-800 mb-2">
+                             <code className="text-white text-sm flex-1 truncate">{pixKey}</code>
+                             <button onClick={handleCopyPix} className="p-2 bg-neutral-800 hover:bg-neutral-700 rounded text-neutral-300">
+                               {copiedPix ? <Check size={16} className="text-green-500"/> : <Copy size={16}/>}
+                             </button>
+                          </div>
+                          <p className="text-[10px] text-neutral-500">Copie a chave e pague no seu app de banco. Mostre o comprovante ao garçom/entregador.</p>
                         </div>
                       )}
                    </div>
@@ -372,20 +336,31 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
             )}
           </div>
 
-          {/* Footer */}
           {cart.length > 0 && (
-            <div className="p-5 bg-neutral-950 border-t border-neutral-800 space-y-4 shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
-              <div className="flex justify-between items-center text-lg font-bold">
+            <div className="p-5 bg-neutral-950 border-t border-neutral-800 space-y-2 shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.5)]">
+              <div className="flex justify-between items-center text-sm text-neutral-400">
+                <span>Subtotal</span>
+                <span>R$ {subtotal.toFixed(2)}</span>
+              </div>
+              {currentDeliveryFee > 0 && (
+                <div className="flex justify-between items-center text-sm text-orange-400 font-bold">
+                   <span>Taxa de Entrega</span>
+                   <span>R$ {currentDeliveryFee.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-lg font-bold border-t border-neutral-800 pt-2 mt-2">
                 <span className="text-neutral-300">Total</span>
                 <span className="text-orange-500 text-xl">R$ {total.toFixed(2)}</span>
               </div>
               
               <button 
                 onClick={handleCheckout}
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-neon hover:shadow-neon-strong"
+                disabled={isSubmitting}
+                className="w-full bg-orange-600 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-neon hover:shadow-neon-strong mt-2"
               >
-                <Send size={20} />
-                Enviar Pedido no WhatsApp
+                {isSubmitting ? 'Enviando...' : (
+                   <><Send size={20} /> Finalizar Pedido</>
+                )}
               </button>
             </div>
           )}

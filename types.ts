@@ -27,11 +27,14 @@ export interface ChatMessage {
 }
 
 export type PaymentMethod = 'pix' | 'credit_card' | 'debit_card' | 'cash';
-export type DeliveryMethod = 'delivery' | 'pickup';
+export type DeliveryMethod = 'delivery' | 'pickup' | 'table';
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'finished' | 'canceled';
 
 export interface OrderDetails {
   customerName: string;
+  customerPhone: string;
   deliveryMethod: DeliveryMethod;
+  tableNumber: string;
   address: {
     street: string;
     number: string;
@@ -41,4 +44,24 @@ export interface OrderDetails {
   paymentMethod: PaymentMethod;
   needChange: boolean;
   changeFor: string;
+  observations: string;
+}
+
+export interface Order {
+  id: string;
+  customer: OrderDetails;
+  items: CartItem[];
+  total: number;
+  deliveryFee?: number;
+  status: OrderStatus;
+  createdAt: number;
+}
+
+export interface AppSettings {
+  whatsappNumber: string;
+  systemInstruction: string;
+  n8nWebhookUrl: string;
+  pixKey: string;
+  menuLayout: 'standard' | 'minimal';
+  deliveryFee: number;
 }
