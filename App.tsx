@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ShoppingBag, Flame, Menu as MenuIcon, ShieldCheck } from 'lucide-react';
+import { ShoppingBag, Flame, Menu as MenuIcon, ShieldCheck, Check } from 'lucide-react';
 import { MENU_ITEMS, DEFAULT_SYSTEM_INSTRUCTION, WHATSAPP_NUMBER } from './constants';
 import { Category, CartItem, MenuItem, AppSettings, Order } from './types';
 import MenuCard from './components/MenuCard';
@@ -8,6 +8,7 @@ import CartSidebar from './components/CartSidebar';
 import GeminiAssistant from './components/GeminiAssistant';
 import AdminDashboard from './components/AdminDashboard';
 import OrderTracker from './components/OrderTracker';
+import PromoPopup from './components/PromoPopup';
 
 interface AnimationElement {
   id: number;
@@ -26,8 +27,19 @@ const App: React.FC = () => {
     n8nWebhookUrl: '',
     pixKey: '000.000.000-00', // Example default
     menuLayout: 'standard',
-    deliveryFee: 5.00 // Default delivery fee
+    deliveryFee: 5.00, // Default delivery fee
+    promo: {
+      isActive: true,
+      title: "Prato do Dia",
+      description: "Experimente a nossa Tábua do Kal com 10% de desconto hoje!",
+      price: 76.50,
+      image: "https://images.unsplash.com/photo-1602484210602-d42353002747?q=80&w=400&h=300",
+      badgeText: "Recomendação da chefa"
+    }
   });
+
+  // Global Toast State
+  const [toast, setToast] = useState<{show: boolean, message: string} | null>(null);
 
   // Navigation State
   const [viewMode, setViewMode] = useState<'customer' | 'admin' | 'tracker'>('customer');
@@ -36,23 +48,39 @@ const App: React.FC = () => {
   // Customer View State
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isPromoOpen, setIsPromoOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | 'Todos'>('Todos');
   const [animations, setAnimations] = useState<AnimationElement[]>([]);
   
   const cartIconRef = useRef<HTMLDivElement>(null);
   const categories = Object.values(Category);
+
+  // Effect to show promo popup once on load
+  useEffect(() => {
+    if (viewMode === 'customer' && settings.promo.isActive) {
+      // Small delay for better UX
+      const timer = setTimeout(() => setIsPromoOpen(true), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, settings.promo.isActive]);
   
   // Handlers
   const handlePlaceOrder = async (order: Order) => {
-    // 1. Save locally
+    // 1. Save locally (Admin area will see this immediately)
     setOrders(prev => [order, ...prev]);
     setCurrentOrder(order);
     setCart([]); // Clear cart
     
-    // 2. Switch View
-    setViewMode('tracker');
+    // 2. Show Success Notification
+    setToast({ show: true, message: "Pedido enviado com sucesso!" });
+    setTimeout(() => setToast(null), 3000);
 
-    // 3. Trigger n8n Webhook (Fire and Forget)
+    // 3. Switch View after a brief moment to let user see toast
+    setTimeout(() => {
+      setViewMode('tracker');
+    }, 800);
+
+    // 4. Trigger n8n Webhook (Fire and Forget)
     if (settings.n8nWebhookUrl) {
       try {
         await fetch(settings.n8nWebhookUrl, {
@@ -63,8 +91,6 @@ const App: React.FC = () => {
       } catch (e) {
         console.error("Erro ao enviar webhook n8n:", e);
       }
-    } else {
-      console.log("n8n Webhook URL not configured");
     }
   };
 
@@ -74,7 +100,13 @@ const App: React.FC = () => {
       const newAnim: AnimationElement = { id: Date.now(), x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, image: item.image };
       setAnimations(prev => [...prev, newAnim]);
       setTimeout(() => setAnimations(prev => prev.filter(a => a.id !== newAnim.id)), 800);
+    } else if (cartIconRef.current) {
+      const rect = cartIconRef.current.getBoundingClientRect();
+      const newAnim: AnimationElement = { id: Date.now(), x: window.innerWidth/2, y: window.innerHeight/2, image: item.image };
+      setAnimations(prev => [...prev, newAnim]);
+      setTimeout(() => setAnimations(prev => prev.filter(a => a.id !== newAnim.id)), 800);
     }
+
     setCart(prev => {
       const existing = prev.find(i => i.id === item.id);
       if (existing) return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i);
@@ -106,7 +138,6 @@ const App: React.FC = () => {
         orders={orders}
         onUpdateOrder={(updatedOrder) => {
            setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
-           // If current tracked order updates, reflect it
            if (currentOrder?.id === updatedOrder.id) setCurrentOrder(updatedOrder);
         }}
         onLogout={() => setViewMode('customer')}
@@ -115,7 +146,6 @@ const App: React.FC = () => {
   }
 
   if (viewMode === 'tracker' && currentOrder) {
-     // Find latest version of order in state
      const trackedOrder = orders.find(o => o.id === currentOrder.id) || currentOrder;
      return (
         <OrderTracker 
@@ -125,14 +155,23 @@ const App: React.FC = () => {
      );
   }
 
-  // Customer Menu View
   const cartCount = cart.reduce((acc, item) => acc + item.quantity, 0);
   const filteredItems = selectedCategory === 'Todos' ? menuItems : menuItems.filter(item => item.category === selectedCategory);
   const highlights = menuItems.filter(item => item.popular);
 
   return (
-    <div className="min-h-screen bg-black text-neutral-200 font-sans pb-20 overflow-x-hidden">
+    <div className="min-h-screen bg-black text-neutral-200 font-sans pb-20 overflow-x-hidden relative">
       
+      {/* GLOBAL TOAST FOR CLIENT */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-[100] animate-bounce-in flex items-center gap-3 bg-white text-neutral-800 px-5 py-4 rounded-xl shadow-2xl border border-neutral-200 min-w-[280px]">
+          <div className="bg-green-500 p-1 rounded-full text-white">
+            <Check size={18} strokeWidth={4} />
+          </div>
+          <span className="font-semibold text-sm">{toast.message}</span>
+        </div>
+      )}
+
       {/* Animation Layer */}
       <div className="fixed inset-0 pointer-events-none z-[100]">
         {animations.map(anim => (
@@ -156,6 +195,14 @@ const App: React.FC = () => {
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(20px); filter: blur(4px); }
           to { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+        @keyframes bounceIn {
+          0% { transform: translateX(100%) scale(0.9); opacity: 0; }
+          70% { transform: translateX(-10px) scale(1.05); opacity: 1; }
+          100% { transform: translateX(0) scale(1); opacity: 1; }
+        }
+        .animate-bounce-in {
+          animation: bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
         .animate-fade-in-up {
           animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -217,7 +264,6 @@ const App: React.FC = () => {
         )}
         <div className="flex items-center justify-between mb-8"><h2 className="text-2xl sm:text-3xl font-display font-bold text-white border-l-4 border-orange-500 pl-4">{selectedCategory === 'Todos' ? 'Nosso Cardápio' : selectedCategory}</h2></div>
         
-        {/* Animated Grid Container */}
         <div 
           key={selectedCategory} 
           className={`grid gap-6 animate-fade-in-up ${settings.menuLayout === 'minimal' ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}
@@ -247,6 +293,13 @@ const App: React.FC = () => {
         onPlaceOrder={handlePlaceOrder}
       />
       
+      <PromoPopup 
+        isOpen={isPromoOpen}
+        onClose={() => setIsPromoOpen(false)}
+        settings={settings.promo}
+        onAddToCart={addToCart}
+      />
+
       <GeminiAssistant systemInstruction={settings.systemInstruction} menuItems={menuItems} />
     </div>
   );

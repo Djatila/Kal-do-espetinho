@@ -268,9 +268,16 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
                   )}
 
                   {orderDetails.deliveryMethod === 'table' && (
-                    <div className="animate-fade-in">
-                       {errors.tableNumber && <p className="text-xs text-orange-500 font-bold mb-1 animate-pulse">Informe o número da mesa</p>}
-                       <input type="text" placeholder="Número da Mesa *" value={orderDetails.tableNumber} onChange={(e) => handleInputChange('tableNumber', e.target.value)} className={`${getInputClass('tableNumber')} text-lg font-bold text-center`}/>
+                    <div className="animate-fade-in bg-orange-600/5 p-4 rounded-xl border border-orange-500/20 shadow-inner">
+                       <label className="block text-white font-bold text-sm uppercase tracking-widest mb-2 text-center">Número da Mesa *</label>
+                       {errors.tableNumber && <p className="text-xs text-orange-500 font-bold mb-2 animate-pulse text-center flex items-center justify-center gap-1"><AlertCircle size={12}/> Por favor, informe sua mesa</p>}
+                       <input 
+                         type="text" 
+                         placeholder="coloque o numero da sua mesa aqui" 
+                         value={orderDetails.tableNumber} 
+                         onChange={(e) => handleInputChange('tableNumber', e.target.value)} 
+                         className={`${getInputClass('tableNumber')} text-lg text-center font-medium placeholder:font-normal placeholder:text-neutral-600`}
+                       />
                     </div>
                   )}
 

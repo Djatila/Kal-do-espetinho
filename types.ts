@@ -57,6 +57,15 @@ export interface Order {
   createdAt: number;
 }
 
+export interface PromoSettings {
+  isActive: boolean;
+  title: string; // Ex: "Prato do Dia", "Promoção Relâmpago"
+  description: string;
+  price: number;
+  image: string;
+  badgeText: string; // Ex: "Recomendação da chefa"
+}
+
 export interface AppSettings {
   whatsappNumber: string;
   systemInstruction: string;
@@ -64,4 +73,5 @@ export interface AppSettings {
   pixKey: string;
   menuLayout: 'standard' | 'minimal';
   deliveryFee: number;
+  promo: PromoSettings;
 }
