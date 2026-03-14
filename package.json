@@ -9,8 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google/genai": "^1.45.0",
     "@supabase/ssr": "^0.7.0",
-    "@supabase/supabase-js": "^2.84.0",
+    "@supabase/supabase-js": "2.45.1",
     "@swc/helpers": "^0.5.17",
     "clsx": "^2.1.1",
     "jspdf": "^3.0.4",
