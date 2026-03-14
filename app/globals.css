@@ -61,6 +61,12 @@
   --ring: #ff9800;
 }
 
+button {
+  background-color: transparent;
+  background-image: none;
+  cursor: pointer;
+}
+
 * {
   box-sizing: border-box;
   border-width: 0;
@@ -189,25 +195,29 @@ p {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Estilo Kal */
 ::-webkit-scrollbar {
   width: 8px;
-  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #171717;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--muted-foreground);
+  background: #404040;
   border-radius: 4px;
-  opacity: 0.5;
-  transition: opacity 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  opacity: 0.8;
+  background: #f97316;
+}
+
+/* Fundo da Interface Kal */
+.kal-bg {
+  background-color: #0a0a0a !important;
+  color: #e5e5e5 !important;
+  min-height: 100vh;
 }
 
 /* Smooth animations */

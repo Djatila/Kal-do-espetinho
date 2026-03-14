@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Plus, Edit, Power, PowerOff, Search } from 'lucide-react'
+import { Plus, Edit, Power, PowerOff, Search, Trash } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 
 export default function ProdutosPage() {
     const [produtos, setProdutos] = useState<any[]>([])
@@ -15,6 +16,8 @@ export default function ProdutosPage() {
     const [searchTerm, setSearchTerm] = useState('')
     const [filterCategoria, setFilterCategoria] = useState('all')
     const [filterStatus, setFilterStatus] = useState('all')
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+    const [productToDelete, setProductToDelete] = useState<string | null>(null)
     const supabase = createClient()
     const { showToast } = useToast()
 
@@ -70,6 +73,34 @@ export default function ProdutosPage() {
             showToast('success', 'Status atualizado!', `Produto ${!currentStatus ? 'ativado' : 'desativado'} com sucesso.`)
             loadProdutos()
         }
+    }
+
+    function handleDeleteClick(id: string) {
+        setProductToDelete(id)
+        setDeleteModalOpen(true)
+    }
+
+    async function confirmDelete() {
+        if (!productToDelete) return
+
+        const { error } = await supabase
+            .from('produtos')
+            .delete()
+            .eq('id', productToDelete)
+
+        if (error) {
+            showToast('error', 'Erro ao excluir', error.message)
+        } else {
+            showToast('success', 'Produto excluído', 'O produto foi removido com sucesso.')
+            loadProdutos()
+        }
+        setDeleteModalOpen(false)
+        setProductToDelete(null)
+    }
+
+    function cancelDelete() {
+        setDeleteModalOpen(false)
+        setProductToDelete(null)
     }
 
     const categorias = Array.from(new Set(produtos.map(p => p.categoria).filter(Boolean)))
@@ -193,6 +224,14 @@ export default function ProdutosPage() {
                                                 >
                                                     {produto.ativo ? <PowerOff size={16} /> : <Power size={16} />}
                                                 </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                                                    onClick={() => handleDeleteClick(produto.id)}
+                                                    title="Excluir"
+                                                >
+                                                    <Trash size={16} />
+                                                </Button>
                                             </div>
                                         </td>
                                     </tr>
@@ -209,6 +248,16 @@ export default function ProdutosPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            <ConfirmModal
+                isOpen={deleteModalOpen}
+                title="Excluir Produto"
+                message="Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita."
+                onConfirm={confirmDelete}
+                onCancel={cancelDelete}
+                confirmText="Excluir"
+                cancelText="Cancelar"
+            />
         </div>
     )
 }

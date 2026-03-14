@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Store, User, Lock, Save, Bell, Upload, ImageIcon } from 'lucide-react'
+import { Store, User, Lock, Save, Bell, Upload, ImageIcon, QrCode } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import Image from 'next/image'
 
@@ -25,7 +25,11 @@ export default function ConfiguracoesPage() {
         endereco_restaurante: '',
         taxa_entrega_padrao: 0,
         cargo_usuario: 'Atendente',
-        logo_url: ''
+        logo_url: '',
+        chave_pix: '',
+        whatsapp_loja: '',
+        layout_cardapio: 'padrao',
+        webhook_n8n: ''
     })
 
     // Estados para Perfil do Usuário
@@ -85,7 +89,11 @@ export default function ConfiguracoesPage() {
                         endereco_restaurante: '',
                         taxa_entrega_padrao: 0,
                         cargo_usuario: 'Atendente',
-                        logo_url: ''
+                        logo_url: '',
+                        chave_pix: '',
+                        whatsapp_loja: '',
+                        layout_cardapio: 'padrao',
+                        webhook_n8n: ''
                     })
                 }
             }
@@ -98,7 +106,11 @@ export default function ConfiguracoesPage() {
                 endereco_restaurante: config.endereco_restaurante || '',
                 taxa_entrega_padrao: config.taxa_entrega_padrao || 0,
                 cargo_usuario: config.cargo_usuario || 'Atendente',
-                logo_url: config.logo_url || ''
+                logo_url: config.logo_url || '',
+                chave_pix: config.chave_pix || '',
+                whatsapp_loja: config.whatsapp_loja || '',
+                layout_cardapio: config.layout_cardapio || 'padrao',
+                webhook_n8n: config.webhook_n8n || ''
             })
         }
 
@@ -276,17 +288,73 @@ export default function ConfiguracoesPage() {
                             onChange={(e) => setRestaurante({ ...restaurante, endereco_restaurante: e.target.value })}
                         />
                         <Input
+                            label="WhatsApp Loja"
+                            value={restaurante.whatsapp_loja}
+                            onChange={(e) => setRestaurante({ ...restaurante, whatsapp_loja: e.target.value })}
+                            placeholder="Ex: 5511999999999"
+                        />
+
+                        <div className="space-y-1">
+                            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                <QrCode size={16} className="text-primary" />
+                                Chave PIX
+                            </label>
+                            <Input
+                                value={restaurante.chave_pix}
+                                onChange={(e) => setRestaurante({ ...restaurante, chave_pix: e.target.value })}
+                                placeholder="Ex: email@exemplo.com, CPF, telefone ou chave aleatória"
+                            />
+                            <p className="text-xs text-muted-foreground">Esta chave será exibida automaticamente no carrinho quando o cliente escolher PIX como pagamento.</p>
+                        </div>
+
+                        <div className="space-y-2 mt-4">
+                            <label className="text-sm font-medium text-foreground">Layout do Cardápio</label>
+                            <div className="grid grid-cols-2 gap-4">
+                                <button
+                                    className="p-4 border rounded-xl flex flex-col items-center justify-center gap-2 transition-all cursor-pointer"
+                                    style={{
+                                        backgroundColor: restaurante.layout_cardapio === 'padrao' ? 'var(--primary)' : 'var(--muted)',
+                                        color: restaurante.layout_cardapio === 'padrao' ? 'var(--primary-foreground)' : 'var(--foreground)',
+                                        borderColor: restaurante.layout_cardapio === 'padrao' ? 'var(--primary)' : 'var(--border)',
+                                        boxShadow: restaurante.layout_cardapio === 'padrao' ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' : 'none',
+                                        opacity: restaurante.layout_cardapio === 'padrao' ? 1 : 0.7
+                                    }}
+                                    onClick={() => setRestaurante({ ...restaurante, layout_cardapio: 'padrao' })}
+                                >
+                                    <div className="w-8 h-10 rounded bg-current opacity-80" />
+                                    <span className="font-bold text-sm">Padrão (Grande)</span>
+                                </button>
+                                <button
+                                    className="p-4 border rounded-xl flex flex-col items-center justify-center gap-2 transition-all cursor-pointer"
+                                    style={{
+                                        backgroundColor: restaurante.layout_cardapio === 'minimalista' ? 'var(--primary)' : 'var(--muted)',
+                                        color: restaurante.layout_cardapio === 'minimalista' ? 'var(--primary-foreground)' : 'var(--foreground)',
+                                        borderColor: restaurante.layout_cardapio === 'minimalista' ? 'var(--primary)' : 'var(--border)',
+                                        boxShadow: restaurante.layout_cardapio === 'minimalista' ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' : 'none',
+                                        opacity: restaurante.layout_cardapio === 'minimalista' ? 1 : 0.7
+                                    }}
+                                    onClick={() => setRestaurante({ ...restaurante, layout_cardapio: 'minimalista' })}
+                                >
+                                    <div className="w-8 h-8 rounded bg-current opacity-80" />
+                                    <span className="font-bold text-sm text-center">Minimalista<br />(Pequeno)</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <Input
                             label="Taxa de Entrega Padrão (R$)"
                             type="number"
                             value={restaurante.taxa_entrega_padrao}
                             onChange={(e) => setRestaurante({ ...restaurante, taxa_entrega_padrao: Number(e.target.value) })}
                         />
+
                         <Input
-                            label="Cargo/Função do Usuário"
-                            value={restaurante.cargo_usuario}
-                            onChange={(e) => setRestaurante({ ...restaurante, cargo_usuario: e.target.value })}
-                            placeholder="Ex: Atendente, Gerente, Administrador"
+                            label="Webhook n8n (Integração)"
+                            value={restaurante.webhook_n8n}
+                            onChange={(e) => setRestaurante({ ...restaurante, webhook_n8n: e.target.value })}
+                            placeholder="https://seu-n8n.com/webhook/..."
                         />
+
                         <Button className="w-full" onClick={handleSaveRestaurante}>
                             <Save size={16} className="mr-2" />
                             Salvar Alterações

@@ -1,11 +1,17 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { ShoppingCart, Plus, Minus, X, Phone, MapPin, User, MessageSquare, CreditCard, Banknote, Clock, LogOut } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, Phone, MapPin, User, MessageSquare, CreditCard, Banknote, Clock, LogOut, ShoppingBag, Flame, Menu as MenuIcon, ShieldCheck, Check as CheckIcon } from 'lucide-react'
 import { ClienteIdentificationModal } from '@/components/cliente/ClienteIdentificationModal'
 import { useToast } from '@/components/ui/Toast'
 import styles from './page.module.css'
+
+import MenuCard from '@/_cardapio_kal_novo/MenuCard'
+import HighlightCard from '@/_cardapio_kal_novo/HighlightCard'
+import CartSidebar from '@/_cardapio_kal_novo/CartSidebar'
+import PromoPopup from '@/_cardapio_kal_novo/PromoPopup'
+import GeminiAssistant from '@/_cardapio_kal_novo/GeminiAssistant'
 
 interface Produto {
     id: string
@@ -51,11 +57,22 @@ export default function CardapioPublicoPage() {
     const [mostrarIdentificacao, setMostrarIdentificacao] = useState(false)
     const [clienteId, setClienteId] = useState<string | null>(null)
     const [tipoCliente, setTipoCliente] = useState<'credito' | 'informal' | null>(null)
+    const [isPromoOpen, setIsPromoOpen] = useState(false)
+    const [animations, setAnimations] = useState<any[]>([])
+    const cartIconRef = useRef<HTMLDivElement>(null)
+    const [isMounted, setIsMounted] = useState(false)
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     const [configuracao, setConfiguracao] = useState({
         nome_restaurante: 'Cardápio Online',
         logo_url: '',
-        taxa_entrega_padrao: 0
+        taxa_entrega_padrao: 0,
+        chave_pix: '',
+        whatsapp_loja: '',
+        layout_cardapio: 'padrao'
     })
 
     const [dadosCliente, setDadosCliente] = useState<DadosCliente>({
@@ -112,7 +129,7 @@ export default function CardapioPublicoPage() {
                     .from('clientes')
                     .select('id')
                     .eq('user_id', user.id)
-                    .single()
+                    .maybeSingle()
 
                 if (cliente) {
                     setClienteId(cliente.id)
@@ -134,7 +151,7 @@ export default function CardapioPublicoPage() {
             .from('clientes')
             .select('*')
             .eq('id', id)
-            .single()
+            .maybeSingle()
 
         if (cliente) {
             setDadosCliente(prev => ({
@@ -183,14 +200,17 @@ export default function CardapioPublicoPage() {
     async function loadConfiguracao() {
         const { data } = await supabase
             .from('configuracoes')
-            .select('taxa_entrega_padrao, nome_restaurante, logo_url')
-            .single()
+            .select('taxa_entrega_padrao, nome_restaurante, logo_url, chave_pix, whatsapp_loja, layout_cardapio')
+            .maybeSingle()
 
         if (data) {
             setConfiguracao({
                 nome_restaurante: data.nome_restaurante || 'Cardápio Online',
                 logo_url: data.logo_url || '',
-                taxa_entrega_padrao: data.taxa_entrega_padrao || 0
+                taxa_entrega_padrao: data.taxa_entrega_padrao || 0,
+                chave_pix: data.chave_pix || '',
+                whatsapp_loja: data.whatsapp_loja || '',
+                layout_cardapio: data.layout_cardapio || 'padrao'
             })
             setTaxaEntrega(data.taxa_entrega_padrao || 0)
         }
@@ -423,362 +443,316 @@ export default function CardapioPublicoPage() {
         )
     }
 
+    // Data mapping
+    const kalMenuItems = produtos.map(p => ({
+        id: p.id,
+        name: p.nome,
+        description: p.descricao || '',
+        price: p.preco,
+        category: p.categoria as any,
+        image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
+        popular: false
+    }))
+
+    const filteredItems = categoriaFiltro === 'todas'
+        ? kalMenuItems
+        : kalMenuItems.filter(item => item.category === categoriaFiltro);
+
+    const highlights = kalMenuItems.filter(item => item.popular);
+    const cartCount = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
+
+    const handleAddToCartAnim = (item: any, event?: React.MouseEvent) => {
+        if (event && cartIconRef.current) {
+            const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+            const newAnim = { id: Date.now(), x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, image: item.image };
+            setAnimations(prev => [...prev, newAnim]);
+            setTimeout(() => setAnimations(prev => prev.filter(a => a.id !== newAnim.id)), 800);
+        }
+
+        const produtoOriginal = produtos.find(p => p.id === item.id);
+        if (produtoOriginal) adicionarAoCarrinho(produtoOriginal);
+    }
+
+    if (!isMounted) return null;
+
     return (
-        <div className={styles.container}>
-            {/* Header */}
-            <header className={styles.header}>
-                <div className={styles.headerContent}>
-                    {configuracao.logo_url && (
-                        <div className={styles.logoWrapper}>
-                            <img src={configuracao.logo_url} alt="Logo" className={styles.logo} />
+        <div className="kal-bg min-h-screen text-neutral-200 font-sans pb-20 overflow-x-hidden relative">
+            {/* Header / Nav */}
+            <nav className="fixed top-0 w-full z-30 bg-neutral-950 border-b border-neutral-800">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center justify-between h-16">
+                        {/* Logo + Location */}
+                        <div className="flex items-center gap-2 cursor-pointer flex-shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                            <div className="bg-orange-600 p-1.5 rounded-md shadow-neon"><Flame className="text-white" size={20} fill="currentColor" /></div>
+                            <div className="flex flex-col justify-center leading-none">
+                                <h1 className="text-base font-display font-bold text-white tracking-widest uppercase">
+                                    KAL DO <span className="text-orange-500">ESPETINHO</span>
+                                </h1>
+                                <p className="text-[10px] text-neutral-400 tracking-[0.18em] uppercase mt-0.5">Arataca - BA</p>
+                            </div>
                         </div>
-                    )}
-                    <div className={styles.tituloSubtitulo}>
-                        <h1 className={styles.titulo}>{configuracao.nome_restaurante}</h1>
-                        <p className={styles.subtitulo}>Faça seu pedido e receba em casa ou retire no local</p>
+
+                        {/* Category tabs (desktop) */}
+                        <div className="hidden md:flex items-center gap-5">
+                            {categorias.map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setCategoriaFiltro(cat)}
+                                    className={`text-xs font-bold uppercase tracking-widest transition-colors ${categoriaFiltro === cat ? 'text-orange-500' : 'text-neutral-300 hover:text-white'}`}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Right icons */}
+                        <div className="flex items-center gap-4">
+                            {tipoCliente && (
+                                <button className="text-neutral-400 hover:text-white" onClick={handleLogout} title="Sair / Trocar Usuário">
+                                    <LogOut size={18} />
+                                </button>
+                            )}
+                            <div ref={cartIconRef} className="relative p-1.5 text-white hover:text-orange-500 transition-colors cursor-pointer" onClick={() => setMostrarCarrinho(true)}>
+                                <ShoppingBag size={24} />
+                                {cartCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full shadow-neon">{cartCount}</span>}
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </nav>
 
-                {tipoCliente && (
-                    <button
-                        className={styles.botaoSair}
-                        onClick={handleLogout}
-                        title="Sair / Trocar Usuário"
+            {/* Animation Layer */}
+            <div className="fixed inset-0 pointer-events-none z-[100]">
+                {animations.map(anim => (
+                    <div
+                        key={anim.id}
+                        className="fixed w-12 h-12 rounded-full border-2 border-orange-500 shadow-neon overflow-hidden z-[100]"
+                        style={{ left: anim.x, top: anim.y, transform: 'translate(-50%, -50%)', animation: 'flyToCart 0.8s cubic-bezier(0.42, 0, 0.58, 1) forwards' }}
                     >
-                        <LogOut size={20} />
-                    </button>
-                )}
-
-                <button
-                    className={styles.botaoCarrinho}
-                    onClick={() => setMostrarCarrinho(!mostrarCarrinho)}
-                >
-                    <ShoppingCart size={24} />
-                    {carrinho.length > 0 && (
-                        <span className={styles.badgeCarrinho}>{carrinho.length}</span>
-                    )}
-                </button>
-            </header>
-
-            {/* Banner de Modo Complemento */}
-            {modoComplemento && pedidoComplementoNumero && (
-                <div className={styles.bannerComplemento}>
-                    <div className={styles.bannerConteudo}>
-                        <p>
-                            🛒 Você está adicionando itens ao <strong>Pedido #{pedidoComplementoNumero}</strong>
-                        </p>
-                        <button
-                            className={styles.botaoCancelar}
-                            onClick={() => {
-                                setModoComplemento(false)
-                                setPedidoComplementoNumero(null)
-                                setCarrinho([])
-                            }}
-                        >
-                            Cancelar
-                        </button>
+                        <img src={anim.image} alt="" className="w-full h-full object-cover" />
                     </div>
-                </div>
-            )}
-
-            {/* Filtros de Categoria */}
-            <div className={styles.filtros}>
-                {categorias.map(cat => (
-                    <button
-                        key={cat}
-                        className={`${styles.filtroBtn} ${categoriaFiltro === cat ? styles.filtroAtivo : ''}`}
-                        onClick={() => setCategoriaFiltro(cat)}
-                    >
-                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </button>
                 ))}
             </div>
 
-            {/* Lista de Produtos */}
-            <div className={styles.produtos}>
-                {loading ? (
-                    <p className={styles.loading}>Carregando cardápio...</p>
-                ) : produtosFiltrados.length === 0 ? (
-                    <p className={styles.vazio}>Nenhum produto disponível nesta categoria.</p>
-                ) : (
-                    produtosFiltrados.map(produto => (
-                        <div key={produto.id} className={styles.produtoCard}>
-                            <div className={styles.produtoInfo}>
-                                <h3 className={styles.produtoNome}>{produto.nome}</h3>
-                                {produto.descricao && (
-                                    <p className={styles.produtoDescricao}>{produto.descricao}</p>
-                                )}
-                                <p className={styles.produtoPreco}>
-                                    R$ {produto.preco.toFixed(2)}
-                                </p>
-                            </div>
-                            <button
-                                className={styles.botaoAdicionar}
-                                onClick={() => adicionarAoCarrinho(produto)}
-                            >
-                                <Plus size={20} />
-                            </button>
-                        </div>
-                    ))
-                )}
+            <style>{`
+                @keyframes flyToCart { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { left: calc(100vw - 40px); top: 40px; transform: translate(-50%, -50%) scale(0.2); opacity: 0.5; } } 
+                @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); filter: blur(4px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
+                .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+            `}</style>
+
+            {/* Hero */}
+            <div className="relative mt-20 h-[40vh] sm:h-[50vh] w-full overflow-hidden flex items-center justify-center">
+                <div className="absolute inset-0">
+                    <img src="https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2574&auto=format&fit=crop" alt="Hero" className="w-full h-full object-cover opacity-40" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+                </div>
+                <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+                    <h2 className="text-4xl sm:text-5xl md:text-7xl font-display font-bold text-white mb-4 drop-shadow-2xl">SABOR <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-600">PREMIUM</span></h2>
+                    <p className="text-base sm:text-lg md:text-xl text-neutral-300 max-w-2xl mx-auto mb-8">A melhor quentinha da cidade em um ambiente exclusivo.</p>
+                </div>
             </div>
 
-            {/* Carrinho Lateral */}
-            {mostrarCarrinho && (
-                <div className={styles.carrinhoOverlay} onClick={() => setMostrarCarrinho(false)}>
-                    <div className={styles.carrinho} onClick={(e) => e.stopPropagation()}>
-                        <div className={styles.carrinhoHeader}>
-                            <h2>Seu Pedido</h2>
-                            <button onClick={() => setMostrarCarrinho(false)}>
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        {carrinho.length === 0 ? (
-                            <p className={styles.carrinhoVazio}>Seu carrinho está vazio</p>
-                        ) : (
-                            <>
-                                <div className={styles.carrinhoItens}>
-                                    {carrinho.map(item => (
-                                        <div key={item.id} className={styles.carrinhoItem}>
-                                            <div className={styles.itemInfo}>
-                                                <h4>{item.nome}</h4>
-                                                <p>R$ {item.preco.toFixed(2)}</p>
-                                            </div>
-                                            <div className={styles.itemControles}>
-                                                <button onClick={() => alterarQuantidade(item.id, -1)}>
-                                                    <Minus size={16} />
-                                                </button>
-                                                <span>{item.quantidade}</span>
-                                                <button onClick={() => alterarQuantidade(item.id, 1)}>
-                                                    <Plus size={16} />
-                                                </button>
-                                                <button
-                                                    className={styles.botaoRemover}
-                                                    onClick={() => removerDoCarrinho(item.id)}
-                                                >
-                                                    <X size={16} />
-                                                </button>
-                                            </div>
-                                            <p className={styles.itemSubtotal}>
-                                                R$ {(item.preco * item.quantidade).toFixed(2)}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className={styles.carrinhoResumo}>
-                                    <div className={styles.resumoLinha}>
-                                        <span>Subtotal:</span>
-                                        <span>R$ {subtotal.toFixed(2)}</span>
-                                    </div>
-                                    <button
-                                        className={styles.botaoFinalizar}
-                                        onClick={() => {
-                                            setMostrarCarrinho(false)
-                                            setMostrarCheckout(true)
-                                        }}
-                                    >
-                                        Finalizar Pedido
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
+            {/* Mobile Filter */}
+            <div className="md:hidden sticky top-20 z-20 bg-black/95 border-b border-orange-900/30 overflow-x-auto py-4 px-4 scrollbar-hide">
+                <div className="flex gap-3">
+                    {categorias.map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => setCategoriaFiltro(cat)}
+                            className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold border transition-colors ${categoriaFiltro === cat ? 'bg-orange-600 border-orange-600 text-white' : 'border-neutral-800 text-neutral-400'}`}
+                        >
+                            {cat}
+                        </button>
+                    ))}
                 </div>
-            )}
+            </div>
 
-            {/* Modal de Checkout */}
-            {mostrarCheckout && (
-                <div className={styles.checkoutOverlay} onClick={() => setMostrarCheckout(false)}>
-                    <div className={styles.checkout} onClick={(e) => e.stopPropagation()}>
-                        <div className={styles.checkoutHeader}>
-                            <h2>Finalizar Pedido</h2>
-                            <button onClick={() => setMostrarCheckout(false)}>
-                                <X size={24} />
-                            </button>
+            {/* Menu Grid */}
+            <main id="menu" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                {highlights.length > 0 && (
+                    <div className="mb-6">
+                        <h2 className="text-xl font-display font-bold text-white mb-3 text-center sm:text-left border-l-4 border-red-600 pl-3">✨ Destaques</h2>
+                        <div className="flex overflow-x-auto pb-2 gap-4 sm:gap-6 snap-x scrollbar-hide">
+                            {highlights.map(item => <HighlightCard key={item.id} item={item} onAdd={handleAddToCartAnim} />)}
                         </div>
-
-                        <div className={styles.checkoutForm}>
-                            <div className={styles.formGroup}>
-                                <label>
-                                    <User size={18} />
-                                    Nome Completo *
-                                </label>
-                                <input
-                                    type="text"
-                                    value={dadosCliente.nome}
-                                    onChange={(e) => setDadosCliente({ ...dadosCliente, nome: e.target.value })}
-                                    placeholder="Seu nome"
-                                    required
-                                />
-                            </div>
-
-                            <div className={styles.formGroup}>
-                                <label>
-                                    <Phone size={18} />
-                                    Telefone *
-                                </label>
-                                <input
-                                    type="tel"
-                                    value={dadosCliente.telefone}
-                                    onChange={(e) => setDadosCliente({ ...dadosCliente, telefone: e.target.value })}
-                                    placeholder="(00) 00000-0000"
-                                    required
-                                />
-                            </div>
-
-                            <div className={styles.formGroup}>
-                                <label>Tipo de Entrega *</label>
-                                <div className={styles.tipoEntregaOpcoes}>
-                                    <button
-                                        className={`${styles.opcaoBtn} ${dadosCliente.tipo_entrega === 'retirada' ? styles.opcaoAtiva : ''}`}
-                                        onClick={() => setDadosCliente({ ...dadosCliente, tipo_entrega: 'retirada' })}
-                                    >
-                                        Retirada no Local
-                                    </button>
-                                    <button
-                                        className={`${styles.opcaoBtn} ${dadosCliente.tipo_entrega === 'delivery' ? styles.opcaoAtiva : ''}`}
-                                        onClick={() => setDadosCliente({ ...dadosCliente, tipo_entrega: 'delivery' })}
-                                    >
-                                        Delivery
-                                    </button>
-                                </div>
-                            </div>
-
-                            {dadosCliente.tipo_entrega === 'delivery' && (
-                                <div className={styles.formGroup}>
-                                    <label>
-                                        <MapPin size={18} />
-                                        Endereço Completo *
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={dadosCliente.endereco}
-                                        onChange={(e) => setDadosCliente({ ...dadosCliente, endereco: e.target.value })}
-                                        placeholder="Rua, número, bairro"
-                                        required
-                                    />
-                                </div>
-                            )}
-
-                            <div className={styles.formGroup}>
-                                <label>Forma de Pagamento *</label>
-                                <div className={styles.tipoEntregaOpcoes}>
-                                    <button
-                                        className={`${styles.opcaoBtn} ${dadosCliente.metodo_pagamento === 'pix' ? styles.opcaoAtiva : ''}`}
-                                        onClick={() => setDadosCliente({ ...dadosCliente, metodo_pagamento: 'pix', precisa_troco: false, valor_para_troco: '' })}
-                                    >
-                                        💳 PIX
-                                    </button>
-                                    <button
-                                        className={`${styles.opcaoBtn} ${dadosCliente.metodo_pagamento === 'cartao' ? styles.opcaoAtiva : ''}`}
-                                        onClick={() => setDadosCliente({ ...dadosCliente, metodo_pagamento: 'cartao', precisa_troco: false, valor_para_troco: '' })}
-                                    >
-                                        <CreditCard size={16} /> Cartão
-                                    </button>
-                                    <button
-                                        className={`${styles.opcaoBtn} ${dadosCliente.metodo_pagamento === 'dinheiro' ? styles.opcaoAtiva : ''}`}
-                                        onClick={() => setDadosCliente({ ...dadosCliente, metodo_pagamento: 'dinheiro' })}
-                                    >
-                                        <Banknote size={16} /> Dinheiro
-                                    </button>
-                                    <button
-                                        className={`${styles.opcaoBtn} ${dadosCliente.metodo_pagamento === 'pagamento_posterior' ? styles.opcaoAtiva : ''} ${tipoCliente === 'informal' ? styles.opcaoDesabilitada : ''}`}
-                                        onClick={() => tipoCliente === 'credito' && setDadosCliente({ ...dadosCliente, metodo_pagamento: 'pagamento_posterior', precisa_troco: false, valor_para_troco: '' })}
-                                        disabled={tipoCliente === 'informal'}
-                                        title={tipoCliente === 'informal' ? 'Disponível apenas para clientes crédito' : ''}
-                                    >
-                                        <Clock size={16} /> Pagar Depois
-                                    </button>
-                                </div>
-                            </div>
-
-                            {dadosCliente.metodo_pagamento === 'dinheiro' && (
-                                <div className={styles.formGroup}>
-                                    <label>Precisa de troco?</label>
-                                    <div className={styles.tipoEntregaOpcoes}>
-                                        <button
-                                            className={`${styles.opcaoBtn} ${dadosCliente.precisa_troco ? styles.opcaoAtiva : ''}`}
-                                            onClick={() => setDadosCliente({ ...dadosCliente, precisa_troco: true })}
-                                        >
-                                            Sim
-                                        </button>
-                                        <button
-                                            className={`${styles.opcaoBtn} ${!dadosCliente.precisa_troco ? styles.opcaoAtiva : ''}`}
-                                            onClick={() => setDadosCliente({ ...dadosCliente, precisa_troco: false, valor_para_troco: '' })}
-                                        >
-                                            Não
-                                        </button>
-                                    </div>
-                                    {dadosCliente.precisa_troco && (
-                                        <div>
-                                            <label style={{ marginTop: '1rem' }}>Troco para quanto?</label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min={total}
-                                                value={dadosCliente.valor_para_troco}
-                                                onChange={(e) => setDadosCliente({ ...dadosCliente, valor_para_troco: e.target.value })}
-                                                placeholder="Ex: 50.00"
-                                            />
-                                            {dadosCliente.valor_para_troco && parseFloat(dadosCliente.valor_para_troco) >= total && (
-                                                <p style={{ marginTop: '0.5rem', color: '#22c55e', fontWeight: 500 }}>
-                                                    Troco: R$ {(parseFloat(dadosCliente.valor_para_troco) - total).toFixed(2)}
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            <div className={styles.formGroup}>
-                                <label>
-                                    <MessageSquare size={18} />
-                                    Observações
-                                </label>
-                                <textarea
-                                    value={dadosCliente.observacoes}
-                                    onChange={(e) => setDadosCliente({ ...dadosCliente, observacoes: e.target.value })}
-                                    placeholder="Alguma observação sobre seu pedido?"
-                                    rows={3}
-                                />
-                            </div>
-
-                            <div className={styles.resumoFinal}>
-                                <div className={styles.resumoLinha}>
-                                    <span>Subtotal:</span>
-                                    <span>R$ {subtotal.toFixed(2)}</span>
-                                </div>
-                                {dadosCliente.tipo_entrega === 'delivery' && (
-                                    <div className={styles.resumoLinha}>
-                                        <span>Taxa de Entrega:</span>
-                                        <span>R$ {taxaAplicada.toFixed(2)}</span>
-                                    </div>
-                                )}
-                                <div className={`${styles.resumoLinha} ${styles.resumoTotal}`}>
-                                    <span>Total:</span>
-                                    <span>R$ {total.toFixed(2)}</span>
-                                </div>
-                            </div>
-
-                            <button
-                                className={styles.botaoConfirmar}
-                                onClick={finalizarPedido}
-                                disabled={enviando}
-                            >
-                                {enviando ? 'Enviando...' : 'Confirmar Pedido'}
-                            </button>
-                        </div>
+                        <hr className="border-neutral-800 mt-2" />
                     </div>
+                )}
+                <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-2xl sm:text-3xl font-display font-bold text-white border-l-4 border-orange-500 pl-4">
+                        {categoriaFiltro === 'todas' ? 'Nosso Cardápio' : categoriaFiltro.charAt(0).toUpperCase() + categoriaFiltro.slice(1)}
+                    </h2>
                 </div>
-            )}
 
-            {/* Modal de Identificação do Cliente */}
+                {loading ? (
+                    <p className="text-center text-orange-500 animate-pulse py-10">Carregando cardápio...</p>
+                ) : filteredItems.length === 0 ? (
+                    <p className="text-center text-neutral-500 py-10">Nenhum produto disponível nesta categoria.</p>
+                ) : (
+                    <div className={`grid animate-fade-in-up ${configuracao.layout_cardapio === 'minimalista' ? 'grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 sm:gap-6' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'}`}>
+                        {filteredItems.map(item => (
+                            <MenuCard
+                                key={item.id}
+                                item={item}
+                                onAdd={handleAddToCartAnim}
+                                variant={configuracao.layout_cardapio === 'minimalista' ? 'minimal' : 'standard'}
+                            />
+                        ))}
+                    </div>
+                )}
+            </main>
+
+            <CartSidebar
+                isOpen={mostrarCarrinho}
+                onClose={() => setMostrarCarrinho(false)}
+                cart={carrinho.map(item => ({
+                    ...item,
+                    name: item.nome,
+                    description: item.descricao || '',
+                    price: item.preco,
+                    category: item.categoria as any,
+                    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
+                    quantity: item.quantidade
+                }))}
+                onRemove={removerDoCarrinho}
+                onUpdateQuantity={alterarQuantidade}
+                whatsappNumber={configuracao.whatsapp_loja}
+                pixKey={configuracao.chave_pix}
+                deliveryFee={taxaEntrega}
+                allowPayLater={tipoCliente === 'credito'}
+                onPlaceOrder={async (order) => {
+                    setEnviando(true)
+                    try {
+                        let paymentMapped = 'dinheiro'
+                        if (order.customer.paymentMethod === 'pix') paymentMapped = 'pix'
+                        if (order.customer.paymentMethod === 'credit_card' || order.customer.paymentMethod === 'debit_card') paymentMapped = 'cartao'
+                        if (order.customer.paymentMethod === 'pay_later') paymentMapped = 'pagamento_posterior'
+
+                        let tipoEntregaMapped = 'retirada'
+                        let taxaAplicada = 0
+
+                        if (order.customer.deliveryMethod === 'delivery') {
+                            taxaAplicada = taxaEntrega
+                            tipoEntregaMapped = 'delivery'
+                        }
+
+                        let enderecoCompleto = null
+                        if (tipoEntregaMapped === 'delivery') {
+                            enderecoCompleto = `${order.customer.address.street}, ${order.customer.address.number}`
+                            if (order.customer.address.neighborhood) enderecoCompleto += ` - ${order.customer.address.neighborhood}`
+                            if (order.customer.address.complement) enderecoCompleto += ` (${order.customer.address.complement})`
+                        }
+
+                        let obs = order.customer.observations || ''
+                        if (order.customer.deliveryMethod === 'table' && order.customer.tableNumber) {
+                            obs = `[Mesa ${order.customer.tableNumber}] ${obs}`
+                        }
+
+                        const itens = carrinho.map(item => ({
+                            id: item.id,
+                            nome: item.nome,
+                            quantidade: item.quantidade,
+                            preco: item.preco,
+                            subtotal: item.preco * item.quantidade
+                        }))
+
+                        if (modoComplemento && pedidoComplementoNumero) {
+                            const { data: pedidoOriginal, error: fetchError } = await supabase
+                                .from('pedidos_online')
+                                .select('*')
+                                .eq('numero_pedido', pedidoComplementoNumero)
+                                .maybeSingle()
+
+                            if (fetchError || !pedidoOriginal) throw new Error('Pedido original não encontrado.')
+
+                            const novosItens = [...pedidoOriginal.itens, ...itens]
+                            const novoSubtotal = pedidoOriginal.subtotal + subtotal
+                            const novoTotal = pedidoOriginal.total + subtotal + taxaAplicada
+
+                            const complemento = {
+                                data: new Date().toISOString(),
+                                itens: itens,
+                                subtotal: subtotal,
+                                total: subtotal + taxaAplicada
+                            }
+
+                            const historico = Array.isArray(pedidoOriginal.historico_complementos)
+                                ? [...pedidoOriginal.historico_complementos, complemento]
+                                : [complemento]
+
+                            const { error: updateError } = await supabase
+                                .from('pedidos_online')
+                                .update({
+                                    itens: novosItens,
+                                    subtotal: novoSubtotal,
+                                    total: novoTotal,
+                                    historico_complementos: historico
+                                })
+                                .eq('numero_pedido', pedidoComplementoNumero)
+
+                            if (updateError) throw updateError
+
+                            setModoComplemento(false)
+                            setPedidoComplementoNumero(null)
+                            setCarrinho([])
+                            localStorage.removeItem('carrinho')
+                            setMostrarCarrinho(false)
+                            setPedidoConfirmado(pedidoComplementoNumero)
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                        } else {
+                            const { data, error } = await supabase
+                                .from('pedidos_online')
+                                .insert({
+                                    cliente_id: clienteId,
+                                    cliente_nome: order.customer.customerName,
+                                    cliente_telefone: order.customer.customerPhone,
+                                    cliente_endereco: enderecoCompleto,
+                                    tipo_entrega: tipoEntregaMapped,
+                                    metodo_pagamento: paymentMapped,
+                                    precisa_troco: order.customer.needChange,
+                                    valor_para_troco: order.customer.needChange ? parseFloat(order.customer.changeFor.replace(/[^0-9,.]/g, '').replace(',', '.')) : null,
+                                    itens: itens,
+                                    subtotal: subtotal,
+                                    taxa_entrega: taxaAplicada,
+                                    total: subtotal + taxaAplicada,
+                                    observacoes: obs || null,
+                                    status: 'pendente'
+                                })
+                                .select('numero_pedido')
+                                .single()
+
+                            if (error) throw error
+
+                            setPedidoConfirmado(data.numero_pedido)
+                            setCarrinho([])
+                            localStorage.removeItem('carrinho')
+                            setMostrarCarrinho(false)
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }
+                    } catch (error) {
+                        console.error(error)
+                        showToast('error', 'Erro', 'Ocorreu um erro ao processar seu pedido.')
+                    } finally {
+                        setEnviando(false)
+                    }
+                }}
+            />
+
             <ClienteIdentificationModal
                 isOpen={mostrarIdentificacao}
                 onClienteIdentified={handleClienteIdentified}
             />
+
+            <GeminiAssistant systemInstruction={"Você é um assistente da Nita Quentinhas."} menuItems={kalMenuItems} />
+
+            {/* Footer */}
+            <footer className="bg-neutral-950 border-t border-neutral-800 mt-12 py-8 text-center">
+                <p className="text-white font-display font-bold text-lg tracking-wider flex items-center justify-center gap-2">
+                    🔥 <span>KAL DO ESPETINHO</span>
+                </p>
+                <p className="text-neutral-400 text-sm uppercase tracking-[0.2em] mt-1">Arataca - BA</p>
+                <p className="text-neutral-600 text-xs mt-4">© 2026 Todos os direitos reservados.</p>
+            </footer>
         </div>
     )
 }

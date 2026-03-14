@@ -124,8 +124,8 @@ export function ClienteIdentificationModal({ isOpen, onClienteIdentified }: Clie
                                 onClick={() => setMode('login')}
                             >
                                 <LogIn size={32} />
-                                <h3>Sou Cliente Crédito</h3>
-                                <p>Faça login para acessar seu histórico e crédito</p>
+                                <div className="text-xl font-bold mt-2">Sou Cliente Crédito</div>
+                                <div className="text-sm mt-1">Faça login para acessar seu histórico e crédito</div>
                             </button>
 
                             <button
@@ -133,8 +133,8 @@ export function ClienteIdentificationModal({ isOpen, onClienteIdentified }: Clie
                                 onClick={() => setMode('informal')}
                             >
                                 <User size={32} />
-                                <h3 className="text-white">Acesso Rápido</h3>
-                                <p>Informe apenas nome e telefone para fazer seu pedido</p>
+                                <div className="text-white text-xl font-bold mt-2">Acesso Rápido</div>
+                                <div className="text-sm mt-1">Informe apenas nome e telefone para fazer seu pedido</div>
                             </button>
                         </div>
                     </div>

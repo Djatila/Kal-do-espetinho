@@ -88,18 +88,29 @@ export default function RelatoriosPage() {
         setLoading(true)
 
         // Buscar Vendas
-        const { data: vendasData } = await supabase
+        const { data: vendasData, error: vendasError } = await supabase
             .from('vendas')
             .select(`
                 *,
                 itens_venda (
+                    id,
                     quantidade,
-                    produto: produtos (nome)
+                    preco_unitario,
+                    subtotal,
+                    produtos (
+                        id,
+                        nome
+                    )
                 )
             `)
             .gte('data', `${dataInicio}T00:00:00`)
             .lte('data', `${dataFim}T23:59:59`)
             .order('data', { ascending: true })
+
+        console.log('📊 Período:', dataInicio, 'até', dataFim)
+        console.log('📊 Vendas encontradas:', vendasData?.length || 0)
+        console.log('📊 Dados de vendas:', vendasData)
+        if (vendasError) console.error('❌ Erro ao buscar vendas:', vendasError)
 
         // Buscar Despesas
         const { data: despesasData } = await supabase
@@ -118,6 +129,9 @@ export default function RelatoriosPage() {
     }
 
     function processarDados(vendas: any[], despesas: any[]) {
+        console.log('🔄 Processando dados...')
+        console.log('🔄 Total de vendas:', vendas.length)
+
         // 1. KPIs
         const faturamento = vendas.reduce((acc, v) => acc + Number(v.total || 0), 0)
         const totalDespesas = despesas.reduce((acc, d) => acc + Number(d.valor || 0), 0)
@@ -134,28 +148,48 @@ export default function RelatoriosPage() {
             vendasPorDiaMap.set(data, (vendasPorDiaMap.get(data) || 0) + Number(v.total || 0))
         })
         const vendasPorDia = Array.from(vendasPorDiaMap.entries()).map(([data, valor]) => ({ data, valor }))
+        console.log('📈 Vendas por dia:', vendasPorDia)
 
         // 3. Gráfico: Top Produtos
         const produtosMap = new Map()
+        let vendasComItens = 0
+        let vendasSemItens = 0
+
         vendas.forEach(v => {
-            if (v.itens_venda) {
+            console.log('🛒 Processando venda:', v.id, 'itens_venda:', v.itens_venda)
+            if (v.itens_venda && Array.isArray(v.itens_venda) && v.itens_venda.length > 0) {
+                // Vendas novas com itens_venda detalhados
+                vendasComItens++
                 v.itens_venda.forEach((item: any) => {
-                    const nome = item.produto?.nome || 'Desconhecido'
+                    const nome = item.produtos?.nome || 'Desconhecido'
+                    console.log('  📦 Item:', nome, 'qtd:', item.quantidade)
                     produtosMap.set(nome, (produtosMap.get(nome) || 0) + item.quantidade)
                 })
+            } else {
+                // Vendas antigas sem itens_venda - usar fallback
+                vendasSemItens++
+                const tipoVenda = v.tipo === 'delivery' ? 'Delivery' : 'Local'
+                const quantidade = v.quantidade || 1
+                produtosMap.set(tipoVenda, (produtosMap.get(tipoVenda) || 0) + quantidade)
             }
         })
+
+        console.log(`📊 Vendas com itens: ${vendasComItens}, sem itens: ${vendasSemItens}`)
+
         const topProdutos = Array.from(produtosMap.entries())
             .map(([nome, qtd]) => ({ nome, qtd }))
             .sort((a, b) => b.qtd - a.qtd)
             .slice(0, 5)
+        console.log('🏆 Top produtos:', topProdutos)
 
         // 4. Gráfico: Formas de Pagamento
         const pagamentosMap = new Map()
         vendas.forEach(v => {
-            pagamentosMap.set(v.forma_pagamento, (pagamentosMap.get(v.forma_pagamento) || 0) + Number(v.total || 0))
+            const forma = v.forma_pagamento || 'Não informado'
+            pagamentosMap.set(forma, (pagamentosMap.get(forma) || 0) + Number(v.total || 0))
         })
         const formasPagamento = Array.from(pagamentosMap.entries()).map(([nome, valor]) => ({ nome, valor }))
+        console.log('💳 Formas de pagamento:', formasPagamento)
 
         setGraficos({
             vendasPorDia,
@@ -355,18 +389,27 @@ export default function RelatoriosPage() {
                         <CardTitle>Evolução de Vendas</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <LineChart data={graficos.vendasPorDia}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="data" />
-                                    <YAxis />
-                                    <Tooltip formatter={(value) => `R$ ${Number(value).toFixed(2)}`} />
-                                    <Legend />
-                                    <Line type="monotone" dataKey="valor" name="Vendas" stroke="#8884d8" strokeWidth={2} />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
+                        {graficos.vendasPorDia.length > 0 ? (
+                            <div className="h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={graficos.vendasPorDia}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="data" />
+                                        <YAxis />
+                                        <Tooltip formatter={(value) => `R$ ${Number(value).toFixed(2)}`} />
+                                        <Legend />
+                                        <Line type="monotone" dataKey="valor" name="Vendas" stroke="#8884d8" strokeWidth={2} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                                <div className="text-center">
+                                    <TrendingUp size={48} className="mx-auto mb-2 opacity-30" />
+                                    <p>Sem dados para exibir neste período</p>
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -376,18 +419,27 @@ export default function RelatoriosPage() {
                         <CardTitle>Top 5 Produtos</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={graficos.topProdutos} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" />
-                                    <YAxis dataKey="nome" type="category" width={100} />
-                                    <Tooltip />
-                                    <Legend />
-                                    <Bar dataKey="qtd" name="Quantidade" fill="#82ca9d" radius={[0, 4, 4, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
+                        {graficos.topProdutos.length > 0 ? (
+                            <div className="h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={graficos.topProdutos} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis type="number" />
+                                        <YAxis dataKey="nome" type="category" width={100} />
+                                        <Tooltip />
+                                        <Legend />
+                                        <Bar dataKey="qtd" name="Quantidade" fill="#82ca9d" radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                                <div className="text-center">
+                                    <ShoppingBag size={48} className="mx-auto mb-2 opacity-30" />
+                                    <p>Sem dados para exibir neste período</p>
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -397,27 +449,36 @@ export default function RelatoriosPage() {
                         <CardTitle>Formas de Pagamento</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-[300px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={graficos.formasPagamento}
-                                        cx="50%"
-                                        cy="50%"
-                                        labelLine={false}
-                                        label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                                        outerRadius={80}
-                                        fill="#8884d8"
-                                        dataKey="valor"
-                                    >
-                                        {graficos.formasPagamento.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip formatter={(value) => `R$ ${Number(value).toFixed(2)}`} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
+                        {graficos.formasPagamento.length > 0 ? (
+                            <div className="h-[300px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={graficos.formasPagamento}
+                                            cx="50%"
+                                            cy="50%"
+                                            labelLine={false}
+                                            label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                            outerRadius={80}
+                                            fill="#8884d8"
+                                            dataKey="valor"
+                                        >
+                                            {graficos.formasPagamento.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(value) => `R$ ${Number(value).toFixed(2)}`} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                                <div className="text-center">
+                                    <Wallet size={48} className="mx-auto mb-2 opacity-30" />
+                                    <p>Sem dados para exibir neste período</p>
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
