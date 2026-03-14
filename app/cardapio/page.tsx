@@ -834,7 +834,7 @@ export default function CardapioPublicoPage() {
                                     total: novoTotal,
                                     historico_complementos: historico
                                 })
-                                .eq('numero_pedido', pedidoComplementoNumero)
+                                .eq('id', pedidoOriginal.id)
 
                             if (updateError) throw updateError
 
