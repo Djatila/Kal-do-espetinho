@@ -129,9 +129,20 @@ export default function PedidosPage() {
                         }
                     } else if (payload.eventType === 'UPDATE') {
                         console.log('✏️ Pedido atualizado:', payload.new)
-                        setPedidos(prev => prev.map(p =>
-                            p.id === payload.new.id ? payload.new as Pedido : p
-                        ))
+                        // Re-fetch the full order to ensure JSONB fields (itens, historico) are current
+                        const updatedId = payload.new.id
+                        supabase
+                            .from('pedidos_online')
+                            .select('*')
+                            .eq('id', updatedId)
+                            .maybeSingle()
+                            .then(({ data }) => {
+                                if (data) {
+                                    setPedidos(prev => prev.map(p => p.id === data.id ? data as Pedido : p))
+                                    // Also update selected modal if open
+                                    setPedidoSelecionado(prev => prev?.id === data.id ? data as Pedido : prev)
+                                }
+                            })
                     } else if (payload.eventType === 'DELETE') {
                         console.log('🗑️ Pedido deletado:', payload.old)
                         setPedidos(prev => prev.filter(p => p.id !== payload.old.id))

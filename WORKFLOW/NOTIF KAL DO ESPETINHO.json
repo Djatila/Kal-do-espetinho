@@ -1,0 +1,319 @@
+{
+  "name": "Workflow WhatsApp C&R Sushi",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-order-notification",
+        "options": {}
+      },
+      "name": "Webhook (Recebe Pedido)1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        768,
+        304
+      ],
+      "webhookId": "whatsapp-order-notification",
+      "id": "9193be46-cded-464a-997b-139512e7b3d3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.body?.workflow_type}}",
+              "value2": "delivery_order"
+            }
+          ]
+        }
+      },
+      "name": "IF Cliente1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        176
+      ],
+      "id": "aa8f96db-7afb-4fd5-a48e-5eade4d6a162"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.body?.workflow_type}}",
+              "value2": "order_status_update"
+            }
+          ]
+        }
+      },
+      "name": "IF Admin1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        464
+      ],
+      "id": "94073df5-9db8-48f1-9f86-72c1072bc67a"
+    },
+    {
+      "parameters": {
+        "functionCode": "const data = $json.body?.message_data || {};\nconst phone = `55${$json.body?.phone_number}`;\nconst items = Array.isArray(data.items)\n  ? data.items.map(i => `• ${i.quantity}x ${i.name} - R$ ${(i.price * i.quantity).toFixed(2)}`).join('\\n')\n  : 'Nenhum item';\n\n// Corrige taxa de entrega (exibe \"Grátis\" se vier vazia/undefined)\nlet taxaEntrega = data.delivery_fee;\nif (taxaEntrega === undefined || taxaEntrega === null || taxaEntrega === '' || isNaN(taxaEntrega)) {\n  taxaEntrega = 'Grátis';\n} else {\n  taxaEntrega = parseFloat(taxaEntrega).toFixed(2);\n}\n\nconst entrega = data.delivery_type === 'delivery'\n  ? `Endereço: ${data.address}\\nTaxa de Entrega: R$ ${taxaEntrega}`\n  : 'Retirada no Local';\n\nconst msg = `🍣 *Pedido enviado para C&R Sushi* 🍣\n\nPedido: ${data.order_number}\nStatus: ${data.status}\n\n*Detalhes do Pedido:*\n${items}\n\n*Detalhes da Entrega:*\n${entrega}\n\nPagamento: ${data.payment_method}\nTotal: R$ ${data.total}\n\nNão responda esta mensagem caso tenha dúvida contate diretamente a *C&R Sushi* 👇\nhttps://wa.me/+5573999743274?text=Ol%C3%A1%20tenho%20uma%20d%C3%BAvida`;\n\nreturn [{\n  json: {\n    phoneNumber: phone,\n    message: msg\n  }\n}];"
+      },
+      "name": "Formatar mensagem cliente1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        160
+      ],
+      "id": "43a7be2a-d361-40fa-87d9-f3c8848f9ad4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{$json.body?.message_data?.new_status}}",
+              "value2": "Pedido recebido"
+            }
+          ]
+        }
+      },
+      "name": "IF Admin - Novo Pedido1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        448
+      ],
+      "id": "c2055d8c-22f4-442b-b809-fa2db78a7023"
+    },
+    {
+      "parameters": {
+        "functionCode": "const order = $json.body?.message_data || {};\nconst phone = `55${$json.body?.phone_number}`;\nconst items = Array.isArray(order.items) ? order.items.map(i => `• ${i.quantity}x ${i.name} - R$ ${(i.price * i.quantity).toFixed(2)}`).join('\\n') : 'Nenhum item';\nconst entrega = order.delivery_type === 'delivery' ? `Endereço: ${order.address}\\nTaxa de Entrega: R$ ${order.delivery_fee}` : 'Retirada no Local';\nconst msg = `*🎉 Novo Pedido Recebido - C&R Sushi 🎉*\\n\\n*Número do Pedido:* ${order.order_number}\\n*Cliente:* ${order.customer_name}\\n\\n*Itens:*\\n${items}\\n\\n*Entrega:*\\n${entrega}\\n\\n*Pagamento:* ${order.payment_method}\\n*Total:* R$ ${order.total}`;\nreturn [{json:{phoneNumber:phone,message:msg}}];"
+      },
+      "name": "Formatar mensagem novo pedido admin1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        352
+      ],
+      "id": "9ace5271-52d9-448f-b597-cd4b17e49317"
+    },
+    {
+      "parameters": {
+        "functionCode": "const d = $json.body?.message_data || {};\nconst phone = `55${$json.body?.phone_number}`;\nconst items = Array.isArray(d.items) ? d.items.map(i => `• ${i.quantity}x ${i.name} - R$ ${(i.price * i.quantity).toFixed(2)}`).join('\\n') : 'Nenhum item';\nconst entrega = d.delivery_type === 'delivery' ? `Endereço: ${d.address}\\nTaxa de Entrega: R$ ${d.delivery_fee}` : 'Retirada no Local';\nconst msg = `*🍣 Atualização de Status - C&R Sushi 🍣*\\n\\n*Pedido:* ${d.order_number}\\n*Status:* ${d.new_status}\\n\\n*Detalhes do Pedido:*\\n${items}\\n\\n*Entrega:*\\n${entrega}\\n\\n*Pagamento:* ${d.payment_method}\\n*Total:* R$ ${d.total}`;\nreturn [{json:{phoneNumber:phone,message:msg}}];"
+      },
+      "name": "Formatar mensagem status admin1",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        544
+      ],
+      "id": "f7562b1b-c7d3-44b2-a310-5414d9599a7c"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.studionailart.space/message/sendText/C7R",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=apikey",
+              "value": "=6151C031DB1F-4545-B2AC-D6001108E32F"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{$json.phoneNumber}}"
+            },
+            {
+              "name": "text",
+              "value": "={{$json.message}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Enviar Mensagem NOTIFY1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1920,
+        368
+      ],
+      "id": "76b533a1-2b25-4584-bc2d-e774c0f15d16"
+    },
+    {
+      "parameters": {
+        "httpMethod": "OPTIONS",
+        "path": "whatsapp-order-notification",
+        "options": {}
+      },
+      "id": "4ca87b72-2d63-491f-8372-0ceef0815e49",
+      "name": "Webhook (CORS Options)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        768,
+        528
+      ],
+      "webhookId": "whatsapp-order-notification-options"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Access-Control-Allow-Methods",
+                "value": "POST, OPTIONS"
+              },
+              {
+                "name": "Access-Control-Allow-Headers",
+                "value": "Content-Type, ngrok-skip-browser-warning, Authorization"
+              }
+            ]
+          }
+        }
+      },
+      "id": "28d2c641-256a-4591-9707-b5b2d32986ea",
+      "name": "Respond CORS",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        640
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook (Recebe Pedido)1": {
+      "main": [
+        [
+          {
+            "node": "IF Cliente1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Admin1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Cliente1": {
+      "main": [
+        [
+          {
+            "node": "Formatar mensagem cliente1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Admin1": {
+      "main": [
+        [
+          {
+            "node": "IF Admin - Novo Pedido1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar mensagem cliente1": {
+      "main": [
+        [
+          {
+            "node": "Enviar Mensagem NOTIFY1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Admin - Novo Pedido1": {
+      "main": [
+        [
+          {
+            "node": "Formatar mensagem novo pedido admin1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Formatar mensagem status admin1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar mensagem novo pedido admin1": {
+      "main": [
+        [
+          {
+            "node": "Enviar Mensagem NOTIFY1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formatar mensagem status admin1": {
+      "main": [
+        [
+          {
+            "node": "Enviar Mensagem NOTIFY1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (CORS Options)": {
+      "main": [
+        [
+          {
+            "node": "Respond CORS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "fbeb4f37-bd66-4933-af92-276e2b11cd32",
+  "meta": {
+    "instanceId": "86f02deaa45f9fd64e806ce6c95c4e74b601183f03394346cfa3c207d07f9c73"
+  },
+  "id": "IdNEfl6cyp1r9LJF_Izfx",
+  "tags": []
+}
