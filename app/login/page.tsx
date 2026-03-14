@@ -62,7 +62,7 @@ export default function LoginPage() {
         <div className={styles.container}>
             <Card className={styles.card}>
                 <CardHeader>
-                    <CardTitle>Restaurante da Jonitas</CardTitle>
+                    <CardTitle>Kal do Espetinho</CardTitle>
                     <CardDescription>
                         {isSignUp ? 'Crie sua conta para começar' : 'Entre para gerenciar o sistema'}
                     </CardDescription>

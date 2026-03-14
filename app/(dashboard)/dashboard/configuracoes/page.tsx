@@ -73,7 +73,7 @@ export default function ConfiguracoesPage() {
                 console.log('Nenhuma configuração encontrada, criando padrão...')
                 const { data: newConfig, error: createError } = await supabase
                     .from('configuracoes')
-                    .insert({ nome_restaurante: 'Restaurante da Jonitas' })
+                    .insert({ nome_restaurante: 'Kal do Espetinho' })
                     .select()
                     .single()
 

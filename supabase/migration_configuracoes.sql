@@ -5,7 +5,7 @@
 -- 1. Criar tabela de configurações (single row pattern)
 CREATE TABLE IF NOT EXISTS public.configuracoes (
   id UUID NOT NULL DEFAULT uuid_generate_v4() PRIMARY KEY,
-  nome_restaurante TEXT DEFAULT 'Restaurante da Jonitas',
+  nome_restaurante TEXT DEFAULT 'Kal do Espetinho',
   endereco_restaurante TEXT,
   telefone_restaurante TEXT,
   email_contato TEXT,
@@ -35,5 +35,5 @@ CREATE POLICY "Configurações inseríveis por autenticados"
 
 -- 4. Inserir configuração inicial se não existir
 INSERT INTO public.configuracoes (nome_restaurante)
-SELECT 'Restaurante da Jonitas'
+SELECT 'Kal do Espetinho'
 WHERE NOT EXISTS (SELECT 1 FROM public.configuracoes);
