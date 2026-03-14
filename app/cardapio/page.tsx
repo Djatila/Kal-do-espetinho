@@ -322,10 +322,13 @@ export default function CardapioPublicoPage() {
                                 setSolicitacaoStatus(null)
                                 supabase.removeChannel(ch)
                                 solicitacaoChannelRef.current = null
+                                // Ativa modo complemento mas MANTÉM o écran de confirmação
+                                // para que o cliente possa ver e abrir o carrinho
                                 setModoComplemento(true)
                                 setPedidoComplementoNumero(numeroPedido)
-                                setPedidoConfirmado(null)
-                                showToast('success', '✅ Autorizado!', 'Adicione os itens ao carrinho.')
+                                // Abre o carrinho automaticamente para o cliente escolher itens
+                                setMostrarCarrinho(true)
+                                showToast('success', '✅ Autorizado!', 'Selecione o item e confirme no carrinho.')
                             }
                             if (novoStatus === 'recusado') {
                                 supabase.removeChannel(ch)
@@ -482,32 +485,67 @@ export default function CardapioPublicoPage() {
         }
     }
 
-    if (pedidoConfirmado && !modoComplemento) {
+    if (pedidoConfirmado) {
         return (
             <div className={styles.confirmacao}>
                 <div className={styles.confirmacaoCard}>
-                    <div className={styles.confirmacaoIcone}>✓</div>
-                    <h1>Pedido Confirmado!</h1>
+                    <div className={styles.confirmacaoIcone}>{modoComplemento ? '🛒' : '✓'}</div>
+                    <h1>{modoComplemento ? 'Adicionar Itens' : 'Pedido Confirmado!'}</h1>
 
                     <div className={styles.pedidoHeader}>
                         <p className={styles.numeroPedido}>
                             Pedido <strong>#{pedidoConfirmado}</strong>
                         </p>
-                        <button
-                            className={styles.botaoComplemento}
-                            disabled={verificandoStatus}
-                            onClick={() => handleAdicionarItens(pedidoConfirmado!)}
-                        >
-                            {verificandoStatus ? '⏳ Verificando...' : '+ Adicionar Itens'}
-                        </button>
+                        {!modoComplemento && (
+                            <button
+                                className={styles.botaoComplemento}
+                                disabled={verificandoStatus}
+                                onClick={() => handleAdicionarItens(pedidoConfirmado!)}
+                            >
+                                {verificandoStatus ? '⏳ Verificando...' : '+ Adicionar Itens'}
+                            </button>
+                        )}
                     </div>
 
-                    <p>Seu pedido foi recebido e está sendo preparado.</p>
-                    <p className={styles.textoSecundario}>
-                        {dadosCliente.tipo_entrega === 'delivery'
-                            ? 'Entraremos em contato em breve para confirmar a entrega.'
-                            : 'Você pode retirar seu pedido em aproximadamente 30 minutos.'}
-                    </p>
+                    {modoComplemento ? (
+                        <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                            <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
+                            <p style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+                                Adição autorizada pelo atendente!
+                            </p>
+                            <p style={{ color: '#ccc', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                                Escolha os itens no carrinho e confirme para adicionar ao pedido.
+                            </p>
+                            <button
+                                onClick={() => setMostrarCarrinho(true)}
+                                style={{
+                                    padding: '0.75rem 2rem',
+                                    borderRadius: '12px',
+                                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                    color: '#fff',
+                                    fontWeight: 'bold',
+                                    fontSize: '1rem',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    margin: '0 auto'
+                                }}
+                            >
+                                🛒 Abrir Carrinho e Finalizar
+                            </button>
+                        </div>
+                    ) : (
+                        <>
+                            <p>Seu pedido foi recebido e está sendo preparado.</p>
+                            <p className={styles.textoSecundario}>
+                                {dadosCliente.tipo_entrega === 'delivery'
+                                    ? 'Entraremos em contato em breve para confirmar a entrega.'
+                                    : 'Você pode retirar seu pedido em aproximadamente 30 minutos.'}
+                            </p>
+                        </>
+                    )}
 
                     {/* Modal de bloqueio de adição de itens */}
                     {mostrarModalBloqueio && (
