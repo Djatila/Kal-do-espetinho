@@ -37,7 +37,6 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules",
-    "unused_vite_files"
+    "node_modules"
   ]
 }

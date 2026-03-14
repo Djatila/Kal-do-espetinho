@@ -620,7 +620,10 @@ export default function CardapioPublicoPage() {
                 pixKey={configuracao.chave_pix}
                 deliveryFee={taxaEntrega}
                 allowPayLater={tipoCliente === 'credito'}
+                initialCustomerName={dadosCliente.nome}
+                initialCustomerPhone={dadosCliente.telefone}
                 onPlaceOrder={async (order) => {
+                    const subtotal = order.total - (order.deliveryFee || 0)
                     setEnviando(true)
                     try {
                         let paymentMapped = 'dinheiro'

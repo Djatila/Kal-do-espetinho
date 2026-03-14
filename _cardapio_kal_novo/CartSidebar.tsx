@@ -13,9 +13,24 @@ interface CartSidebarProps {
   deliveryFee: number;
   onPlaceOrder: (order: Order) => void;
   allowPayLater?: boolean;
+  initialCustomerName?: string;
+  initialCustomerPhone?: string;
 }
 
-const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemove, onUpdateQuantity, whatsappNumber, pixKey, deliveryFee, onPlaceOrder, allowPayLater }) => {
+const CartSidebar: React.FC<CartSidebarProps> = ({
+  isOpen,
+  onClose,
+  cart,
+  onRemove,
+  onUpdateQuantity,
+  whatsappNumber,
+  pixKey,
+  deliveryFee,
+  onPlaceOrder,
+  allowPayLater,
+  initialCustomerName,
+  initialCustomerPhone
+}) => {
   // Estado do formulário
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
     customerName: '',
@@ -39,6 +54,17 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
 
   const [copiedPix, setCopiedPix] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Sincroniza dados iniciais do cliente quando mudam no pai (identificação)
+  React.useEffect(() => {
+    if (initialCustomerName || initialCustomerPhone) {
+      setOrderDetails(prev => ({
+        ...prev,
+        customerName: initialCustomerName || prev.customerName,
+        customerPhone: initialCustomerPhone || prev.customerPhone
+      }));
+    }
+  }, [initialCustomerName, initialCustomerPhone]);
 
   // Calcula subtotal (apenas itens)
   const subtotal = useMemo(() => {
