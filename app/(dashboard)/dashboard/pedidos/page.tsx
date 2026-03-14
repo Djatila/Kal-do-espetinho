@@ -62,6 +62,8 @@ export default function PedidosPage() {
     const [loading, setLoading] = useState(true)
     const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null)
     const audioRef = useRef<HTMLAudioElement | null>(null)
+    // Solicitações de item pendentes do cliente
+    const [solicitacoesPendentes, setSolicitacoesPendentes] = useState<Record<number, any[]>>({})
 
     useEffect(() => {
         loadPedidos()
@@ -70,9 +72,11 @@ export default function PedidosPage() {
         audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGWi77eafTRAMUKfj8LZjHAY4ktfzzHksBSR3x/DdkEAKFF606+uoVRQKRp/g8r5sIQUrgs7y2Ik2CBlou+3mn00QDFA=')
 
         const cleanup = setupRealtimeSubscription()
+        const cleanupSol = setupSolicitacoesSubscription()
 
         return () => {
             cleanup()
+            cleanupSol()
         }
     }, [])
 
@@ -163,6 +167,95 @@ export default function PedidosPage() {
         if (error) {
             console.error('Erro ao atualizar status:', error)
             alert('Erro ao atualizar status do pedido')
+        }
+    }
+
+    function setupSolicitacoesSubscription() {
+        // Carregar solicitações pendentes existentes
+        supabase
+            .from('solicitacoes_item')
+            .select('*')
+            .eq('status', 'pendente')
+            .then(({ data }) => {
+                if (data) {
+                    const grouped: Record<number, any[]> = {}
+                    data.forEach((sol: any) => {
+                        if (!grouped[sol.pedido_numero]) grouped[sol.pedido_numero] = []
+                        grouped[sol.pedido_numero].push(sol)
+                    })
+                    setSolicitacoesPendentes(grouped)
+                }
+            })
+
+        const ch = supabase
+            .channel('solicitacoes_item_admin')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'solicitacoes_item' },
+                (payload) => {
+                    const sol = payload.new as any
+                    setSolicitacoesPendentes(prev => {
+                        const lista = prev[sol.pedido_numero] || []
+                        return { ...prev, [sol.pedido_numero]: [...lista, sol] }
+                    })
+                    // Tocar som e notificação
+                    if (audioRef.current) audioRef.current.play().catch(() => { })
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        new Notification('⚠️ Solicitação de Item!', {
+                            body: `${sol.cliente_nome} quer adicionar item ao pedido #${sol.pedido_numero}`,
+                        })
+                    }
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: 'UPDATE', schema: 'public', table: 'solicitacoes_item' },
+                (payload) => {
+                    const sol = payload.new as any
+                    // Remover da lista de pendentes se foi resolvida
+                    if (sol.status !== 'pendente') {
+                        setSolicitacoesPendentes(prev => {
+                            const lista = (prev[sol.pedido_numero] || []).filter((s: any) => s.id !== sol.id)
+                            if (lista.length === 0) {
+                                const novo = { ...prev }
+                                delete novo[sol.pedido_numero]
+                                return novo
+                            }
+                            return { ...prev, [sol.pedido_numero]: lista }
+                        })
+                    }
+                }
+            )
+            .subscribe()
+
+        return () => { supabase.removeChannel(ch) }
+    }
+
+    async function autorizarSolicitacao(solicitacaoId: string, numeroPedido: number) {
+        const { error } = await supabase
+            .from('solicitacoes_item')
+            .update({ status: 'autorizado' })
+            .eq('id', solicitacaoId)
+        if (!error) {
+            setSolicitacoesPendentes(prev => {
+                const lista = (prev[numeroPedido] || []).filter((s: any) => s.id !== solicitacaoId)
+                if (lista.length === 0) { const n = { ...prev }; delete n[numeroPedido]; return n }
+                return { ...prev, [numeroPedido]: lista }
+            })
+        }
+    }
+
+    async function recusarSolicitacao(solicitacaoId: string, numeroPedido: number) {
+        const { error } = await supabase
+            .from('solicitacoes_item')
+            .update({ status: 'recusado' })
+            .eq('id', solicitacaoId)
+        if (!error) {
+            setSolicitacoesPendentes(prev => {
+                const lista = (prev[numeroPedido] || []).filter((s: any) => s.id !== solicitacaoId)
+                if (lista.length === 0) { const n = { ...prev }; delete n[numeroPedido]; return n }
+                return { ...prev, [numeroPedido]: lista }
+            })
         }
     }
 
@@ -584,6 +677,42 @@ export default function PedidosPage() {
                                         )
                                     })}
                                 </div>
+
+                                {/* Notificação de solicitação de item pendente */}
+                                {solicitacoesPendentes[pedido.numero_pedido] && solicitacoesPendentes[pedido.numero_pedido].length > 0 && (
+                                    <div style={{
+                                        margin: '0.75rem 0',
+                                        padding: '0.875rem 1rem',
+                                        borderRadius: '10px',
+                                        border: '2px solid #f59e0b',
+                                        background: 'rgba(245,158,11,0.08)',
+                                    }}>
+                                        <p style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            ⚠️ Solicitação de Item
+                                        </p>
+                                        {solicitacoesPendentes[pedido.numero_pedido].map((sol: any) => (
+                                            <div key={sol.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                                                <span style={{ fontSize: '0.82rem', color: '#ccc', flex: 1 }}>
+                                                    <strong>{sol.cliente_nome}</strong> quer adicionar item ao pedido
+                                                </span>
+                                                <div style={{ display: 'flex', gap: '0.4rem', flexShrink: 0 }}>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); autorizarSolicitacao(sol.id, pedido.numero_pedido) }}
+                                                        style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', background: '#22c55e', color: '#fff', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}
+                                                    >
+                                                        ✅ Autorizar
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); recusarSolicitacao(sol.id, pedido.numero_pedido) }}
+                                                        style={{ padding: '4px 10px', borderRadius: '6px', border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer' }}
+                                                    >
+                                                        ❌ Recusar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
 
                                 <div className={styles.pedidoFooter}>
                                     <div className={styles.total}>

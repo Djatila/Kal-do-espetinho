@@ -53,6 +53,13 @@ export default function CardapioPublicoPage() {
     const [pedidoComplementoNumero, setPedidoComplementoNumero] = useState<number | null>(null)
     const [carrinhoCarregado, setCarrinhoCarregado] = useState(false)
 
+    // Controle de adição de itens por status do pedido
+    const [verificandoStatus, setVerificandoStatus] = useState(false)
+    const [mostrarModalBloqueio, setMostrarModalBloqueio] = useState(false)
+    const [solicitacaoId, setSolicitacaoId] = useState<string | null>(null)
+    const [solicitacaoStatus, setSolicitacaoStatus] = useState<'pendente' | 'autorizado' | 'recusado' | null>(null)
+    const solicitacaoChannelRef = useRef<any>(null)
+
     // Customer identification
     const [mostrarIdentificacao, setMostrarIdentificacao] = useState(false)
     const [clienteId, setClienteId] = useState<string | null>(null)
@@ -251,6 +258,89 @@ export default function CardapioPublicoPage() {
         setCarrinho(carrinho.filter(item => item.id !== produtoId))
     }
 
+    // Verifica o status do pedido antes de permitir adicionar itens
+    async function handleAdicionarItens(numeroPedido: number) {
+        setVerificandoStatus(true)
+        try {
+            const { data: pedido, error } = await supabase
+                .from('pedidos_online')
+                .select('status, id, cliente_nome')
+                .eq('numero_pedido', numeroPedido)
+                .maybeSingle()
+
+            if (error || !pedido) {
+                showToast('error', 'Erro', 'Não foi possível verificar o status do pedido.')
+                return
+            }
+
+            const statusPermitidos = ['pendente', 'confirmado']
+            if (statusPermitidos.includes(pedido.status)) {
+                setModoComplemento(true)
+                setPedidoComplementoNumero(numeroPedido)
+                setPedidoConfirmado(null)
+            } else {
+                const nomeCliente = dadosCliente.nome || pedido.cliente_nome || 'Cliente'
+                const { data: solicitacao, error: solErr } = await supabase
+                    .from('solicitacoes_item')
+                    .insert({
+                        pedido_numero: numeroPedido,
+                        pedido_id: pedido.id,
+                        cliente_nome: nomeCliente,
+                        status: 'pendente'
+                    })
+                    .select('id')
+                    .single()
+
+                if (solErr || !solicitacao) {
+                    showToast('error', 'Erro', 'Não foi possível enviar sua solicitação. Tente novamente.')
+                    return
+                }
+
+                setSolicitacaoId(solicitacao.id)
+                setSolicitacaoStatus('pendente')
+                setMostrarModalBloqueio(true)
+
+                if (solicitacaoChannelRef.current) {
+                    supabase.removeChannel(solicitacaoChannelRef.current)
+                }
+                const ch = supabase
+                    .channel(`solicitacao_${solicitacao.id}`)
+                    .on(
+                        'postgres_changes',
+                        {
+                            event: 'UPDATE',
+                            schema: 'public',
+                            table: 'solicitacoes_item',
+                            filter: `id=eq.${solicitacao.id}`
+                        },
+                        (payload) => {
+                            const novoStatus = (payload.new as any).status
+                            setSolicitacaoStatus(novoStatus)
+                            if (novoStatus === 'autorizado') {
+                                setMostrarModalBloqueio(false)
+                                setSolicitacaoId(null)
+                                setSolicitacaoStatus(null)
+                                supabase.removeChannel(ch)
+                                solicitacaoChannelRef.current = null
+                                setModoComplemento(true)
+                                setPedidoComplementoNumero(numeroPedido)
+                                setPedidoConfirmado(null)
+                                showToast('success', '✅ Autorizado!', 'Adicione os itens ao carrinho.')
+                            }
+                            if (novoStatus === 'recusado') {
+                                supabase.removeChannel(ch)
+                                solicitacaoChannelRef.current = null
+                            }
+                        }
+                    )
+                    .subscribe()
+                solicitacaoChannelRef.current = ch
+            }
+        } finally {
+            setVerificandoStatus(false)
+        }
+    }
+
     const subtotal = carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0)
     const taxaAplicada = dadosCliente.tipo_entrega === 'delivery' ? taxaEntrega : 0
     const total = subtotal + taxaAplicada
@@ -405,12 +495,10 @@ export default function CardapioPublicoPage() {
                         </p>
                         <button
                             className={styles.botaoComplemento}
-                            onClick={() => {
-                                setModoComplemento(true)
-                                setPedidoComplementoNumero(pedidoConfirmado)
-                            }}
+                            disabled={verificandoStatus}
+                            onClick={() => handleAdicionarItens(pedidoConfirmado!)}
                         >
-                            + Adicionar Itens
+                            {verificandoStatus ? '⏳ Verificando...' : '+ Adicionar Itens'}
                         </button>
                     </div>
 
@@ -420,10 +508,65 @@ export default function CardapioPublicoPage() {
                             ? 'Entraremos em contato em breve para confirmar a entrega.'
                             : 'Você pode retirar seu pedido em aproximadamente 30 minutos.'}
                     </p>
+
+                    {/* Modal de bloqueio de adição de itens */}
+                    {mostrarModalBloqueio && (
+                        <div style={{
+                            marginTop: '1rem',
+                            padding: '1.25rem',
+                            borderRadius: '12px',
+                            border: solicitacaoStatus === 'recusado' ? '2px solid #ef4444' : '2px solid #f59e0b',
+                            background: solicitacaoStatus === 'recusado' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
+                            textAlign: 'center'
+                        }}>
+                            {solicitacaoStatus === 'pendente' && (
+                                <>
+                                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+                                    <p style={{ color: '#f59e0b', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                                        Item não pode ser adicionado agora
+                                    </p>
+                                    <p style={{ color: '#ccc', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                                        Seu pedido já está em preparação. Uma solicitação foi enviada ao atendente.
+                                    </p>
+                                    <p style={{ color: '#f59e0b', fontSize: '0.8rem', animation: 'pulse 2s infinite' }}>
+                                        🔔 Aguardando autorização do atendente...
+                                    </p>
+                                    <p style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                                        Caso prefira, chame o atendente pessoalmente.
+                                    </p>
+                                </>
+                            )}
+                            {solicitacaoStatus === 'recusado' && (
+                                <>
+                                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>❌</div>
+                                    <p style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                                        Adição não autorizada
+                                    </p>
+                                    <p style={{ color: '#ccc', fontSize: '0.85rem' }}>
+                                        O atendente não pôde autorizar a adição do item. Por favor, chame o atendente para mais informações.
+                                    </p>
+                                    <button
+                                        onClick={() => { setMostrarModalBloqueio(false); setSolicitacaoStatus(null) }}
+                                        style={{ marginTop: '0.75rem', padding: '0.5rem 1.25rem', borderRadius: '8px', background: '#ef4444', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+                                    >
+                                        Fechar
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
+
                     <button
                         className={styles.botaoPrimario}
                         onClick={() => {
                             setPedidoConfirmado(null)
+                            setMostrarModalBloqueio(false)
+                            setSolicitacaoId(null)
+                            setSolicitacaoStatus(null)
+                            if (solicitacaoChannelRef.current) {
+                                supabase.removeChannel(solicitacaoChannelRef.current)
+                                solicitacaoChannelRef.current = null
+                            }
                             setDadosCliente({
                                 nome: '',
                                 telefone: '',
