@@ -616,7 +616,7 @@ export default function CardapioPublicoPage() {
                         })
                     }}
                 >
-                    Fazer Novo Pedido
+                    Adicionar mais itens ao pedido
                 </button>
             </div>
         </div>
@@ -784,152 +784,6 @@ export default function CardapioPublicoPage() {
                     )}
                 </main>
 
-                <CartSidebar
-                    isOpen={mostrarCarrinho}
-                    onClose={() => setMostrarCarrinho(false)}
-                    cart={carrinho.map(item => ({
-                        ...item,
-                        name: item.nome,
-                        description: item.descricao || '',
-                        price: item.preco,
-                        category: item.categoria as any,
-                        image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
-                        quantity: item.quantidade
-                    }))}
-                    onRemove={removerDoCarrinho}
-                    onUpdateQuantity={alterarQuantidade}
-                    whatsappNumber={configuracao.whatsapp_loja}
-                    pixKey={configuracao.chave_pix}
-                    deliveryFee={taxaEntrega}
-                    allowPayLater={tipoCliente === 'credito'}
-                    initialCustomerName={dadosCliente.nome}
-                    initialCustomerPhone={dadosCliente.telefone}
-                    onPlaceOrder={async (order) => {
-                        const subtotal = order.total - (order.deliveryFee || 0)
-                        setEnviando(true)
-                        try {
-                            let paymentMapped = 'dinheiro'
-                            if (order.customer.paymentMethod === 'pix') paymentMapped = 'pix'
-                            if (order.customer.paymentMethod === 'credit_card' || order.customer.paymentMethod === 'debit_card') paymentMapped = 'cartao'
-                            if (order.customer.paymentMethod === 'pay_later') paymentMapped = 'pagamento_posterior'
-
-                            let tipoEntregaMapped = 'retirada'
-                            let taxaAplicada = 0
-
-                            if (order.customer.deliveryMethod === 'delivery') {
-                                taxaAplicada = taxaEntrega
-                                tipoEntregaMapped = 'delivery'
-                            }
-
-                            let enderecoCompleto = null
-                            if (tipoEntregaMapped === 'delivery') {
-                                enderecoCompleto = `${order.customer.address.street}, ${order.customer.address.number}`
-                                if (order.customer.address.neighborhood) enderecoCompleto += ` - ${order.customer.address.neighborhood}`
-                                if (order.customer.address.complement) enderecoCompleto += ` (${order.customer.address.complement})`
-                            }
-
-                            let obs = order.customer.observations || ''
-                            if (order.customer.deliveryMethod === 'table' && order.customer.tableNumber) {
-                                obs = `[Mesa ${order.customer.tableNumber}] ${obs}`
-                            }
-
-                            const itens = carrinho.map(item => ({
-                                id: item.id,
-                                nome: item.nome,
-                                quantidade: item.quantidade,
-                                preco: item.preco,
-                                subtotal: item.preco * item.quantidade
-                            }))
-
-                            if (modoComplemento && pedidoComplementoNumero) {
-                                const { data: pedidoOriginal, error: fetchError } = await supabase
-                                    .from('pedidos_online')
-                                    .select('*')
-                                    .eq('numero_pedido', pedidoComplementoNumero)
-                                    .maybeSingle()
-
-                                if (fetchError || !pedidoOriginal) throw new Error('Pedido original não encontrado.')
-
-                                const novosItens = [...pedidoOriginal.itens, ...itens]
-                                const novoSubtotal = pedidoOriginal.subtotal + subtotal
-                                const novoTotal = pedidoOriginal.total + subtotal + taxaAplicada
-
-                                const complemento = {
-                                    data: new Date().toISOString(),
-                                    itens: itens,
-                                    subtotal: subtotal,
-                                    total: subtotal + taxaAplicada
-                                }
-
-                                const historico = Array.isArray(pedidoOriginal.historico_complementos)
-                                    ? [...pedidoOriginal.historico_complementos, complemento]
-                                    : [complemento]
-
-                                const { error: updateError } = await supabase
-                                    .from('pedidos_online')
-                                    .update({
-                                        itens: novosItens,
-                                        subtotal: novoSubtotal,
-                                        total: novoTotal,
-                                        historico_complementos: historico
-                                    })
-                                    .eq('id', pedidoOriginal.id)
-
-                                if (updateError) throw updateError
-
-                                setModoComplemento(false)
-                                setPedidoComplementoNumero(null)
-                                setCarrinho([])
-                                localStorage.removeItem('carrinho')
-                                setMostrarCarrinho(false)
-                                setPedidoConfirmado(pedidoComplementoNumero)
-                                window.scrollTo({ top: 0, behavior: 'smooth' })
-                            } else {
-                                const { data, error } = await supabase
-                                    .from('pedidos_online')
-                                    .insert({
-                                        cliente_id: clienteId,
-                                        cliente_nome: order.customer.customerName,
-                                        cliente_telefone: order.customer.customerPhone,
-                                        cliente_endereco: enderecoCompleto,
-                                        tipo_entrega: tipoEntregaMapped,
-                                        metodo_pagamento: paymentMapped,
-                                        precisa_troco: order.customer.needChange,
-                                        valor_para_troco: order.customer.needChange ? parseFloat(order.customer.changeFor.replace(/[^0-9,.]/g, '').replace(',', '.')) : null,
-                                        itens: itens,
-                                        subtotal: subtotal,
-                                        taxa_entrega: taxaAplicada,
-                                        total: subtotal + taxaAplicada,
-                                        observacoes: obs || null,
-                                        status: 'pendente'
-                                    })
-                                    .select('numero_pedido')
-                                    .single()
-
-                                if (error) throw error
-
-                                setPedidoConfirmado(data.numero_pedido)
-                                setCarrinho([])
-                                localStorage.removeItem('carrinho')
-                                setMostrarCarrinho(false)
-                                window.scrollTo({ top: 0, behavior: 'smooth' })
-                            }
-                        } catch (error) {
-                            console.error(error)
-                            showToast('error', 'Erro', 'Ocorreu um erro ao processar seu pedido.')
-                        } finally {
-                            setEnviando(false)
-                        }
-                    }}
-                />
-
-                <ClienteIdentificationModal
-                    isOpen={mostrarIdentificacao}
-                    onClienteIdentified={handleClienteIdentified}
-                />
-
-                <GeminiAssistant systemInstruction={"Você é um assistente da Nita Quentinhas."} menuItems={kalMenuItems} />
-
                 {/* Footer */}
                 <footer className="bg-neutral-950 border-t border-neutral-800 mt-12 py-8 text-center">
                     <p className="text-white font-display font-bold text-lg tracking-wider flex items-center justify-center gap-2">
@@ -939,6 +793,152 @@ export default function CardapioPublicoPage() {
                     <p className="text-neutral-600 text-xs mt-4">© 2026 Todos os direitos reservados.</p>
                 </footer>
             </div>
+
+            <CartSidebar
+                isOpen={mostrarCarrinho}
+                onClose={() => setMostrarCarrinho(false)}
+                cart={carrinho.map(item => ({
+                    ...item,
+                    name: item.nome,
+                    description: item.descricao || '',
+                    price: item.preco,
+                    category: item.categoria as any,
+                    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
+                    quantity: item.quantidade
+                }))}
+                onRemove={removerDoCarrinho}
+                onUpdateQuantity={alterarQuantidade}
+                whatsappNumber={configuracao.whatsapp_loja}
+                pixKey={configuracao.chave_pix}
+                deliveryFee={taxaEntrega}
+                allowPayLater={tipoCliente === 'credito'}
+                initialCustomerName={dadosCliente.nome}
+                initialCustomerPhone={dadosCliente.telefone}
+                onPlaceOrder={async (order) => {
+                    const subtotal = order.total - (order.deliveryFee || 0)
+                    setEnviando(true)
+                    try {
+                        let paymentMapped = 'dinheiro'
+                        if (order.customer.paymentMethod === 'pix') paymentMapped = 'pix'
+                        if (order.customer.paymentMethod === 'credit_card' || order.customer.paymentMethod === 'debit_card') paymentMapped = 'cartao'
+                        if (order.customer.paymentMethod === 'pay_later') paymentMapped = 'pagamento_posterior'
+
+                        let tipoEntregaMapped = 'retirada'
+                        let taxaAplicada = 0
+
+                        if (order.customer.deliveryMethod === 'delivery') {
+                            taxaAplicada = taxaEntrega
+                            tipoEntregaMapped = 'delivery'
+                        }
+
+                        let enderecoCompleto = null
+                        if (tipoEntregaMapped === 'delivery') {
+                            enderecoCompleto = `${order.customer.address.street}, ${order.customer.address.number}`
+                            if (order.customer.address.neighborhood) enderecoCompleto += ` - ${order.customer.address.neighborhood}`
+                            if (order.customer.address.complement) enderecoCompleto += ` (${order.customer.address.complement})`
+                        }
+
+                        let obs = order.customer.observations || ''
+                        if (order.customer.deliveryMethod === 'table' && order.customer.tableNumber) {
+                            obs = `[Mesa ${order.customer.tableNumber}] ${obs}`
+                        }
+
+                        const itens = carrinho.map(item => ({
+                            id: item.id,
+                            nome: item.nome,
+                            quantidade: item.quantidade,
+                            preco: item.preco,
+                            subtotal: item.preco * item.quantidade
+                        }))
+
+                        if (modoComplemento && pedidoComplementoNumero) {
+                            const { data: pedidoOriginal, error: fetchError } = await supabase
+                                .from('pedidos_online')
+                                .select('*')
+                                .eq('numero_pedido', pedidoComplementoNumero)
+                                .maybeSingle()
+
+                            if (fetchError || !pedidoOriginal) throw new Error('Pedido original não encontrado.')
+
+                            const novosItens = [...pedidoOriginal.itens, ...itens]
+                            const novoSubtotal = pedidoOriginal.subtotal + subtotal
+                            const novoTotal = pedidoOriginal.total + subtotal + taxaAplicada
+
+                            const complemento = {
+                                data: new Date().toISOString(),
+                                itens: itens,
+                                subtotal: subtotal,
+                                total: subtotal + taxaAplicada
+                            }
+
+                            const historico = Array.isArray(pedidoOriginal.historico_complementos)
+                                ? [...pedidoOriginal.historico_complementos, complemento]
+                                : [complemento]
+
+                            const { error: updateError } = await supabase
+                                .from('pedidos_online')
+                                .update({
+                                    itens: novosItens,
+                                    subtotal: novoSubtotal,
+                                    total: novoTotal,
+                                    historico_complementos: historico
+                                })
+                                .eq('id', pedidoOriginal.id)
+
+                            if (updateError) throw updateError
+
+                            setModoComplemento(false)
+                            setPedidoComplementoNumero(null)
+                            setCarrinho([])
+                            localStorage.removeItem('carrinho')
+                            setMostrarCarrinho(false)
+                            setPedidoConfirmado(pedidoComplementoNumero)
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                        } else {
+                            const { data, error } = await supabase
+                                .from('pedidos_online')
+                                .insert({
+                                    cliente_id: clienteId,
+                                    cliente_nome: order.customer.customerName,
+                                    cliente_telefone: order.customer.customerPhone,
+                                    cliente_endereco: enderecoCompleto,
+                                    tipo_entrega: tipoEntregaMapped,
+                                    metodo_pagamento: paymentMapped,
+                                    precisa_troco: order.customer.needChange,
+                                    valor_para_troco: order.customer.needChange ? parseFloat(order.customer.changeFor.replace(/[^0-9,.]/g, '').replace(',', '.')) : null,
+                                    itens: itens,
+                                    subtotal: subtotal,
+                                    taxa_entrega: taxaAplicada,
+                                    total: subtotal + taxaAplicada,
+                                    observacoes: obs || null,
+                                    status: 'pendente'
+                                })
+                                .select('numero_pedido')
+                                .single()
+
+                            if (error) throw error
+
+                            setPedidoConfirmado(data.numero_pedido)
+                            setCarrinho([])
+                            localStorage.removeItem('carrinho')
+                            setMostrarCarrinho(false)
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                        }
+                    } catch (error) {
+                        console.error(error)
+                        showToast('error', 'Erro', 'Ocorreu um erro ao processar seu pedido.')
+                    } finally {
+                        setEnviando(false)
+                    }
+                }}
+            />
+
+            <ClienteIdentificationModal
+                isOpen={mostrarIdentificacao}
+                onClienteIdentified={handleClienteIdentified}
+            />
+
+            <GeminiAssistant systemInstruction={"Você é um assistente da Nita Quentinhas."} menuItems={kalMenuItems} />
         </div>
     )
 }
