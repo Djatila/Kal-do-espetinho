@@ -56,6 +56,10 @@ export default function CardapioPublicoPage() {
     // Controle de adição de itens por status do pedido
     const [verificandoStatus, setVerificandoStatus] = useState(false)
     const [mostrarModalBloqueio, setMostrarModalBloqueio] = useState(false)
+    const [mostrarModalNovoPedido, setMostrarModalNovoPedido] = useState(false)
+    const [mostrarModalWhatsAppCancela, setMostrarModalWhatsAppCancela] = useState(false)
+    const [statusCancelamento, setStatusCancelamento] = useState<string | null>(null)
+    const [confirmacoMinimizada, setConfirmacoMinimizada] = useState(false)
     const [solicitacaoId, setSolicitacaoId] = useState<string | null>(null)
     const [solicitacaoStatus, setSolicitacaoStatus] = useState<'pendente' | 'autorizado' | 'recusado' | null>(null)
     const solicitacaoChannelRef = useRef<any>(null)
@@ -485,11 +489,72 @@ export default function CardapioPublicoPage() {
         }
     }
 
-    const confirmacaoScreen = pedidoConfirmado ? (
+    const resetarEstadoTotal = () => {
+        setPedidoConfirmado(null)
+        setMostrarModalNovoPedido(false)
+        setMostrarModalWhatsAppCancela(false)
+        setStatusCancelamento(null)
+        setMostrarModalBloqueio(false)
+        setSolicitacaoId(null)
+        setSolicitacaoStatus(null)
+        if (solicitacaoChannelRef.current) {
+            supabase.removeChannel(solicitacaoChannelRef.current)
+            solicitacaoChannelRef.current = null
+        }
+        setDadosCliente({
+            nome: '',
+            telefone: '',
+            endereco: '',
+            tipo_entrega: 'retirada',
+            metodo_pagamento: undefined,
+            precisa_troco: false,
+            valor_para_troco: '',
+            observacoes: ''
+        })
+    }
+
+    const handleCancelarPedido = async (numero: number) => {
+        try {
+            setStatusCancelamento('verificando')
+            const { data, error } = await supabase
+                .from('pedidos_online')
+                .select('status')
+                .eq('numero_pedido', numero)
+                .single()
+
+            if (error) throw error
+
+            if (data.status === 'pendente' || data.status === 'confirmado') {
+                setStatusCancelamento('cancelando')
+                const { error: updateError } = await supabase
+                    .from('pedidos_online')
+                    .update({
+                        status: 'cancelado',
+                        observacoes: 'Cancelado pelo cliente'
+                    })
+                    .eq('numero_pedido', numero)
+
+                if (updateError) throw updateError
+
+                resetarEstadoTotal()
+            } else {
+                // Em preparacao, pronto, etc.
+                setMostrarModalWhatsAppCancela(true)
+                setMostrarModalNovoPedido(false)
+                setStatusCancelamento(null)
+            }
+        } catch (error) {
+            console.error('Erro ao cancelar pedido:', error)
+            alert('Não foi possível cancelar o pedido no momento.')
+            setStatusCancelamento(null)
+        }
+    }
+
+    const confirmacaoScreen = pedidoConfirmado && !(modoComplemento && confirmacoMinimizada) ? (
         <div className={styles.confirmacao}>
             <div className={styles.confirmacaoCard}>
                 <div className={styles.confirmacaoIcone}>{modoComplemento ? '🛒' : '✓'}</div>
-                <h1>{modoComplemento ? 'Adicionar Itens' : 'Pedido Confirmado!'}</h1>
+                <h1>{modoComplemento ? 'Adicionar Itens' : 'Pedido Recebido'}</h1>
 
                 <div className={styles.pedidoHeader}>
                     <p className={styles.numeroPedido}>
@@ -515,24 +580,44 @@ export default function CardapioPublicoPage() {
                         <p style={{ color: '#ccc', fontSize: '0.9rem', marginBottom: '1rem' }}>
                             Escolha os itens no carrinho e confirme para adicionar ao pedido.
                         </p>
+                        {carrinho.length > 0 && (
+                            <button
+                                onClick={() => setMostrarCarrinho(true)}
+                                style={{
+                                    padding: '0.75rem 2rem',
+                                    borderRadius: '12px',
+                                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                    color: '#fff',
+                                    fontWeight: 'bold',
+                                    fontSize: '1rem',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    margin: '0 auto'
+                                }}
+                            >
+                                🛒 Abrir Carrinho e Finalizar
+                            </button>
+                        )}
                         <button
-                            onClick={() => setMostrarCarrinho(true)}
+                            onClick={() => setConfirmacoMinimizada(true)}
                             style={{
-                                padding: '0.75rem 2rem',
-                                borderRadius: '12px',
-                                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                                color: '#fff',
+                                marginTop: '0.75rem',
+                                padding: '0.6rem 1.5rem',
+                                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                                color: '#78350f',
                                 fontWeight: 'bold',
-                                fontSize: '1rem',
+                                fontSize: '0.9rem',
                                 border: 'none',
+                                borderRadius: '2rem',
                                 cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                margin: '0 auto'
+                                display: 'block',
+                                margin: '0.75rem auto 0'
                             }}
                         >
-                            🛒 Abrir Carrinho e Finalizar
+                            + Adicionar mais itens ao pedido
                         </button>
                     </div>
                 ) : (
@@ -593,31 +678,211 @@ export default function CardapioPublicoPage() {
                     </div>
                 )}
 
-                <button
-                    className={styles.botaoPrimario}
-                    onClick={() => {
-                        setPedidoConfirmado(null)
-                        setMostrarModalBloqueio(false)
-                        setSolicitacaoId(null)
-                        setSolicitacaoStatus(null)
-                        if (solicitacaoChannelRef.current) {
-                            supabase.removeChannel(solicitacaoChannelRef.current)
-                            solicitacaoChannelRef.current = null
-                        }
-                        setDadosCliente({
-                            nome: '',
-                            telefone: '',
-                            endereco: '',
-                            tipo_entrega: 'retirada',
-                            metodo_pagamento: undefined,
-                            precisa_troco: false,
-                            valor_para_troco: '',
-                            observacoes: ''
-                        })
-                    }}
-                >
-                    Adicionar mais itens ao pedido
-                </button>
+                {/* Botão principal - apenas na tela de Pedido Recebido */}
+                {!modoComplemento && (
+                    <button
+                        className={styles.botaoPrimario}
+                        onClick={() => setMostrarModalNovoPedido(true)}
+                    >
+                        Fazer um novo pedido
+                    </button>
+                )}
+
+                {/* Popup de confirmacao novo pedido */}
+                {!modoComplemento && mostrarModalNovoPedido && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.7)',
+                        zIndex: 200,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '1rem',
+                        backdropFilter: 'blur(4px)'
+                    }}>
+                        <div style={{
+                            background: '#1c1c1c',
+                            borderRadius: '1.25rem',
+                            padding: '2rem',
+                            maxWidth: '440px',
+                            width: '100%',
+                            textAlign: 'center',
+                            border: '1px solid #333',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+                        }}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>⚠️</div>
+                            <p style={{ color: '#fff', fontWeight: 'bold', fontSize: '1.05rem', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                                Já existe um pedido seu em curso!
+                            </p>
+                            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+                                Deseja adicionar mais algum item? Clique em{' '}
+                                <strong style={{ color: '#fbbf24' }}>“Adicionar mais itens ao pedido”</strong>{' '}
+                                ou se quer realmente criar um novo pedido clique em{' '}
+                                <strong style={{ color: '#f87171' }}>“Cancelar este pedido e criar um novo”</strong>.
+                            </p>
+                            <button
+                                onClick={() => {
+                                    setMostrarModalNovoPedido(false)
+                                    handleAdicionarItens(pedidoConfirmado!)
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.85rem',
+                                    background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                                    color: '#78350f',
+                                    fontWeight: 'bold',
+                                    fontSize: '0.95rem',
+                                    border: 'none',
+                                    borderRadius: '0.75rem',
+                                    cursor: 'pointer',
+                                    marginBottom: '0.75rem'
+                                }}
+                            >
+                                Adicionar mais itens ao pedido
+                            </button>
+                            <button
+                                onClick={() => handleCancelarPedido(pedidoConfirmado!)}
+                                disabled={statusCancelamento !== null}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.75rem',
+                                    background: 'transparent',
+                                    color: '#f87171',
+                                    fontWeight: '600',
+                                    fontSize: '0.9rem',
+                                    border: '1px solid #f87171',
+                                    borderRadius: '0.75rem',
+                                    cursor: statusCancelamento ? 'not-allowed' : 'pointer',
+                                    opacity: statusCancelamento ? 0.7 : 1
+                                }}
+                            >
+                                {statusCancelamento === 'verificando' ? 'Verificando status...'
+                                    : statusCancelamento === 'cancelando' ? 'Cancelando...'
+                                        : 'Cancelar este pedido e criar um novo'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Popup de Contato WhatsApp para Cancelamento */}
+                {!modoComplemento && mostrarModalWhatsAppCancela && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.85)',
+                        zIndex: 200,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '1rem',
+                        backdropFilter: 'blur(8px)'
+                    }}>
+                        <div style={{
+                            background: '#1c1c1c',
+                            borderRadius: '1.25rem',
+                            padding: '2.5rem 2rem',
+                            maxWidth: '480px',
+                            width: '100%',
+                            textAlign: 'center',
+                            border: '1px solid #4ade80',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 20px rgba(74, 222, 128, 0.1)'
+                        }}>
+                            <div style={{
+                                width: '64px', height: '64px', margin: '0 auto 1.25rem',
+                                background: 'rgba(74, 222, 128, 0.1)', borderRadius: '50%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
+                                </svg>
+                            </div>
+                            <h3 style={{ color: '#fff', fontSize: '1.4rem', marginBottom: '1rem', fontFamily: 'var(--font-display)' }}>
+                                Entre em contato com o Kal Espetinhos
+                            </h3>
+
+                            <p style={{ color: '#d1d5db', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '1rem', textAlign: 'left' }}>
+                                Seu pedido já está sendo preparado! Mas se deseja cancelar para adicionar um item, clique no botão para "Adicionar mais itens" e mantenha seu pedido atual com mais este novo item.
+                            </p>
+
+                            <p style={{ color: '#ef4444', fontSize: '0.95rem', lineHeight: '1.6', marginBottom: '2rem', textAlign: 'left', fontWeight: '500', padding: '1rem', background: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.5rem' }}>
+                                Se quiser cancelar mesmo, entre em contato pelo Whatsapp porque já estamos preparando e nos informe o motivo.
+                            </p>
+
+                            <a
+                                href="https://wa.me/5573981481349"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '0.5rem',
+                                    width: '100%',
+                                    padding: '1rem',
+                                    background: '#25D366',
+                                    color: '#fff',
+                                    fontWeight: 'bold',
+                                    fontSize: '1.05rem',
+                                    border: 'none',
+                                    borderRadius: '0.75rem',
+                                    cursor: 'pointer',
+                                    textDecoration: 'none',
+                                    marginBottom: '1rem'
+                                }}
+                            >
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                                </svg>
+                                <span>Falar no Whatsapp</span>
+                            </a>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                                <button
+                                    onClick={() => {
+                                        setMostrarModalWhatsAppCancela(false)
+                                        handleAdicionarItens(pedidoConfirmado!)
+                                    }}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.85rem',
+                                        background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                                        color: '#78350f',
+                                        fontWeight: 'bold',
+                                        fontSize: '0.85rem',
+                                        border: 'none',
+                                        borderRadius: '0.75rem',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    Adicionar mais itens
+                                </button>
+                                <button
+                                    onClick={() => setMostrarModalWhatsAppCancela(false)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.85rem',
+                                        background: 'transparent',
+                                        color: '#aaa',
+                                        fontWeight: '600',
+                                        fontSize: '0.85rem',
+                                        border: '1px solid #444',
+                                        borderRadius: '0.75rem',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Voltar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     ) : null;
@@ -658,7 +923,44 @@ export default function CardapioPublicoPage() {
         <div className="kal-bg min-h-screen text-neutral-200 font-sans pb-20 overflow-x-hidden relative">
             {confirmacaoScreen}
 
-            <div style={{ display: pedidoConfirmado ? 'none' : 'block' }}>
+            <div style={{ display: (pedidoConfirmado && !confirmacoMinimizada) ? 'none' : 'block' }}>
+                {/* Banner de modo complemento - aparece quando o overlay está minimizado */}
+                {modoComplemento && confirmacoMinimizada && (
+                    <div style={{
+                        position: 'sticky',
+                        top: '64px',
+                        zIndex: 35,
+                        background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                        padding: '0.75rem 1.5rem',
+                        borderBottom: '2px solid #d97706',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '1rem',
+                        flexWrap: 'wrap'
+                    }}>
+                        <p style={{ margin: 0, color: '#78350f', fontWeight: '600', fontSize: '0.9rem' }}>
+                            🛒 <strong>Modo Complemento</strong> — Selecione os itens desejados no cardápio
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {carrinho.length > 0 && (
+                                <button
+                                    onClick={() => { setConfirmacoMinimizada(false); setMostrarCarrinho(true) }}
+                                    style={{ padding: '0.4rem 1rem', background: '#22c55e', color: '#fff', fontWeight: 'bold', fontSize: '0.85rem', border: 'none', borderRadius: '1rem', cursor: 'pointer' }}
+                                >
+                                    Finalizar ({carrinho.length} {carrinho.length === 1 ? 'item' : 'itens'})
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setConfirmacoMinimizada(false)}
+                                style={{ padding: '0.4rem 1rem', background: 'rgba(0,0,0,0.3)', color: '#fff', fontWeight: '600', fontSize: '0.85rem', border: 'none', borderRadius: '1rem', cursor: 'pointer' }}
+                            >
+                                Ver tela anterior
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Header / Nav */}
                 <nav className="fixed top-0 w-full z-30 bg-neutral-950 border-b border-neutral-800">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
