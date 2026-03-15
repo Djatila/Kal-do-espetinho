@@ -589,16 +589,18 @@ export default function PedidosPage() {
                                         Pedido #{pedido.numero_pedido}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <div
-                                            className={styles.statusBadge}
-                                            style={{
-                                                backgroundColor: `${STATUS_CONFIG[pedido.status].color}20`,
-                                                color: STATUS_CONFIG[pedido.status].color
-                                            }}
-                                        >
-                                            <StatusIcon size={16} />
-                                            {STATUS_CONFIG[pedido.status].label}
-                                        </div>
+                                        {!(pedido.status === 'cancelado' && pedido.observacoes === 'Cancelado pelo cliente') && (
+                                            <div
+                                                className={styles.statusBadge}
+                                                style={{
+                                                    backgroundColor: `${STATUS_CONFIG[pedido.status].color}20`,
+                                                    color: STATUS_CONFIG[pedido.status].color
+                                                }}
+                                            >
+                                                <StatusIcon size={16} />
+                                                {STATUS_CONFIG[pedido.status].label}
+                                            </div>
+                                        )}
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation()
@@ -665,6 +667,20 @@ export default function PedidosPage() {
                                 </div>
 
                                 <div className={styles.pedidoItens}>
+                                    {pedido.status === 'cancelado' && pedido.observacoes === 'Cancelado pelo cliente' && (
+                                        <div style={{
+                                            margin: '0.5rem 0 1rem 0',
+                                            padding: '0.875rem 1rem',
+                                            borderRadius: '10px',
+                                            border: '2px dashed #ef4444',
+                                            background: 'rgba(239,68,68,0.1)',
+                                        }}>
+                                            <p style={{ color: '#ef4444', fontWeight: 800, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px', margin: 0, textTransform: 'uppercase' }}>
+                                                <XCircle size={20} color="#ef4444" />
+                                                Pedido Cancelado pelo Cliente
+                                            </p>
+                                        </div>
+                                    )}
                                     {pedido.itens.map((item, idx) => {
                                         // Verificar se é item complementar
                                         const qtdInicial = pedido.historico_complementos?.reduce((acc, comp) => {

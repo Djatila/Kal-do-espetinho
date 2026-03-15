@@ -622,11 +622,11 @@ export default function CardapioPublicoPage() {
                     </div>
                 ) : (
                     <>
-                        <p>Seu pedido foi recebido e está sendo preparado.</p>
+                        <p>Seu pedido foi recebido aguarde as próximas etapas pelo Whatsapp.</p>
                         <p className={styles.textoSecundario}>
                             {dadosCliente.tipo_entrega === 'delivery'
                                 ? 'Entraremos em contato em breve para confirmar a entrega.'
-                                : 'Você pode retirar seu pedido em aproximadamente 30 minutos.'}
+                                : 'Você pode retirar seu pedido em breve...'}
                         </p>
                     </>
                 )}
