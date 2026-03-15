@@ -28,7 +28,7 @@ export function Sidebar() {
     const supabase = createClient()
     const { theme, setTheme } = useTheme()
     const [userName, setUserName] = useState<string>('')
-    const [restaurantName, setRestaurantName] = useState<string>('Amôra')
+    const [restaurantName, setRestaurantName] = useState<string>('Kal')
     const [userRole, setUserRole] = useState<string>('Proprietária')
     const [logoUrl, setLogoUrl] = useState<string | null>(null)
 

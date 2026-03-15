@@ -485,144 +485,142 @@ export default function CardapioPublicoPage() {
         }
     }
 
-    if (pedidoConfirmado) {
-        return (
-            <div className={styles.confirmacao}>
-                <div className={styles.confirmacaoCard}>
-                    <div className={styles.confirmacaoIcone}>{modoComplemento ? '🛒' : '✓'}</div>
-                    <h1>{modoComplemento ? 'Adicionar Itens' : 'Pedido Confirmado!'}</h1>
+    const confirmacaoScreen = pedidoConfirmado ? (
+        <div className={styles.confirmacao}>
+            <div className={styles.confirmacaoCard}>
+                <div className={styles.confirmacaoIcone}>{modoComplemento ? '🛒' : '✓'}</div>
+                <h1>{modoComplemento ? 'Adicionar Itens' : 'Pedido Confirmado!'}</h1>
 
-                    <div className={styles.pedidoHeader}>
-                        <p className={styles.numeroPedido}>
-                            Pedido <strong>#{pedidoConfirmado}</strong>
+                <div className={styles.pedidoHeader}>
+                    <p className={styles.numeroPedido}>
+                        Pedido <strong>#{pedidoConfirmado}</strong>
+                    </p>
+                    {!modoComplemento && (
+                        <button
+                            className={styles.botaoComplemento}
+                            disabled={verificandoStatus}
+                            onClick={() => handleAdicionarItens(pedidoConfirmado!)}
+                        >
+                            {verificandoStatus ? '⏳ Verificando...' : '+ Adicionar Itens'}
+                        </button>
+                    )}
+                </div>
+
+                {modoComplemento ? (
+                    <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
+                        <p style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
+                            Adição autorizada pelo atendente!
                         </p>
-                        {!modoComplemento && (
-                            <button
-                                className={styles.botaoComplemento}
-                                disabled={verificandoStatus}
-                                onClick={() => handleAdicionarItens(pedidoConfirmado!)}
-                            >
-                                {verificandoStatus ? '⏳ Verificando...' : '+ Adicionar Itens'}
-                            </button>
+                        <p style={{ color: '#ccc', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                            Escolha os itens no carrinho e confirme para adicionar ao pedido.
+                        </p>
+                        <button
+                            onClick={() => setMostrarCarrinho(true)}
+                            style={{
+                                padding: '0.75rem 2rem',
+                                borderRadius: '12px',
+                                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                color: '#fff',
+                                fontWeight: 'bold',
+                                fontSize: '1rem',
+                                border: 'none',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                margin: '0 auto'
+                            }}
+                        >
+                            🛒 Abrir Carrinho e Finalizar
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        <p>Seu pedido foi recebido e está sendo preparado.</p>
+                        <p className={styles.textoSecundario}>
+                            {dadosCliente.tipo_entrega === 'delivery'
+                                ? 'Entraremos em contato em breve para confirmar a entrega.'
+                                : 'Você pode retirar seu pedido em aproximadamente 30 minutos.'}
+                        </p>
+                    </>
+                )}
+
+                {/* Modal de bloqueio de adição de itens */}
+                {mostrarModalBloqueio && (
+                    <div style={{
+                        marginTop: '1rem',
+                        padding: '1.25rem',
+                        borderRadius: '12px',
+                        border: solicitacaoStatus === 'recusado' ? '2px solid #ef4444' : '2px solid #f59e0b',
+                        background: solicitacaoStatus === 'recusado' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
+                        textAlign: 'center'
+                    }}>
+                        {solicitacaoStatus === 'pendente' && (
+                            <>
+                                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
+                                <p style={{ color: '#f59e0b', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                                    Item não pode ser adicionado agora
+                                </p>
+                                <p style={{ color: '#ccc', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                                    Seu pedido já está em preparação. Uma solicitação foi enviada ao atendente.
+                                </p>
+                                <p style={{ color: '#f59e0b', fontSize: '0.8rem', animation: 'pulse 2s infinite' }}>
+                                    🔔 Aguardando autorização do atendente...
+                                </p>
+                                <p style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                                    Caso prefira, chame o atendente pessoalmente.
+                                </p>
+                            </>
+                        )}
+                        {solicitacaoStatus === 'recusado' && (
+                            <>
+                                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>❌</div>
+                                <p style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                                    Adição não autorizada
+                                </p>
+                                <p style={{ color: '#ccc', fontSize: '0.85rem' }}>
+                                    O atendente não pôde autorizar a adição do item. Por favor, chame o atendente para mais informações.
+                                </p>
+                                <button
+                                    onClick={() => { setMostrarModalBloqueio(false); setSolicitacaoStatus(null) }}
+                                    style={{ marginTop: '0.75rem', padding: '0.5rem 1.25rem', borderRadius: '8px', background: '#ef4444', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+                                >
+                                    Fechar
+                                </button>
+                            </>
                         )}
                     </div>
+                )}
 
-                    {modoComplemento ? (
-                        <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                            <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
-                            <p style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.5rem' }}>
-                                Adição autorizada pelo atendente!
-                            </p>
-                            <p style={{ color: '#ccc', fontSize: '0.9rem', marginBottom: '1rem' }}>
-                                Escolha os itens no carrinho e confirme para adicionar ao pedido.
-                            </p>
-                            <button
-                                onClick={() => setMostrarCarrinho(true)}
-                                style={{
-                                    padding: '0.75rem 2rem',
-                                    borderRadius: '12px',
-                                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                                    color: '#fff',
-                                    fontWeight: 'bold',
-                                    fontSize: '1rem',
-                                    border: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    margin: '0 auto'
-                                }}
-                            >
-                                🛒 Abrir Carrinho e Finalizar
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            <p>Seu pedido foi recebido e está sendo preparado.</p>
-                            <p className={styles.textoSecundario}>
-                                {dadosCliente.tipo_entrega === 'delivery'
-                                    ? 'Entraremos em contato em breve para confirmar a entrega.'
-                                    : 'Você pode retirar seu pedido em aproximadamente 30 minutos.'}
-                            </p>
-                        </>
-                    )}
-
-                    {/* Modal de bloqueio de adição de itens */}
-                    {mostrarModalBloqueio && (
-                        <div style={{
-                            marginTop: '1rem',
-                            padding: '1.25rem',
-                            borderRadius: '12px',
-                            border: solicitacaoStatus === 'recusado' ? '2px solid #ef4444' : '2px solid #f59e0b',
-                            background: solicitacaoStatus === 'recusado' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
-                            textAlign: 'center'
-                        }}>
-                            {solicitacaoStatus === 'pendente' && (
-                                <>
-                                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
-                                    <p style={{ color: '#f59e0b', fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                                        Item não pode ser adicionado agora
-                                    </p>
-                                    <p style={{ color: '#ccc', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-                                        Seu pedido já está em preparação. Uma solicitação foi enviada ao atendente.
-                                    </p>
-                                    <p style={{ color: '#f59e0b', fontSize: '0.8rem', animation: 'pulse 2s infinite' }}>
-                                        🔔 Aguardando autorização do atendente...
-                                    </p>
-                                    <p style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.5rem' }}>
-                                        Caso prefira, chame o atendente pessoalmente.
-                                    </p>
-                                </>
-                            )}
-                            {solicitacaoStatus === 'recusado' && (
-                                <>
-                                    <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>❌</div>
-                                    <p style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                                        Adição não autorizada
-                                    </p>
-                                    <p style={{ color: '#ccc', fontSize: '0.85rem' }}>
-                                        O atendente não pôde autorizar a adição do item. Por favor, chame o atendente para mais informações.
-                                    </p>
-                                    <button
-                                        onClick={() => { setMostrarModalBloqueio(false); setSolicitacaoStatus(null) }}
-                                        style={{ marginTop: '0.75rem', padding: '0.5rem 1.25rem', borderRadius: '8px', background: '#ef4444', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
-                                    >
-                                        Fechar
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    )}
-
-                    <button
-                        className={styles.botaoPrimario}
-                        onClick={() => {
-                            setPedidoConfirmado(null)
-                            setMostrarModalBloqueio(false)
-                            setSolicitacaoId(null)
-                            setSolicitacaoStatus(null)
-                            if (solicitacaoChannelRef.current) {
-                                supabase.removeChannel(solicitacaoChannelRef.current)
-                                solicitacaoChannelRef.current = null
-                            }
-                            setDadosCliente({
-                                nome: '',
-                                telefone: '',
-                                endereco: '',
-                                tipo_entrega: 'retirada',
-                                metodo_pagamento: undefined,
-                                precisa_troco: false,
-                                valor_para_troco: '',
-                                observacoes: ''
-                            })
-                        }}
-                    >
-                        Fazer Novo Pedido
-                    </button>
-                </div>
+                <button
+                    className={styles.botaoPrimario}
+                    onClick={() => {
+                        setPedidoConfirmado(null)
+                        setMostrarModalBloqueio(false)
+                        setSolicitacaoId(null)
+                        setSolicitacaoStatus(null)
+                        if (solicitacaoChannelRef.current) {
+                            supabase.removeChannel(solicitacaoChannelRef.current)
+                            solicitacaoChannelRef.current = null
+                        }
+                        setDadosCliente({
+                            nome: '',
+                            telefone: '',
+                            endereco: '',
+                            tipo_entrega: 'retirada',
+                            metodo_pagamento: undefined,
+                            precisa_troco: false,
+                            valor_para_troco: '',
+                            observacoes: ''
+                        })
+                    }}
+                >
+                    Fazer Novo Pedido
+                </button>
             </div>
-        )
-    }
+        </div>
+    ) : null;
 
     // Data mapping
     const kalMenuItems = produtos.map(p => ({
@@ -658,285 +656,289 @@ export default function CardapioPublicoPage() {
 
     return (
         <div className="kal-bg min-h-screen text-neutral-200 font-sans pb-20 overflow-x-hidden relative">
-            {/* Header / Nav */}
-            <nav className="fixed top-0 w-full z-30 bg-neutral-950 border-b border-neutral-800">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
-                        {/* Logo + Location */}
-                        <div className="flex items-center gap-2 cursor-pointer flex-shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                            <div className="bg-orange-600 p-1.5 rounded-md shadow-neon"><Flame className="text-white" size={20} fill="currentColor" /></div>
-                            <div className="flex flex-col justify-center leading-none">
-                                <h1 className="text-base font-display font-bold text-white tracking-widest uppercase">
-                                    KAL DO <span className="text-orange-500">ESPETINHO</span>
-                                </h1>
-                                <p className="text-[10px] text-neutral-400 tracking-[0.18em] uppercase mt-0.5">Arataca - BA</p>
+            {confirmacaoScreen}
+
+            <div style={{ display: pedidoConfirmado ? 'none' : 'block' }}>
+                {/* Header / Nav */}
+                <nav className="fixed top-0 w-full z-30 bg-neutral-950 border-b border-neutral-800">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex items-center justify-between h-16">
+                            {/* Logo + Location */}
+                            <div className="flex items-center gap-2 cursor-pointer flex-shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                                <div className="bg-orange-600 p-1.5 rounded-md shadow-neon"><Flame className="text-white" size={20} fill="currentColor" /></div>
+                                <div className="flex flex-col justify-center leading-none">
+                                    <h1 className="text-base font-display font-bold text-white tracking-widest uppercase">
+                                        KAL DO <span className="text-orange-500">ESPETINHO</span>
+                                    </h1>
+                                    <p className="text-[10px] text-neutral-400 tracking-[0.18em] uppercase mt-0.5">Arataca - BA</p>
+                                </div>
                             </div>
-                        </div>
 
-                        {/* Category tabs (desktop) */}
-                        <div className="hidden md:flex items-center gap-5">
-                            {categorias.map(cat => (
-                                <button
-                                    key={cat}
-                                    onClick={() => setCategoriaFiltro(cat)}
-                                    className={`text-xs font-bold uppercase tracking-widest transition-colors ${categoriaFiltro === cat ? 'text-orange-500' : 'text-neutral-300 hover:text-white'}`}
-                                >
-                                    {cat}
-                                </button>
-                            ))}
-                        </div>
+                            {/* Category tabs (desktop) */}
+                            <div className="hidden md:flex items-center gap-5">
+                                {categorias.map(cat => (
+                                    <button
+                                        key={cat}
+                                        onClick={() => setCategoriaFiltro(cat)}
+                                        className={`text-xs font-bold uppercase tracking-widest transition-colors ${categoriaFiltro === cat ? 'text-orange-500' : 'text-neutral-300 hover:text-white'}`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
 
-                        {/* Right icons */}
-                        <div className="flex items-center gap-4">
-                            {tipoCliente && (
-                                <button className="text-neutral-400 hover:text-white" onClick={handleLogout} title="Sair / Trocar Usuário">
-                                    <LogOut size={18} />
-                                </button>
-                            )}
-                            <div ref={cartIconRef} className="relative p-1.5 text-white hover:text-orange-500 transition-colors cursor-pointer" onClick={() => setMostrarCarrinho(true)}>
-                                <ShoppingBag size={24} />
-                                {cartCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full shadow-neon">{cartCount}</span>}
+                            {/* Right icons */}
+                            <div className="flex items-center gap-4">
+                                {tipoCliente && (
+                                    <button className="text-neutral-400 hover:text-white" onClick={handleLogout} title="Sair / Trocar Usuário">
+                                        <LogOut size={18} />
+                                    </button>
+                                )}
+                                <div ref={cartIconRef} className="relative p-1.5 text-white hover:text-orange-500 transition-colors cursor-pointer" onClick={() => setMostrarCarrinho(true)}>
+                                    <ShoppingBag size={24} />
+                                    {cartCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-600 text-white text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full shadow-neon">{cartCount}</span>}
+                                </div>
                             </div>
                         </div>
                     </div>
+                </nav>
+
+                {/* Animation Layer */}
+                <div className="fixed inset-0 pointer-events-none z-[100]">
+                    {animations.map(anim => (
+                        <div
+                            key={anim.id}
+                            className="fixed w-12 h-12 rounded-full border-2 border-orange-500 shadow-neon overflow-hidden z-[100]"
+                            style={{ left: anim.x, top: anim.y, transform: 'translate(-50%, -50%)', animation: 'flyToCart 0.8s cubic-bezier(0.42, 0, 0.58, 1) forwards' }}
+                        >
+                            <img src={anim.image} alt="" className="w-full h-full object-cover" />
+                        </div>
+                    ))}
                 </div>
-            </nav>
 
-            {/* Animation Layer */}
-            <div className="fixed inset-0 pointer-events-none z-[100]">
-                {animations.map(anim => (
-                    <div
-                        key={anim.id}
-                        className="fixed w-12 h-12 rounded-full border-2 border-orange-500 shadow-neon overflow-hidden z-[100]"
-                        style={{ left: anim.x, top: anim.y, transform: 'translate(-50%, -50%)', animation: 'flyToCart 0.8s cubic-bezier(0.42, 0, 0.58, 1) forwards' }}
-                    >
-                        <img src={anim.image} alt="" className="w-full h-full object-cover" />
-                    </div>
-                ))}
-            </div>
-
-            <style>{`
+                <style>{`
                 @keyframes flyToCart { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { left: calc(100vw - 40px); top: 40px; transform: translate(-50%, -50%) scale(0.2); opacity: 0.5; } } 
                 @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); filter: blur(4px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
                 .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
             `}</style>
 
-            {/* Hero */}
-            <div className="relative mt-20 h-[40vh] sm:h-[50vh] w-full overflow-hidden flex items-center justify-center">
-                <div className="absolute inset-0">
-                    <img src="https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2574&auto=format&fit=crop" alt="Hero" className="w-full h-full object-cover opacity-40" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
-                </div>
-                <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-                    <h2 className="text-4xl sm:text-5xl md:text-7xl font-display font-bold text-white mb-4 drop-shadow-2xl">SABOR <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-600">PREMIUM</span></h2>
-                    <p className="text-base sm:text-lg md:text-xl text-neutral-300 max-w-2xl mx-auto mb-8">A melhor quentinha da cidade em um ambiente exclusivo.</p>
-                </div>
-            </div>
-
-            {/* Mobile Filter */}
-            <div className="md:hidden sticky top-20 z-20 bg-black/95 border-b border-orange-900/30 overflow-x-auto py-4 px-4 scrollbar-hide">
-                <div className="flex gap-3">
-                    {categorias.map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => setCategoriaFiltro(cat)}
-                            className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold border transition-colors ${categoriaFiltro === cat ? 'bg-orange-600 border-orange-600 text-white' : 'border-neutral-800 text-neutral-400'}`}
-                        >
-                            {cat}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            {/* Menu Grid */}
-            <main id="menu" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                {highlights.length > 0 && (
-                    <div className="mb-6">
-                        <h2 className="text-xl font-display font-bold text-white mb-3 text-center sm:text-left border-l-4 border-red-600 pl-3">✨ Destaques</h2>
-                        <div className="flex overflow-x-auto pb-2 gap-4 sm:gap-6 snap-x scrollbar-hide">
-                            {highlights.map(item => <HighlightCard key={item.id} item={item} onAdd={handleAddToCartAnim} />)}
-                        </div>
-                        <hr className="border-neutral-800 mt-2" />
+                {/* Hero */}
+                <div className="relative mt-20 h-[40vh] sm:h-[50vh] w-full overflow-hidden flex items-center justify-center">
+                    <div className="absolute inset-0">
+                        <img src="https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2574&auto=format&fit=crop" alt="Hero" className="w-full h-full object-cover opacity-40" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
                     </div>
-                )}
-                <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl sm:text-3xl font-display font-bold text-white border-l-4 border-orange-500 pl-4">
-                        {categoriaFiltro === 'todas' ? 'Nosso Cardápio' : categoriaFiltro.charAt(0).toUpperCase() + categoriaFiltro.slice(1)}
-                    </h2>
+                    <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+                        <h2 className="text-4xl sm:text-5xl md:text-7xl font-display font-bold text-white mb-4 drop-shadow-2xl">SABOR <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-600">PREMIUM</span></h2>
+                        <p className="text-base sm:text-lg md:text-xl text-neutral-300 max-w-2xl mx-auto mb-8">A melhor quentinha da cidade em um ambiente exclusivo.</p>
+                    </div>
                 </div>
 
-                {loading ? (
-                    <p className="text-center text-orange-500 animate-pulse py-10">Carregando cardápio...</p>
-                ) : filteredItems.length === 0 ? (
-                    <p className="text-center text-neutral-500 py-10">Nenhum produto disponível nesta categoria.</p>
-                ) : (
-                    <div className={`grid animate-fade-in-up ${configuracao.layout_cardapio === 'minimalista' ? 'grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 sm:gap-6' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'}`}>
-                        {filteredItems.map(item => (
-                            <MenuCard
-                                key={item.id}
-                                item={item}
-                                onAdd={handleAddToCartAnim}
-                                variant={configuracao.layout_cardapio === 'minimalista' ? 'minimal' : 'standard'}
-                            />
+                {/* Mobile Filter */}
+                <div className="md:hidden sticky top-20 z-20 bg-black/95 border-b border-orange-900/30 overflow-x-auto py-4 px-4 scrollbar-hide">
+                    <div className="flex gap-3">
+                        {categorias.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setCategoriaFiltro(cat)}
+                                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold border transition-colors ${categoriaFiltro === cat ? 'bg-orange-600 border-orange-600 text-white' : 'border-neutral-800 text-neutral-400'}`}
+                            >
+                                {cat}
+                            </button>
                         ))}
                     </div>
-                )}
-            </main>
+                </div>
 
-            <CartSidebar
-                isOpen={mostrarCarrinho}
-                onClose={() => setMostrarCarrinho(false)}
-                cart={carrinho.map(item => ({
-                    ...item,
-                    name: item.nome,
-                    description: item.descricao || '',
-                    price: item.preco,
-                    category: item.categoria as any,
-                    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
-                    quantity: item.quantidade
-                }))}
-                onRemove={removerDoCarrinho}
-                onUpdateQuantity={alterarQuantidade}
-                whatsappNumber={configuracao.whatsapp_loja}
-                pixKey={configuracao.chave_pix}
-                deliveryFee={taxaEntrega}
-                allowPayLater={tipoCliente === 'credito'}
-                initialCustomerName={dadosCliente.nome}
-                initialCustomerPhone={dadosCliente.telefone}
-                onPlaceOrder={async (order) => {
-                    const subtotal = order.total - (order.deliveryFee || 0)
-                    setEnviando(true)
-                    try {
-                        let paymentMapped = 'dinheiro'
-                        if (order.customer.paymentMethod === 'pix') paymentMapped = 'pix'
-                        if (order.customer.paymentMethod === 'credit_card' || order.customer.paymentMethod === 'debit_card') paymentMapped = 'cartao'
-                        if (order.customer.paymentMethod === 'pay_later') paymentMapped = 'pagamento_posterior'
+                {/* Menu Grid */}
+                <main id="menu" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                    {highlights.length > 0 && (
+                        <div className="mb-6">
+                            <h2 className="text-xl font-display font-bold text-white mb-3 text-center sm:text-left border-l-4 border-red-600 pl-3">✨ Destaques</h2>
+                            <div className="flex overflow-x-auto pb-2 gap-4 sm:gap-6 snap-x scrollbar-hide">
+                                {highlights.map(item => <HighlightCard key={item.id} item={item} onAdd={handleAddToCartAnim} />)}
+                            </div>
+                            <hr className="border-neutral-800 mt-2" />
+                        </div>
+                    )}
+                    <div className="flex items-center justify-between mb-8">
+                        <h2 className="text-2xl sm:text-3xl font-display font-bold text-white border-l-4 border-orange-500 pl-4">
+                            {categoriaFiltro === 'todas' ? 'Nosso Cardápio' : categoriaFiltro.charAt(0).toUpperCase() + categoriaFiltro.slice(1)}
+                        </h2>
+                    </div>
 
-                        let tipoEntregaMapped = 'retirada'
-                        let taxaAplicada = 0
+                    {loading ? (
+                        <p className="text-center text-orange-500 animate-pulse py-10">Carregando cardápio...</p>
+                    ) : filteredItems.length === 0 ? (
+                        <p className="text-center text-neutral-500 py-10">Nenhum produto disponível nesta categoria.</p>
+                    ) : (
+                        <div className={`grid animate-fade-in-up ${configuracao.layout_cardapio === 'minimalista' ? 'grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 sm:gap-6' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'}`}>
+                            {filteredItems.map(item => (
+                                <MenuCard
+                                    key={item.id}
+                                    item={item}
+                                    onAdd={handleAddToCartAnim}
+                                    variant={configuracao.layout_cardapio === 'minimalista' ? 'minimal' : 'standard'}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </main>
 
-                        if (order.customer.deliveryMethod === 'delivery') {
-                            taxaAplicada = taxaEntrega
-                            tipoEntregaMapped = 'delivery'
-                        }
+                <CartSidebar
+                    isOpen={mostrarCarrinho}
+                    onClose={() => setMostrarCarrinho(false)}
+                    cart={carrinho.map(item => ({
+                        ...item,
+                        name: item.nome,
+                        description: item.descricao || '',
+                        price: item.preco,
+                        category: item.categoria as any,
+                        image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
+                        quantity: item.quantidade
+                    }))}
+                    onRemove={removerDoCarrinho}
+                    onUpdateQuantity={alterarQuantidade}
+                    whatsappNumber={configuracao.whatsapp_loja}
+                    pixKey={configuracao.chave_pix}
+                    deliveryFee={taxaEntrega}
+                    allowPayLater={tipoCliente === 'credito'}
+                    initialCustomerName={dadosCliente.nome}
+                    initialCustomerPhone={dadosCliente.telefone}
+                    onPlaceOrder={async (order) => {
+                        const subtotal = order.total - (order.deliveryFee || 0)
+                        setEnviando(true)
+                        try {
+                            let paymentMapped = 'dinheiro'
+                            if (order.customer.paymentMethod === 'pix') paymentMapped = 'pix'
+                            if (order.customer.paymentMethod === 'credit_card' || order.customer.paymentMethod === 'debit_card') paymentMapped = 'cartao'
+                            if (order.customer.paymentMethod === 'pay_later') paymentMapped = 'pagamento_posterior'
 
-                        let enderecoCompleto = null
-                        if (tipoEntregaMapped === 'delivery') {
-                            enderecoCompleto = `${order.customer.address.street}, ${order.customer.address.number}`
-                            if (order.customer.address.neighborhood) enderecoCompleto += ` - ${order.customer.address.neighborhood}`
-                            if (order.customer.address.complement) enderecoCompleto += ` (${order.customer.address.complement})`
-                        }
+                            let tipoEntregaMapped = 'retirada'
+                            let taxaAplicada = 0
 
-                        let obs = order.customer.observations || ''
-                        if (order.customer.deliveryMethod === 'table' && order.customer.tableNumber) {
-                            obs = `[Mesa ${order.customer.tableNumber}] ${obs}`
-                        }
-
-                        const itens = carrinho.map(item => ({
-                            id: item.id,
-                            nome: item.nome,
-                            quantidade: item.quantidade,
-                            preco: item.preco,
-                            subtotal: item.preco * item.quantidade
-                        }))
-
-                        if (modoComplemento && pedidoComplementoNumero) {
-                            const { data: pedidoOriginal, error: fetchError } = await supabase
-                                .from('pedidos_online')
-                                .select('*')
-                                .eq('numero_pedido', pedidoComplementoNumero)
-                                .maybeSingle()
-
-                            if (fetchError || !pedidoOriginal) throw new Error('Pedido original não encontrado.')
-
-                            const novosItens = [...pedidoOriginal.itens, ...itens]
-                            const novoSubtotal = pedidoOriginal.subtotal + subtotal
-                            const novoTotal = pedidoOriginal.total + subtotal + taxaAplicada
-
-                            const complemento = {
-                                data: new Date().toISOString(),
-                                itens: itens,
-                                subtotal: subtotal,
-                                total: subtotal + taxaAplicada
+                            if (order.customer.deliveryMethod === 'delivery') {
+                                taxaAplicada = taxaEntrega
+                                tipoEntregaMapped = 'delivery'
                             }
 
-                            const historico = Array.isArray(pedidoOriginal.historico_complementos)
-                                ? [...pedidoOriginal.historico_complementos, complemento]
-                                : [complemento]
+                            let enderecoCompleto = null
+                            if (tipoEntregaMapped === 'delivery') {
+                                enderecoCompleto = `${order.customer.address.street}, ${order.customer.address.number}`
+                                if (order.customer.address.neighborhood) enderecoCompleto += ` - ${order.customer.address.neighborhood}`
+                                if (order.customer.address.complement) enderecoCompleto += ` (${order.customer.address.complement})`
+                            }
 
-                            const { error: updateError } = await supabase
-                                .from('pedidos_online')
-                                .update({
-                                    itens: novosItens,
-                                    subtotal: novoSubtotal,
-                                    total: novoTotal,
-                                    historico_complementos: historico
-                                })
-                                .eq('id', pedidoOriginal.id)
+                            let obs = order.customer.observations || ''
+                            if (order.customer.deliveryMethod === 'table' && order.customer.tableNumber) {
+                                obs = `[Mesa ${order.customer.tableNumber}] ${obs}`
+                            }
 
-                            if (updateError) throw updateError
+                            const itens = carrinho.map(item => ({
+                                id: item.id,
+                                nome: item.nome,
+                                quantidade: item.quantidade,
+                                preco: item.preco,
+                                subtotal: item.preco * item.quantidade
+                            }))
 
-                            setModoComplemento(false)
-                            setPedidoComplementoNumero(null)
-                            setCarrinho([])
-                            localStorage.removeItem('carrinho')
-                            setMostrarCarrinho(false)
-                            setPedidoConfirmado(pedidoComplementoNumero)
-                            window.scrollTo({ top: 0, behavior: 'smooth' })
-                        } else {
-                            const { data, error } = await supabase
-                                .from('pedidos_online')
-                                .insert({
-                                    cliente_id: clienteId,
-                                    cliente_nome: order.customer.customerName,
-                                    cliente_telefone: order.customer.customerPhone,
-                                    cliente_endereco: enderecoCompleto,
-                                    tipo_entrega: tipoEntregaMapped,
-                                    metodo_pagamento: paymentMapped,
-                                    precisa_troco: order.customer.needChange,
-                                    valor_para_troco: order.customer.needChange ? parseFloat(order.customer.changeFor.replace(/[^0-9,.]/g, '').replace(',', '.')) : null,
+                            if (modoComplemento && pedidoComplementoNumero) {
+                                const { data: pedidoOriginal, error: fetchError } = await supabase
+                                    .from('pedidos_online')
+                                    .select('*')
+                                    .eq('numero_pedido', pedidoComplementoNumero)
+                                    .maybeSingle()
+
+                                if (fetchError || !pedidoOriginal) throw new Error('Pedido original não encontrado.')
+
+                                const novosItens = [...pedidoOriginal.itens, ...itens]
+                                const novoSubtotal = pedidoOriginal.subtotal + subtotal
+                                const novoTotal = pedidoOriginal.total + subtotal + taxaAplicada
+
+                                const complemento = {
+                                    data: new Date().toISOString(),
                                     itens: itens,
                                     subtotal: subtotal,
-                                    taxa_entrega: taxaAplicada,
-                                    total: subtotal + taxaAplicada,
-                                    observacoes: obs || null,
-                                    status: 'pendente'
-                                })
-                                .select('numero_pedido')
-                                .single()
+                                    total: subtotal + taxaAplicada
+                                }
 
-                            if (error) throw error
+                                const historico = Array.isArray(pedidoOriginal.historico_complementos)
+                                    ? [...pedidoOriginal.historico_complementos, complemento]
+                                    : [complemento]
 
-                            setPedidoConfirmado(data.numero_pedido)
-                            setCarrinho([])
-                            localStorage.removeItem('carrinho')
-                            setMostrarCarrinho(false)
-                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                                const { error: updateError } = await supabase
+                                    .from('pedidos_online')
+                                    .update({
+                                        itens: novosItens,
+                                        subtotal: novoSubtotal,
+                                        total: novoTotal,
+                                        historico_complementos: historico
+                                    })
+                                    .eq('id', pedidoOriginal.id)
+
+                                if (updateError) throw updateError
+
+                                setModoComplemento(false)
+                                setPedidoComplementoNumero(null)
+                                setCarrinho([])
+                                localStorage.removeItem('carrinho')
+                                setMostrarCarrinho(false)
+                                setPedidoConfirmado(pedidoComplementoNumero)
+                                window.scrollTo({ top: 0, behavior: 'smooth' })
+                            } else {
+                                const { data, error } = await supabase
+                                    .from('pedidos_online')
+                                    .insert({
+                                        cliente_id: clienteId,
+                                        cliente_nome: order.customer.customerName,
+                                        cliente_telefone: order.customer.customerPhone,
+                                        cliente_endereco: enderecoCompleto,
+                                        tipo_entrega: tipoEntregaMapped,
+                                        metodo_pagamento: paymentMapped,
+                                        precisa_troco: order.customer.needChange,
+                                        valor_para_troco: order.customer.needChange ? parseFloat(order.customer.changeFor.replace(/[^0-9,.]/g, '').replace(',', '.')) : null,
+                                        itens: itens,
+                                        subtotal: subtotal,
+                                        taxa_entrega: taxaAplicada,
+                                        total: subtotal + taxaAplicada,
+                                        observacoes: obs || null,
+                                        status: 'pendente'
+                                    })
+                                    .select('numero_pedido')
+                                    .single()
+
+                                if (error) throw error
+
+                                setPedidoConfirmado(data.numero_pedido)
+                                setCarrinho([])
+                                localStorage.removeItem('carrinho')
+                                setMostrarCarrinho(false)
+                                window.scrollTo({ top: 0, behavior: 'smooth' })
+                            }
+                        } catch (error) {
+                            console.error(error)
+                            showToast('error', 'Erro', 'Ocorreu um erro ao processar seu pedido.')
+                        } finally {
+                            setEnviando(false)
                         }
-                    } catch (error) {
-                        console.error(error)
-                        showToast('error', 'Erro', 'Ocorreu um erro ao processar seu pedido.')
-                    } finally {
-                        setEnviando(false)
-                    }
-                }}
-            />
+                    }}
+                />
 
-            <ClienteIdentificationModal
-                isOpen={mostrarIdentificacao}
-                onClienteIdentified={handleClienteIdentified}
-            />
+                <ClienteIdentificationModal
+                    isOpen={mostrarIdentificacao}
+                    onClienteIdentified={handleClienteIdentified}
+                />
 
-            <GeminiAssistant systemInstruction={"Você é um assistente da Nita Quentinhas."} menuItems={kalMenuItems} />
+                <GeminiAssistant systemInstruction={"Você é um assistente da Nita Quentinhas."} menuItems={kalMenuItems} />
 
-            {/* Footer */}
-            <footer className="bg-neutral-950 border-t border-neutral-800 mt-12 py-8 text-center">
-                <p className="text-white font-display font-bold text-lg tracking-wider flex items-center justify-center gap-2">
-                    🔥 <span>KAL DO ESPETINHO</span>
-                </p>
-                <p className="text-neutral-400 text-sm uppercase tracking-[0.2em] mt-1">Arataca - BA</p>
-                <p className="text-neutral-600 text-xs mt-4">© 2026 Todos os direitos reservados.</p>
-            </footer>
+                {/* Footer */}
+                <footer className="bg-neutral-950 border-t border-neutral-800 mt-12 py-8 text-center">
+                    <p className="text-white font-display font-bold text-lg tracking-wider flex items-center justify-center gap-2">
+                        🔥 <span>KAL DO ESPETINHO</span>
+                    </p>
+                    <p className="text-neutral-400 text-sm uppercase tracking-[0.18em] mt-1">Arataca - BA</p>
+                    <p className="text-neutral-600 text-xs mt-4">© 2026 Todos os direitos reservados.</p>
+                </footer>
+            </div>
         </div>
     )
 }
