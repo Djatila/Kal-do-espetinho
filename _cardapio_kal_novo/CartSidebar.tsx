@@ -188,11 +188,11 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   return (
     <>
       <div
-        className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[150] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       />
 
-      <div className={`fixed inset-y-0 right-0 w-full sm:w-[450px] bg-neutral-900 border-l border-orange-500/30 z-50 transform transition-transform duration-300 shadow-neon flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`fixed inset-y-0 right-0 w-full sm:w-[450px] bg-neutral-900 border-l border-orange-500/30 z-[160] transform transition-transform duration-300 shadow-neon flex flex-col ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
 
         <div className="p-5 border-b border-neutral-800 flex justify-between items-center bg-neutral-950 shrink-0">
           <h2 className="text-xl font-display font-bold text-orange-500 flex items-center gap-2">
