@@ -9,159 +9,7 @@
     left: 0;
     top: 0;
     z-index: 50;
-}
-
-.header {
-    padding: 1.5rem 1rem;
-    border-bottom: 1px solid var(--border);
-}
-
-.brandContainer {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-}
-
-.logoWrapper {
-    width: 56px;
-    height: 56px;
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid var(--border);
-    flex-shrink: 0;
-    background: var(--background);
-}
-
-.logoPlaceholder {
-    width: 56px;
-    height: 56px;
-    border-radius: 12px;
-    background: var(--primary);
-    color: var(--primary-foreground);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.logo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.brandText {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.title {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--foreground);
-    margin: 0;
-    line-height: 1.1;
-    white-space: normal;
-}
-
-.roleText {
-    font-size: 0.8rem;
-    color: var(--muted-foreground);
-    margin: 0;
-    font-weight: 500;
-}
-
-.userInfo {
-    padding: 1rem;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    background: var(--muted);
-}
-
-.userAvatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    background: var(--background);
-    color: var(--foreground);
-    border: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.userDetails {
-    flex: 1;
-    overflow: hidden;
-}
-
-.userName {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--foreground);
-    margin: 0;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.userRole {
-    font-size: 0.75rem;
-    color: var(--muted-foreground);
-    margin: 0;
-}
-
-.nav {
-    flex: 1;
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    overflow-y: auto;
-}
-
-.link {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius);
-    color: var(--muted-foreground);
-    text-decoration: none;
-    transition: all 0.2s;
-    font-weight: 500;
-    font-size: 0.95rem;
-}
-
-.link:hover {
-    background-color: var(--accent);
-    color: var(--accent-foreground);
-}
-
-.active {
-    background-color: var(--primary);
-    color: var(--primary-foreground);
-}
-
-.active:hover {
-    background-color: var(--primary);
-    opacity: 0.9;
-}
-
-.sidebar {
-    width: 260px;
-    height: 100vh;
-    background-color: var(--card);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    position: fixed;
-    left: 0;
-    top: 0;
-    z-index: 50;
+    transition: transform 0.3s ease;
 }
 
 .header {
@@ -378,14 +226,55 @@
     display: none;
 }
 
-@media (max-width: 1024px) {
+.mobileMenuToggle {
+    display: none;
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    z-index: 60;
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    color: var(--foreground);
+    border-radius: 8px;
+    padding: 0.6rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    align-items: center;
+    justify-content: center;
+}
 
-    /* Esconde a barra lateral apenas quando estiver na tela PDV */
+.overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 45;
+}
+
+@media (max-width: 1024px) {
+    .sidebar {
+        transform: translateX(-100%);
+        width: 280px;
+        box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .sidebarOpen {
+        transform: translateX(0);
+    }
+
+    .mobileMenuToggle {
+        display: flex;
+    }
+
+    .overlay {
+        display: block;
+    }
+
     .hideOnMobilePdv {
         display: none !important;
     }
 
-    /* Mostra o header mobile quando estiver na tela PDV */
     .showMobilePdvHeader {
         display: flex;
         align-items: center;

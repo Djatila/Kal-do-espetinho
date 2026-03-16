@@ -26,6 +26,7 @@
     }
 
     .sidebarWrapper {
-        display: none;
+        /* O Sidebar agora gerencia sua própria visibilidade com position fixed e transform */
+        display: block;
     }
 }
