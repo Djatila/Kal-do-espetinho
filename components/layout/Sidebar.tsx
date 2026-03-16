@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, TrendingUp, TrendingDown, Wallet, FileText, LogOut, User, UtensilsCrossed, Users, Settings, Package, ShoppingBag, Sun, Moon } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, TrendingDown, Wallet, FileText, LogOut, User, UtensilsCrossed, Users, Settings, Package, ShoppingBag, Sun, Moon, MonitorSmartphone } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import styles from './Sidebar.module.css'
 import { clsx } from 'clsx'
@@ -111,6 +111,13 @@ export function Sidebar() {
                     </div>
                 </div>
             )}
+
+            <div className={styles.pdvActionContainer}>
+                <Link href="/dashboard/pdv" className={styles.pdvButton}>
+                    <MonitorSmartphone size={20} />
+                    <span>PDV Atendente</span>
+                </Link>
+            </div>
 
             <nav className={styles.nav}>
                 {menuItems.map((item) => {
