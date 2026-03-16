@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
+import { Upload, ImageIcon } from 'lucide-react'
 
 export default function NovoProdutoPage() {
     const router = useRouter()
@@ -21,8 +22,10 @@ export default function NovoProdutoPage() {
         descricao: '',
         preco: '',
         categoria: 'marmitex',
-        ativo: true
+        ativo: true,
+        imagem_url: ''
     })
+    const [uploading, setUploading] = useState(false)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -33,7 +36,8 @@ export default function NovoProdutoPage() {
             descricao: formData.descricao || null,
             preco: Number(formData.preco),
             categoria: formData.categoria,
-            ativo: formData.ativo
+            ativo: formData.ativo,
+            imagem_url: formData.imagem_url || null
         })
 
         if (error) {
@@ -44,6 +48,32 @@ export default function NovoProdutoPage() {
             router.push('/dashboard/produtos')
             router.refresh()
         }
+    }
+
+    async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        setUploading(true)
+        const fileExt = file.name.split('.').pop()
+        const fileName = `${Math.random()}.${fileExt}`
+        const filePath = `${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+            .from('produtos')
+            .upload(filePath, file)
+
+        if (uploadError) {
+            showToast('error', 'Erro no upload', uploadError.message)
+        } else {
+            const { data: { publicUrl } } = supabase.storage
+                .from('produtos')
+                .getPublicUrl(filePath)
+
+            setFormData({ ...formData, imagem_url: publicUrl })
+            showToast('success', 'Imagem enviada!', 'Continue preenchendo os dados do produto.')
+        }
+        setUploading(false)
     }
 
     return (
@@ -121,6 +151,49 @@ export default function NovoProdutoPage() {
                             <label htmlFor="ativo" className="text-sm font-medium">
                                 Produto ativo (disponível para venda)
                             </label>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Imagem do Produto (Opcional)</label>
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        value={formData.imagem_url}
+                                        onChange={(e) => setFormData({ ...formData, imagem_url: e.target.value })}
+                                        placeholder="URL da imagem ou faça upload..."
+                                        className="flex-1"
+                                    />
+                                    <label className="cursor-pointer">
+                                        <input
+                                            type="file"
+                                            className="hidden"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            disabled={uploading}
+                                        />
+                                        <div className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-md text-sm hover:bg-orange-600 transition-colors font-medium shadow-sm">
+                                            {uploading ? (
+                                                <span className="animate-spin whitespace-nowrap">⏳</span>
+                                            ) : (
+                                                <Upload size={16} />
+                                            )}
+                                            Upload
+                                        </div>
+                                    </label>
+                                </div>
+                                {formData.imagem_url && (
+                                    <div className="relative aspect-video w-full max-w-[200px] rounded-md overflow-hidden border bg-muted group">
+                                        <img
+                                            src={formData.imagem_url}
+                                            alt="Preview"
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <ImageIcon className="text-white" size={24} />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-4 mt-4">

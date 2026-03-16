@@ -27,7 +27,7 @@ const PromoPopup: React.FC<PromoPopupProps> = ({ isOpen, onClose, settings, onAd
     // Cria um item temporário baseado na promo para adicionar ao carrinho
     const promoItem: MenuItem = {
       id: `promo-${Date.now()}`,
-      name: settings.title, // Usa o título da promo como nome do item
+      name: settings.productName || settings.title, // Usa o nome real do produto se disponível
       description: settings.description,
       price: settings.price,
       category: Category.PORCOES, // Categoria genérica ou poderia ser passada

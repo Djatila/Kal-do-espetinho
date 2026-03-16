@@ -5,6 +5,8 @@ import { createClient } from '@/utils/supabase/client'
 import { Utensils, CupSoda, ShoppingBag, Plus, Minus, Search, ChevronDown, Check } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import styles from './page.module.css'
+import { sendOrderWebhook } from '@/utils/webhook'
+
 
 interface Produto {
     id: string
@@ -131,7 +133,7 @@ export default function PDVPage() {
 
         const notasPDV = numeroMesa ? `MESA: ${numeroMesa}` : 'PDV Balcão'
 
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('pedidos_online')
             .insert({
                 cliente_nome: nomeCliente || `Mesa ${numeroMesa}`,
@@ -145,6 +147,8 @@ export default function PDVPage() {
                 observacoes: notasPDV,
                 status: 'pendente'
             })
+            .select()
+
 
         setEnviando(false)
 
@@ -158,6 +162,18 @@ export default function PDVPage() {
             setNomeCliente('')
             setTelefone('')
             setMetodoPagamento('pix')
+
+            // Disparar Webhook para Novo Pedido via PDV
+            supabase
+                .from('pedidos_online')
+                .select('*')
+                .eq('id', data[0].id) // data usually returns the inserted row as an array when using select()
+                .single()
+                .then(({ data: fullOrder }) => {
+                    if (fullOrder) {
+                        sendOrderWebhook('delivery_order', fullOrder);
+                    }
+                });
         }
     }
 
@@ -332,7 +348,10 @@ export default function PDVPage() {
                                 onClick={() => setMetodoPagamento('pix')}
                                 aria-label="Pagar com Pix"
                             >
-                                {metodoPagamento === 'pix' && <span className={styles.radioDot} />} Pix
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <img src="/pix-logo.png" alt="Pix" style={{ width: '18px', height: '18px', filter: metodoPagamento === 'pix' ? 'none' : 'grayscale(100%) opacity(0.7)' }} />
+                                    <span>Pix</span>
+                                </div>
                             </button>
                             <button
                                 className={`${styles.paymentBtn} ${metodoPagamento === 'cartao' ? styles.paymentSelected : ''}`}

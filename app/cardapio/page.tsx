@@ -12,6 +12,8 @@ import HighlightCard from '@/_cardapio_kal_novo/HighlightCard'
 import CartSidebar from '@/_cardapio_kal_novo/CartSidebar'
 import PromoPopup from '@/_cardapio_kal_novo/PromoPopup'
 import GeminiAssistant from '@/_cardapio_kal_novo/GeminiAssistant'
+import { sendOrderWebhook } from '@/utils/webhook'
+
 
 interface Produto {
     id: string
@@ -20,6 +22,7 @@ interface Produto {
     preco: number
     categoria: string
     ativo: boolean
+    imagem_url?: string
 }
 
 interface ItemCarrinho extends Produto {
@@ -72,6 +75,15 @@ export default function CardapioPublicoPage() {
     const [animations, setAnimations] = useState<any[]>([])
     const cartIconRef = useRef<HTMLDivElement>(null)
     const [isMounted, setIsMounted] = useState(false)
+    const [promoSettings, setPromoSettings] = useState({
+        isActive: false,
+        title: "",
+        productName: "",
+        description: "",
+        price: 0,
+        image: "",
+        badgeText: ""
+    })
 
     useEffect(() => {
         setIsMounted(true)
@@ -211,7 +223,7 @@ export default function CardapioPublicoPage() {
     async function loadConfiguracao() {
         const { data } = await supabase
             .from('configuracoes')
-            .select('taxa_entrega_padrao, nome_restaurante, logo_url, chave_pix, whatsapp_loja, layout_cardapio')
+            .select('*')
             .maybeSingle()
 
         if (data) {
@@ -224,6 +236,28 @@ export default function CardapioPublicoPage() {
                 layout_cardapio: data.layout_cardapio || 'padrao'
             })
             setTaxaEntrega(data.taxa_entrega_padrao || 0)
+
+            // Atualizar Promoção
+            if (data.promo_ativa) {
+                setPromoSettings({
+                    isActive: data.promo_ativa,
+                    title: data.promo_titulo || '',
+                    productName: data.promo_produto_nome || '',
+                    description: data.promo_descricao || '',
+                    price: Number(data.promo_preco) || 0,
+                    image: data.promo_imagem_url || '',
+                    badgeText: data.promo_badge_texto || ''
+                })
+
+                // Tentar abrir após carregar, respeitando a sessão dinâmica
+                setTimeout(() => {
+                    const sessionKey = `kalPromoSeen_${data.promo_titulo || 'default'}`
+                    const hasSeenPromo = sessionStorage.getItem(sessionKey)
+                    if (!hasSeenPromo) {
+                        setIsPromoOpen(true)
+                    }
+                }, 1500)
+            }
         }
     }
 
@@ -448,6 +482,16 @@ export default function CardapioPublicoPage() {
                 setMostrarCheckout(false)
                 setMostrarCarrinho(false)
                 setPedidoConfirmado(pedidoComplementoNumero)
+
+                // Disparar Webhook para Complemento/Adição de Itens
+                if (pedidoOriginal) {
+                    sendOrderWebhook('delivery_order', {
+                        ...pedidoOriginal,
+                        itens: novosItens,
+                        subtotal: novoSubtotal,
+                        total: novoTotal
+                    });
+                }
             }
         } else {
             // Modo Normal: Criar novo pedido
@@ -485,6 +529,18 @@ export default function CardapioPublicoPage() {
                 localStorage.removeItem('carrinho')
                 setMostrarCheckout(false)
                 setMostrarCarrinho(false)
+
+                // Disparar Webhook para Novo Pedido
+                supabase
+                    .from('pedidos_online')
+                    .select('*')
+                    .eq('numero_pedido', data.numero_pedido)
+                    .single()
+                    .then(({ data: fullOrder }) => {
+                        if (fullOrder) {
+                            sendOrderWebhook('delivery_order', fullOrder);
+                        }
+                    });
             }
         }
     }
@@ -535,6 +591,18 @@ export default function CardapioPublicoPage() {
                     .eq('numero_pedido', numero)
 
                 if (updateError) throw updateError
+
+                // Disparar Webhook para Cancelamento pelo Cliente
+                supabase
+                    .from('pedidos_online')
+                    .select('*')
+                    .eq('numero_pedido', numero)
+                    .single()
+                    .then(({ data: fullOrder }) => {
+                        if (fullOrder) {
+                            sendOrderWebhook('order_status_update', fullOrder, 'cancelado');
+                        }
+                    });
 
                 resetarEstadoTotal()
             } else {
@@ -894,7 +962,7 @@ export default function CardapioPublicoPage() {
         description: p.descricao || '',
         price: p.preco,
         category: p.categoria as any,
-        image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
+        image: p.imagem_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
         popular: false
     }))
 
@@ -969,7 +1037,7 @@ export default function CardapioPublicoPage() {
                             <div className="flex items-center gap-2 cursor-pointer flex-shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
                                 <div className="bg-orange-600 p-1.5 rounded-md shadow-neon"><Flame className="text-white" size={20} fill="currentColor" /></div>
                                 <div className="flex flex-col justify-center leading-none">
-                                    <h1 className="text-base font-display font-bold text-white tracking-widest uppercase">
+                                    <h1 className="text-lg sm:text-xl font-display font-bold text-white tracking-widest uppercase">
                                         KAL DO <span className="text-orange-500">ESPETINHO</span>
                                     </h1>
                                     <p className="text-[10px] text-neutral-400 tracking-[0.18em] uppercase mt-0.5">Arataca - BA</p>
@@ -1032,7 +1100,7 @@ export default function CardapioPublicoPage() {
                     </div>
                     <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
                         <h2 className="text-4xl sm:text-5xl md:text-7xl font-display font-bold text-white mb-4 drop-shadow-2xl">SABOR <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-600">PREMIUM</span></h2>
-                        <p className="text-base sm:text-lg md:text-xl text-neutral-300 max-w-2xl mx-auto mb-8">A melhor quentinha da cidade em um ambiente exclusivo.</p>
+                        <p className="text-base sm:text-lg md:text-xl text-neutral-300 max-w-2xl mx-auto mb-8">O melhor espetinho da cidade em um ambiente exclusivo.</p>
                     </div>
                 </div>
 
@@ -1088,8 +1156,9 @@ export default function CardapioPublicoPage() {
 
                 {/* Footer */}
                 <footer className="bg-neutral-950 border-t border-neutral-800 mt-12 py-8 text-center">
-                    <p className="text-white font-display font-bold text-lg tracking-wider flex items-center justify-center gap-2">
-                        🔥 <span>KAL DO ESPETINHO</span>
+                    <p className="text-white font-display font-bold text-xl tracking-wider flex items-center justify-center gap-2">
+                        <div className="bg-orange-600 p-1 rounded shadow-neon mr-1"><Flame className="text-white" size={16} fill="currentColor" /></div>
+                        KAL DO <span className="text-orange-500">ESPETINHO</span>
                     </p>
                     <p className="text-neutral-400 text-sm uppercase tracking-[0.18em] mt-1">Arataca - BA</p>
                     <p className="text-neutral-600 text-xs mt-4">© 2026 Todos os direitos reservados.</p>
@@ -1105,7 +1174,7 @@ export default function CardapioPublicoPage() {
                     description: item.descricao || '',
                     price: item.preco,
                     category: item.categoria as any,
-                    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
+                    image: item.imagem_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
                     quantity: item.quantidade
                 }))}
                 onRemove={removerDoCarrinho}
@@ -1118,6 +1187,7 @@ export default function CardapioPublicoPage() {
                 initialCustomerPhone={dadosCliente.telefone}
                 onPlaceOrder={async (order) => {
                     const subtotal = order.total - (order.deliveryFee || 0)
+                    const taxaAplicada = order.deliveryFee || 0
                     setEnviando(true)
                     try {
                         let paymentMapped = 'dinheiro'
@@ -1126,10 +1196,7 @@ export default function CardapioPublicoPage() {
                         if (order.customer.paymentMethod === 'pay_later') paymentMapped = 'pagamento_posterior'
 
                         let tipoEntregaMapped = 'retirada'
-                        let taxaAplicada = 0
-
                         if (order.customer.deliveryMethod === 'delivery') {
-                            taxaAplicada = taxaEntrega
                             tipoEntregaMapped = 'delivery'
                         }
 
@@ -1145,7 +1212,7 @@ export default function CardapioPublicoPage() {
                             obs = `[Mesa ${order.customer.tableNumber}] ${obs}`
                         }
 
-                        const itens = carrinho.map(item => ({
+                        const itensPedido = carrinho.map(item => ({
                             id: item.id,
                             nome: item.nome,
                             quantidade: item.quantidade,
@@ -1162,15 +1229,15 @@ export default function CardapioPublicoPage() {
 
                             if (fetchError || !pedidoOriginal) throw new Error('Pedido original não encontrado.')
 
-                            const novosItens = [...pedidoOriginal.itens, ...itens]
+                            const novosItens = [...pedidoOriginal.itens, ...itensPedido]
                             const novoSubtotal = pedidoOriginal.subtotal + subtotal
-                            const novoTotal = pedidoOriginal.total + subtotal + taxaAplicada
+                            const novoTotal = pedidoOriginal.total + subtotal
 
                             const complemento = {
                                 data: new Date().toISOString(),
-                                itens: itens,
+                                itens: itensPedido,
                                 subtotal: subtotal,
-                                total: subtotal + taxaAplicada
+                                total: subtotal
                             }
 
                             const historico = Array.isArray(pedidoOriginal.historico_complementos)
@@ -1188,6 +1255,14 @@ export default function CardapioPublicoPage() {
                                 .eq('id', pedidoOriginal.id)
 
                             if (updateError) throw updateError
+
+                            // Webhook para Complemento
+                            await sendOrderWebhook('delivery_order', {
+                                ...pedidoOriginal,
+                                itens: novosItens,
+                                subtotal: novoSubtotal,
+                                total: novoTotal
+                            });
 
                             setModoComplemento(false)
                             setPedidoComplementoNumero(null)
@@ -1208,17 +1283,22 @@ export default function CardapioPublicoPage() {
                                     metodo_pagamento: paymentMapped,
                                     precisa_troco: order.customer.needChange,
                                     valor_para_troco: order.customer.needChange ? parseFloat(order.customer.changeFor.replace(/[^0-9,.]/g, '').replace(',', '.')) : null,
-                                    itens: itens,
+                                    itens: itensPedido,
                                     subtotal: subtotal,
                                     taxa_entrega: taxaAplicada,
                                     total: subtotal + taxaAplicada,
                                     observacoes: obs || null,
                                     status: 'pendente'
                                 })
-                                .select('numero_pedido')
+                                .select('*')
                                 .single()
 
                             if (error) throw error
+
+                            // Webhook para Novo Pedido
+                            if (data) {
+                                await sendOrderWebhook('delivery_order', data);
+                            }
 
                             setPedidoConfirmado(data.numero_pedido)
                             setCarrinho([])
@@ -1238,6 +1318,31 @@ export default function CardapioPublicoPage() {
             <ClienteIdentificationModal
                 isOpen={mostrarIdentificacao}
                 onClienteIdentified={handleClienteIdentified}
+            />
+
+            <PromoPopup
+                isOpen={isPromoOpen}
+                onClose={() => {
+                    setIsPromoOpen(false)
+                    const sessionKey = `kalPromoSeen_${promoSettings.title || 'default'}`
+                    sessionStorage.setItem(sessionKey, 'true')
+                }}
+                settings={promoSettings as any}
+                onAddToCart={(item) => {
+                    // Mapeia o item da promo para o formato do produto
+                    const promoProd: Produto = {
+                        id: item.id,
+                        nome: item.name,
+                        descricao: item.description,
+                        preco: item.price,
+                        categoria: 'Destaques',
+                        ativo: true
+                    }
+                    adicionarAoCarrinho(promoProd)
+                    setIsPromoOpen(false)
+                    const sessionKey = `kalPromoSeen_${promoSettings.title || 'default'}`
+                    sessionStorage.setItem(sessionKey, 'true')
+                }}
             />
 
             <GeminiAssistant systemInstruction={"Você é um assistente da Nita Quentinhas."} menuItems={kalMenuItems} />

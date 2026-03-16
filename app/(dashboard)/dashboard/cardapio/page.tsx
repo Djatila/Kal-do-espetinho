@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { Plus, Edit, Power, PowerOff, Search, ExternalLink } from 'lucide-react'
+import { Plus, Edit, Power, PowerOff, Search, ExternalLink, Zap, Save, Upload, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
+import { Input } from '@/components/ui/Input'
 
 export default function CardapioPage() {
     const [produtos, setProdutos] = useState<any[]>([])
@@ -15,24 +16,61 @@ export default function CardapioPage() {
     const [searchTerm, setSearchTerm] = useState('')
     const [filterCategoria, setFilterCategoria] = useState('all')
     const [filterStatus, setFilterStatus] = useState('all')
+
+    // Estados da Promoção
+    const [promoLoading, setPromoLoading] = useState(false)
+    const [uploadingPromo, setUploadingPromo] = useState(false)
+    const [configId, setConfigId] = useState<string | null>(null)
+    const [promo, setPromo] = useState({
+        promo_ativa: false,
+        promo_titulo: '',
+        promo_produto_nome: '',
+        promo_descricao: '',
+        promo_preco: 0,
+        promo_imagem_url: '',
+        promo_badge_texto: ''
+    })
+
     const supabase = createClient()
     const { showToast } = useToast()
 
-    async function loadProdutos() {
+    async function loadData() {
         setLoading(true)
-        const { data } = await supabase
+
+        // Carregar Produtos
+        const { data: prods } = await supabase
             .from('produtos')
             .select('*')
             .order('categoria')
             .order('nome')
 
-        setProdutos(data || [])
-        setFilteredProdutos(data || [])
+        setProdutos(prods || [])
+        setFilteredProdutos(prods || [])
+
+        // Carregar Configuração da Promoção
+        const { data: config } = await supabase
+            .from('configuracoes')
+            .select('*')
+            .single()
+
+        if (config) {
+            setConfigId(config.id)
+            setPromo({
+                promo_ativa: config.promo_ativa || false,
+                promo_titulo: config.promo_titulo || '',
+                promo_produto_nome: config.promo_produto_nome || '',
+                promo_descricao: config.promo_descricao || '',
+                promo_preco: config.promo_preco || 0,
+                promo_imagem_url: config.promo_imagem_url || '',
+                promo_badge_texto: config.promo_badge_texto || ''
+            })
+        }
+
         setLoading(false)
     }
 
     useEffect(() => {
-        loadProdutos()
+        loadData()
     }, [])
 
     useEffect(() => {
@@ -68,8 +106,51 @@ export default function CardapioPage() {
             showToast('error', 'Erro ao atualizar', error.message)
         } else {
             showToast('success', 'Status atualizado!', `Produto ${!currentStatus ? 'ativado' : 'desativado'} com sucesso.`)
-            loadProdutos()
+            loadData()
         }
+    }
+
+    async function handleSavePromo() {
+        if (!configId) return
+
+        setPromoLoading(true)
+        const { error } = await supabase
+            .from('configuracoes')
+            .update(promo)
+            .eq('id', configId)
+
+        if (error) {
+            showToast('error', 'Erro ao salvar promoção', error.message)
+        } else {
+            showToast('success', 'Promoção salva!', 'As alterações já estão valendo no cardápio online.')
+        }
+        setPromoLoading(false)
+    }
+
+    async function handlePromoImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        setUploadingPromo(true)
+        const fileExt = file.name.split('.').pop()
+        const fileName = `promo-${Math.random()}.${fileExt}`
+        const filePath = `${fileName}`
+
+        const { error: uploadError } = await supabase.storage
+            .from('promos')
+            .upload(filePath, file)
+
+        if (uploadError) {
+            showToast('error', 'Erro no upload', uploadError.message)
+        } else {
+            const { data: { publicUrl } } = supabase.storage
+                .from('promos')
+                .getPublicUrl(filePath)
+
+            setPromo({ ...promo, promo_imagem_url: publicUrl })
+            showToast('success', 'Imagem enviada!', 'Não esqueça de salvar as alterações da promoção.')
+        }
+        setUploadingPromo(false)
     }
 
     const categorias = Array.from(new Set(produtos.map(p => p.categoria).filter(Boolean)))
@@ -99,6 +180,120 @@ export default function CardapioPage() {
                     </Link>
                 </div>
             </div>
+
+            {/* Gestão do Pop-up de Promoção */}
+            <Card className="border-orange-200 bg-orange-50/30">
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Zap className="text-orange-500" size={20} />
+                        <CardTitle>Pop-up de Promoção (Prato do Dia)</CardTitle>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <span className="text-sm font-medium">{promo.promo_ativa ? 'Ativado' : 'Desativado'}</span>
+                            <input
+                                type="checkbox"
+                                checked={promo.promo_ativa}
+                                onChange={(e) => setPromo({ ...promo, promo_ativa: e.target.checked })}
+                                className="h-5 w-5 accent-orange-500"
+                            />
+                        </label>
+                        <Button
+                            onClick={handleSavePromo}
+                            disabled={promoLoading}
+                            className="bg-orange-500 hover:bg-orange-600 px-4 py-2 text-sm"
+                        >
+                            <Save size={16} className="mr-2" />
+                            {promoLoading ? 'Salvando...' : 'Salvar Promoção'}
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-3">
+                            <Input
+                                label="Título do Pop-up"
+                                value={promo.promo_titulo}
+                                onChange={(e) => setPromo({ ...promo, promo_titulo: e.target.value })}
+                                placeholder="Ex: PRATO DO DIA"
+                            />
+                            <Input
+                                label="Nome do Produto para o Carrinho"
+                                value={promo.promo_produto_nome}
+                                onChange={(e) => setPromo({ ...promo, promo_produto_nome: e.target.value })}
+                                placeholder="Ex: Tábua do Kal"
+                            />
+                            <Input
+                                label="Texto do Selo (Badge)"
+                                value={promo.promo_badge_texto}
+                                onChange={(e) => setPromo({ ...promo, promo_badge_texto: e.target.value })}
+                                placeholder="Ex: RECOMENDAÇÃO DA CHEFA"
+                            />
+                        </div>
+                        <div className="space-y-3">
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Descrição da Oferta</label>
+                                <textarea
+                                    className="w-full p-2 border border-input rounded-md text-sm min-h-[106px]"
+                                    value={promo.promo_descricao}
+                                    onChange={(e) => setPromo({ ...promo, promo_descricao: e.target.value })}
+                                    placeholder="Descreva a promoção..."
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-3">
+                            <Input
+                                label="Preço Promocional (R$)"
+                                type="number"
+                                value={promo.promo_preco}
+                                onChange={(e) => setPromo({ ...promo, promo_preco: Number(e.target.value) })}
+                            />
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium">Imagem da Promoção</label>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            value={promo.promo_imagem_url}
+                                            onChange={(e) => setPromo({ ...promo, promo_imagem_url: e.target.value })}
+                                            placeholder="URL da imagem ou faça upload..."
+                                            className="flex-1"
+                                        />
+                                        <label className="cursor-pointer">
+                                            <input
+                                                type="file"
+                                                className="hidden"
+                                                accept="image/*"
+                                                onChange={handlePromoImageUpload}
+                                                disabled={uploadingPromo}
+                                            />
+                                            <div className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-md text-sm hover:bg-orange-600 transition-colors font-medium shadow-sm">
+                                                {uploadingPromo ? (
+                                                    <span className="animate-spin whitespace-nowrap">⏳</span>
+                                                ) : (
+                                                    <Upload size={16} />
+                                                )}
+                                                Upload
+                                            </div>
+                                        </label>
+                                    </div>
+                                    {promo.promo_imagem_url && (
+                                        <div className="relative aspect-video w-full rounded-md overflow-hidden border bg-muted group">
+                                            <img
+                                                src={promo.promo_imagem_url}
+                                                alt="Preview"
+                                                className="w-full h-full object-cover"
+                                            />
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <ImageIcon className="text-white" size={24} />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Card de Estatísticas */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

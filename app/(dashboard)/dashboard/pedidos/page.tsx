@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { Clock, Phone, MapPin, Package, CheckCircle, XCircle, AlertCircle, Truck, Trash2, ShoppingBag, CreditCard, Banknote, Printer } from 'lucide-react'
 import styles from './page.module.css'
+import { sendOrderWebhook } from '@/utils/webhook'
+
 
 interface ItemPedido {
     id: string
@@ -49,7 +51,7 @@ const STATUS_CONFIG = {
 }
 
 const PAGAMENTO_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-    pix: { label: 'PIX', color: '#00a868', icon: '💳' },
+    pix: { label: 'PIX', color: '#00a868', icon: '/pix-logo.png' },
     cartao: { label: 'Cartão', color: '#3b82f6', icon: CreditCard },
     dinheiro: { label: 'Dinheiro', color: '#22c55e', icon: Banknote },
     pagamento_posterior: { label: 'Pagamento Posterior', color: '#f59e0b', icon: Clock }
@@ -178,6 +180,18 @@ export default function PedidosPage() {
         if (error) {
             console.error('Erro ao atualizar status:', error)
             alert('Erro ao atualizar status do pedido')
+        } else {
+            // Disparar Webhook para atualização de status
+            supabase
+                .from('pedidos_online')
+                .select('*')
+                .eq('id', pedidoId)
+                .single()
+                .then(({ data: fullOrder }) => {
+                    if (fullOrder) {
+                        sendOrderWebhook('order_status_update', fullOrder, novoStatus);
+                    }
+                });
         }
     }
 
@@ -281,6 +295,30 @@ export default function PedidosPage() {
         if (error) {
             console.error('Erro ao excluir pedido:', error)
             alert('Erro ao excluir pedido')
+        }
+    }
+
+    async function removerItemPedido(pedido: Pedido, itemIndex: number) {
+        if (!confirm('Deseja remover este item do pedido?')) return
+
+        const novosItens = [...pedido.itens]
+        novosItens.splice(itemIndex, 1)
+
+        const novoSubtotal = novosItens.reduce((acc, item) => acc + item.subtotal, 0)
+        const novoTotal = novoSubtotal + pedido.taxa_entrega
+
+        const { error } = await supabase
+            .from('pedidos_online')
+            .update({
+                itens: novosItens,
+                subtotal: novoSubtotal,
+                total: novoTotal
+            })
+            .eq('id', pedido.id)
+
+        if (error) {
+            console.error('Erro ao remover item:', error)
+            alert('Erro ao remover item do pedido')
         }
     }
 
@@ -637,15 +675,20 @@ export default function PedidosPage() {
                                         <span>{pedido.tipo_entrega === 'delivery' ? 'Entrega (Delivery)' : 'Retirada no Local'}</span>
                                     </div>
                                     {pedido.metodo_pagamento && (() => {
-                                        const PagamentoIcon = PAGAMENTO_CONFIG[pedido.metodo_pagamento].icon;
+                                        const PagamentoConfig = PAGAMENTO_CONFIG[pedido.metodo_pagamento];
+                                        const PagamentoIcon = PagamentoConfig.icon;
                                         return (
-                                            <div className={styles.infoItem} style={{ color: PAGAMENTO_CONFIG[pedido.metodo_pagamento].color, fontWeight: 500 }}>
+                                            <div className={styles.infoItem} style={{ color: PagamentoConfig.color, fontWeight: 500 }}>
                                                 {typeof PagamentoIcon === 'string' ? (
-                                                    <span style={{ fontSize: '16px' }}>{PagamentoIcon}</span>
+                                                    PagamentoIcon.startsWith('/') ? (
+                                                        <img src={PagamentoIcon} alt="Pix" style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
+                                                    ) : (
+                                                        <span style={{ fontSize: '16px' }}>{PagamentoIcon}</span>
+                                                    )
                                                 ) : (
                                                     <PagamentoIcon size={16} />
                                                 )}
-                                                <span>{PAGAMENTO_CONFIG[pedido.metodo_pagamento].label}</span>
+                                                <span>{PagamentoConfig.label}</span>
                                             </div>
                                         );
                                     })()}
@@ -695,11 +738,25 @@ export default function PedidosPage() {
                                                 key={idx}
                                                 className={`${styles.item} ${isComplementar ? styles.itemComplementar : ''}`}
                                             >
-                                                <span>
-                                                    {item.quantidade}x {item.nome}
-                                                    {isComplementar && <span className={styles.badgeNovo}>NOVO</span>}
-                                                </span>
-                                                <span>R$ {item.subtotal.toFixed(2)}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                                                    <span>
+                                                        {item.quantidade}x {item.nome}
+                                                        {isComplementar && <span className={styles.badgeNovo}>NOVO</span>}
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                    <span className={styles.itemPreco}>R$ {item.subtotal.toFixed(2)}</span>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            removerItemPedido(pedido, idx)
+                                                        }}
+                                                        className={styles.itemRemoveBtn}
+                                                        title="Remover Item"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
                                             </div>
                                         )
                                     })}
@@ -816,7 +873,15 @@ export default function PedidosPage() {
                                 <p><strong>Telefone:</strong> {pedidoSelecionado.cliente_telefone}</p>
                                 <p><strong>Tipo:</strong> {pedidoSelecionado.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}</p>
                                 {pedidoSelecionado.metodo_pagamento && (
-                                    <p><strong>Pagamento:</strong> {PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].label}</p>
+                                    <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <strong>Pagamento:</strong>
+                                        {PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].icon.startsWith('/') ? (
+                                            <img src={PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].icon} alt="Pix" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                                        ) : (
+                                            <span style={{ fontSize: '18px' }}>{PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].icon}</span>
+                                        )}
+                                        {PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].label}
+                                    </p>
                                 )}
                                 {pedidoSelecionado.metodo_pagamento === 'dinheiro' && pedidoSelecionado.precisa_troco && pedidoSelecionado.valor_para_troco && (
                                     <p style={{ color: '#22c55e', fontWeight: 500 }}>
@@ -833,8 +898,19 @@ export default function PedidosPage() {
                                 <h3>Itens do Pedido</h3>
                                 {pedidoSelecionado.itens.map((item, idx) => (
                                     <div key={idx} className={styles.itemDetalhe}>
-                                        <span>{item.quantidade}x {item.nome}</span>
-                                        <span>R$ {item.subtotal.toFixed(2)}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                                            <span>{item.quantidade}x {item.nome}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                            <span style={{ fontWeight: 600 }}>R$ {item.subtotal.toFixed(2)}</span>
+                                            <button
+                                                onClick={() => removerItemPedido(pedidoSelecionado, idx)}
+                                                className={styles.itemRemoveBtn}
+                                                title="Remover Item"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>

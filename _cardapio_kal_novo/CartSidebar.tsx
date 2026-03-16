@@ -169,12 +169,12 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
       createdAt: Date.now()
     };
 
-    // Simulate Network delay slightly for UX
-    setTimeout(() => {
-      onPlaceOrder(newOrder);
+    try {
+      await onPlaceOrder(newOrder);
+    } finally {
       setIsSubmitting(false);
       onClose();
-    }, 1000);
+    }
   };
 
   const getChangeValue = () => {
@@ -328,7 +328,8 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                 <div className="space-y-2">
                   <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'pix' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'}`}>
                     <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'pix'} onChange={() => handleInputChange('paymentMethod', 'pix')} />
-                    <QrCode size={18} className="text-teal-400" /><span className="text-sm font-medium">PIX (Chave/QR Code)</span>
+                    <img src="/pix-logo.png" alt="Pix" className="w-5 h-5 object-contain" />
+                    <span className="text-sm font-medium">PIX (Chave/QR Code)</span>
                   </label>
                   <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'credit_card' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'}`}>
                     <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'credit_card'} onChange={() => handleInputChange('paymentMethod', 'credit_card')} />

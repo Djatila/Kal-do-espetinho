@@ -64,6 +64,7 @@ export interface PromoSettings {
   price: number;
   image: string;
   badgeText: string; // Ex: "Recomendação da chefa"
+  productName?: string; // Nome real do produto para o carrinho
 }
 
 export interface AppSettings {

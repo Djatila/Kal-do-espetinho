@@ -29,7 +29,7 @@ export function Sidebar() {
     const { theme, setTheme } = useTheme()
     const [userName, setUserName] = useState<string>('')
     const [restaurantName, setRestaurantName] = useState<string>('Kal')
-    const [userRole, setUserRole] = useState<string>('Proprietária')
+    const [userRole, setUserRole] = useState<string>('Proprietário')
     const [logoUrl, setLogoUrl] = useState<string | null>(null)
     const [isMenuOpen, setIsMenuOpen] = useState(false)
 
