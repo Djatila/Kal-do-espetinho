@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, TrendingUp, TrendingDown, Wallet, FileText, LogOut, User, UtensilsCrossed, Users, Settings, Package, ShoppingBag, Sun, Moon, MonitorSmartphone } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, TrendingDown, Wallet, FileText, LogOut, User, UtensilsCrossed, Users, Settings, Package, ShoppingBag, Sun, Moon, MonitorSmartphone, ArrowLeft } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import styles from './Sidebar.module.css'
 import { clsx } from 'clsx'
@@ -81,73 +81,85 @@ export function Sidebar() {
         router.refresh()
     }
 
+    const isPdvRoute = pathname === '/dashboard/pdv'
+
     return (
-        <aside className={styles.sidebar}>
-            <div className={styles.header}>
-                <div className={styles.brandContainer}>
-                    {logoUrl ? (
-                        <div className={styles.logoWrapper}>
-                            <img src={logoUrl} alt="Logo" className={styles.logo} />
+        <>
+            {/* NO MOBILE: SE ESTIVER NO PDV, MOSTRA O CABEÇALHO VOLTAR E ESCONDE A SIDEBAR COMUM */}
+            <div className={clsx(styles.mobilePdvHeader, isPdvRoute ? styles.showMobilePdvHeader : '')}>
+                <button onClick={() => router.push('/dashboard')} className={styles.backButton}>
+                    <ArrowLeft size={24} />
+                </button>
+                <h1 className={styles.mobilePdvTitle}>PDV Atendente</h1>
+            </div>
+
+            <aside className={clsx(styles.sidebar, isPdvRoute ? styles.hideOnMobilePdv : '')}>
+                <div className={styles.header}>
+                    <div className={styles.brandContainer}>
+                        {logoUrl ? (
+                            <div className={styles.logoWrapper}>
+                                <img src={logoUrl} alt="Logo" className={styles.logo} />
+                            </div>
+                        ) : (
+                            <div className={styles.logoPlaceholder}>
+                                <UtensilsCrossed size={24} />
+                            </div>
+                        )}
+                        <div className={styles.brandText}>
+                            <h1 className={styles.title}>{restaurantName}</h1>
                         </div>
-                    ) : (
-                        <div className={styles.logoPlaceholder}>
-                            <UtensilsCrossed size={24} />
-                        </div>
-                    )}
-                    <div className={styles.brandText}>
-                        <h1 className={styles.title}>{restaurantName}</h1>
                     </div>
                 </div>
-            </div>
 
-            {userName && (
-                <div className={styles.userInfo}>
-                    <div className={styles.userAvatar}>
-                        <User size={20} />
+                {userName && (
+                    <div className={styles.userInfo}>
+                        <div className={styles.userAvatar}>
+                            <User size={20} />
+                        </div>
+                        <div className={styles.userDetails}>
+                            <p className={styles.userName}>{userName}</p>
+                            <p className={styles.userRole}>{userRole}</p>
+                        </div>
                     </div>
-                    <div className={styles.userDetails}>
-                        <p className={styles.userName}>{userName}</p>
-                        <p className={styles.userRole}>{userRole}</p>
-                    </div>
+                )}
+
+                <div className={styles.pdvActionContainer}>
+                    <Link href="/dashboard/pdv" className={styles.pdvButton}>
+                        <MonitorSmartphone size={20} />
+                        <span>PDV Atendente</span>
+                    </Link>
                 </div>
-            )}
 
-            <div className={styles.pdvActionContainer}>
-                <Link href="/dashboard/pdv" className={styles.pdvButton}>
-                    <MonitorSmartphone size={20} />
-                    <span>PDV Atendente</span>
-                </Link>
-            </div>
-
-            <nav className={styles.nav}>
-                {menuItems.map((item) => {
-                    const Icon = item.icon
-                    const isActive = pathname === item.href
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={clsx(styles.link, isActive && styles.active)}
-                        >
-                            <Icon size={20} />
-                            <span>{item.label}</span>
-                        </Link>
-                    )
-                })}
-            </nav>
-            <div className={styles.footer}>
-                <button
-                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                    className={styles.themeToggle}
-                >
-                    {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                    <span>{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
-                </button>
-                <button onClick={handleLogout} className={styles.logoutBtn}>
-                    <LogOut size={20} />
-                    <span>Sair</span>
-                </button>
-            </div>
-        </aside>
+                <nav className={styles.nav}>
+                    {menuItems.map((item) => {
+                        const Icon = item.icon
+                        const isActive = pathname === item.href
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className={clsx(styles.link, isActive && styles.active)}
+                            >
+                                <Icon size={20} />
+                                <span>{item.label}</span>
+                            </Link>
+                        )
+                    })}
+                </nav>
+                <div className={styles.footer}>
+                    <button
+                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        className={styles.themeToggle}
+                    >
+                        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                        <span>{theme === 'dark' ? 'Modo Claro' : 'Modo Escuro'}</span>
+                    </button>
+                    <button onClick={handleLogout} className={styles.logoutBtn}>
+                        <LogOut size={20} />
+                        <span>Sair</span>
+                    </button>
+                </div>
+            </aside>
+        </>
     )
 }

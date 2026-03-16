@@ -170,9 +170,7 @@ export default function PDVPage() {
 
             {/* MOBILE ONLY: Inputs at the top */}
             <div className={styles.mobileInputsTop}>
-                <div className={styles.pageHeaderMobile}>
-                    <h1>PDV Atendente - Novo Pedido</h1>
-                </div>
+                {/* Removido cabeçalho duplicado para ganhar espaço */}
                 <div className={styles.comandaInputsRow}>
                     <input
                         type="text"

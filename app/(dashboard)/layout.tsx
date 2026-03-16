@@ -1,6 +1,7 @@
 import { Sidebar } from '@/components/layout/Sidebar'
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
+import styles from './layout.module.css'
 
 export default async function DashboardLayout({
     children,
@@ -18,9 +19,11 @@ export default async function DashboardLayout({
     }
 
     return (
-        <div style={{ display: 'flex', minHeight: '100vh' }}>
-            <Sidebar />
-            <main style={{ flex: 1, marginLeft: '250px', padding: '2rem', backgroundColor: 'var(--background)' }}>
+        <div className={styles.layoutContainer}>
+            <div className={styles.sidebarWrapper}>
+                <Sidebar />
+            </div>
+            <main className={styles.mainContent}>
                 {children}
             </main>
         </div>

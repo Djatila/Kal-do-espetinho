@@ -1,0 +1,31 @@
+.layoutContainer {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebarWrapper {
+    /* Base configuration handled by Sidebar component itself mostly, but this wrapper can control visibility */
+    display: block;
+}
+
+.mainContent {
+    flex: 1;
+    margin-left: 260px;
+    /* Base margin for desktop sidebar */
+    padding: 1.5rem;
+    background-color: var(--background);
+}
+
+/* For mobile devices */
+@media (max-width: 1024px) {
+    .mainContent {
+        margin-left: 0;
+        padding: 0;
+        /* Each page manages its own padding to allow PDV to be full-bleed */
+        /* Non-PDV pages should add their own padding via their own CSS module */
+    }
+
+    .sidebarWrapper {
+        display: none;
+    }
+}
