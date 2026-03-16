@@ -1040,7 +1040,7 @@ export default function CardapioPublicoPage() {
                                     <h1 className="text-lg sm:text-xl font-display font-bold text-white tracking-widest uppercase">
                                         KAL DO <span className="text-orange-500">ESPETINHO</span>
                                     </h1>
-                                    <p className="text-[10px] text-neutral-400 tracking-[0.18em] uppercase mt-0.5">Arataca - BA</p>
+                                    <p className="text-[10px] text-neutral-400 tracking-[0.18em] uppercase -mt-[8px]">Arataca - BA</p>
                                 </div>
                             </div>
 
@@ -1160,7 +1160,7 @@ export default function CardapioPublicoPage() {
                         <div className="bg-orange-600 p-1 rounded shadow-neon mr-1"><Flame className="text-white" size={16} fill="currentColor" /></div>
                         KAL DO <span className="text-orange-500">ESPETINHO</span>
                     </p>
-                    <p className="text-neutral-400 text-sm uppercase tracking-[0.18em] mt-1">Arataca - BA</p>
+                    <p className="text-neutral-400 text-[10px] uppercase tracking-[0.18em] -mt-[2px]">Arataca - BA</p>
                     <p className="text-neutral-600 text-xs mt-4">© 2026 Todos os direitos reservados.</p>
                 </footer>
             </div>

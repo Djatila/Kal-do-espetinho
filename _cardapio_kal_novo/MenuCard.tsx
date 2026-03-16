@@ -13,7 +13,7 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
   // === ESTILO MINIMALISTA (BASEADO NO PRINT) ===
   if (variant === 'minimal') {
     return (
-      <div className="group relative bg-neutral-900 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300">
+      <div className="group relative bg-neutral-900 border border-orange-500/20 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 hover:border-orange-500/50">
         {/* Parte Superior: Imagem */}
         <div className="relative h-40 w-full overflow-hidden">
           <img
@@ -63,7 +63,7 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
 
   // === ESTILO PADRÃO (LARGO) ===
   return (
-    <div className="group relative bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden hover:border-orange-500/50 transition-all duration-300 hover:shadow-neon">
+    <div className="group relative bg-neutral-900 border border-orange-500/20 rounded-xl overflow-hidden hover:border-orange-500/50 transition-all duration-300 hover:shadow-neon">
       <div className="relative h-48 overflow-hidden">
         <img
           src={item.image}

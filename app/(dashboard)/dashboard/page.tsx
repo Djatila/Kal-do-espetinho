@@ -52,36 +52,85 @@ export default function DashboardPage() {
     useEffect(() => {
         async function loadData() {
             setLoading(true)
-            const today = new Date().toISOString().split('T')[0]
+            const now = new Date()
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+            const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).toISOString()
 
-            // Buscar dados do fluxo de caixa do dia
-            const { data: fluxo } = await supabase
-                .from('fluxo_caixa')
-                .select('*')
-                .eq('data', today)
-                .single()
-
-            setDashboardData(fluxo || { entrada_total: 0, saida_total: 0, saldo_do_dia: 0 })
-
-            // Buscar vendas dos últimos 7 dias
-            const sevenDaysAgo = new Date()
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-            const { data: vendas } = await supabase
+            // Buscar vendas de hoje (Manuais)
+            const { data: vendasHoje } = await supabase
                 .from('vendas')
-                .select('data, total, valor, quantidade')
-                .gte('data', sevenDaysAgo.toISOString())
-                .order('data', { ascending: true })
+                .select('total, valor, quantidade')
+                .gte('data', startOfToday)
+                .lte('data', endOfToday)
+
+            // Buscar pedidos online de hoje (Online)
+            const { data: pedidosOnlineHoje } = await supabase
+                .from('pedidos_online')
+                .select('total')
+                .gte('created_at', startOfToday)
+                .lte('created_at', endOfToday)
+                .in('status', ['entregue', 'confirmado', 'preparando', 'pronto'])
+
+            let entradaTotal = 0
+
+            // Somar vendas manuais
+            vendasHoje?.forEach(venda => {
+                entradaTotal += Number(venda.total || (venda.quantidade * venda.valor) || 0)
+            })
+
+            // Somar pedidos online
+            pedidosOnlineHoje?.forEach(pedido => {
+                entradaTotal += Number(pedido.total || 0)
+            })
+
+            // Buscar despesas de hoje
+            const { data: despesasHoje } = await supabase
+                .from('despesas')
+                .select('valor')
+                .gte('data', startOfToday)
+                .lte('data', endOfToday)
+
+            let saidaTotal = 0
+            despesasHoje?.forEach(despesa => {
+                saidaTotal += Number(despesa.valor || 0)
+            })
+
+            setDashboardData({
+                entrada_total: entradaTotal,
+                saida_total: saidaTotal,
+                saldo_do_dia: entradaTotal - saidaTotal
+            })
+
+            // Buscar vendas dos últimos 7 dias (Manuais e Online)
+            const sevenDaysAgo = new Date()
+            sevenDaysAgo.setHours(0, 0, 0, 0)
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+            const sevenDaysAgoIso = sevenDaysAgo.toISOString()
+
+            const [{ data: vendas7d }, { data: pedidos7d }] = await Promise.all([
+                supabase.from('vendas').select('data, total, valor, quantidade').gte('data', sevenDaysAgoIso),
+                supabase.from('pedidos_online').select('created_at, total').gte('created_at', sevenDaysAgoIso).in('status', ['entregue', 'confirmado', 'preparando', 'pronto'])
+            ])
 
             // Agrupar vendas por dia
             const vendasAgrupadas: { [key: string]: number } = {}
-            vendas?.forEach(venda => {
+
+            vendas7d?.forEach(venda => {
                 const dia = new Date(venda.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
                 const valorVenda = venda.total || (venda.quantidade * venda.valor) || 0
                 vendasAgrupadas[dia] = (vendasAgrupadas[dia] || 0) + Number(valorVenda)
             })
 
-            setVendasPorDia(Object.entries(vendasAgrupadas).map(([data, total]) => ({ data, total })))
+            pedidos7d?.forEach(pedido => {
+                const dia = new Date(pedido.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+                vendasAgrupadas[dia] = (vendasAgrupadas[dia] || 0) + Number(pedido.total || 0)
+            })
+
+            setVendasPorDia(Object.entries(vendasAgrupadas).map(([data, total]) => ({ data, total })).sort((a, b) => {
+                const [dayA, monthA] = a.data.split('/')
+                const [dayB, monthB] = b.data.split('/')
+                return new Date(2026, Number(monthA) - 1, Number(dayA)).getTime() - new Date(2026, Number(monthB) - 1, Number(dayB)).getTime()
+            }))
 
             // Buscar despesas por categoria (últimos 30 dias)
             const thirtyDaysAgo = new Date()
@@ -104,7 +153,7 @@ export default function DashboardPage() {
             const { count: clientesCount } = await supabase
                 .from('clientes')
                 .select('*', { count: 'exact', head: true })
-                .eq('ativo', true)
+                .eq('status', 'ativo')
 
             setTotalClientes(clientesCount || 0)
 
@@ -117,14 +166,15 @@ export default function DashboardPage() {
             setTotalProdutos(produtosCount || 0)
 
             // Buscar vendas por tipo (local vs delivery) - últimos 30 dias
-            const { data: vendasTipo } = await supabase
-                .from('vendas')
-                .select('tipo, total, valor, quantidade')
-                .gte('data', thirtyDaysAgo.toISOString())
+            const [{ data: vendasTipo }, { data: pedidosTipo }] = await Promise.all([
+                supabase.from('vendas').select('tipo, total, valor, quantidade').gte('data', thirtyDaysAgo.toISOString()),
+                supabase.from('pedidos_online').select('tipo_entrega, total').gte('created_at', thirtyDaysAgo.toISOString()).in('status', ['entregue', 'confirmado', 'preparando', 'pronto'])
+            ])
 
             const tipoAgrupado: { [key: string]: { total: number, quantidade: number } } = {}
+
             vendasTipo?.forEach(venda => {
-                const tipo = venda.tipo
+                const tipo = venda.tipo || 'local'
                 const valorVenda = venda.total || (venda.quantidade * venda.valor) || 0
                 if (!tipoAgrupado[tipo]) {
                     tipoAgrupado[tipo] = { total: 0, quantidade: 0 }
@@ -133,45 +183,59 @@ export default function DashboardPage() {
                 tipoAgrupado[tipo].quantidade += 1
             })
 
+            pedidosTipo?.forEach(pedido => {
+                const tipo = pedido.tipo_entrega === 'delivery' ? 'delivery' : 'retirada'
+                if (!tipoAgrupado[tipo]) {
+                    tipoAgrupado[tipo] = { total: 0, quantidade: 0 }
+                }
+                tipoAgrupado[tipo].total += Number(pedido.total || 0)
+                tipoAgrupado[tipo].quantidade += 1
+            })
+
             setVendasPorTipo(Object.entries(tipoAgrupado).map(([tipo, dados]) => ({
-                tipo: tipo === 'local' ? 'Local' : 'Delivery',
+                tipo: tipo.charAt(0).toUpperCase() + tipo.slice(1),
                 total: dados.total,
                 quantidade: dados.quantidade
             })))
 
-            // Calcular ticket médio do mês
+            // Calcular ticket médio do mês (Manuais e Online)
             const firstDayOfMonth = new Date()
             firstDayOfMonth.setDate(1)
             firstDayOfMonth.setHours(0, 0, 0, 0)
+            const firstDayIso = firstDayOfMonth.toISOString()
 
-            const { data: vendasMes } = await supabase
-                .from('vendas')
-                .select('total, valor, quantidade')
-                .gte('data', firstDayOfMonth.toISOString())
+            const [{ data: vendasMes }, { data: pedidosMes }] = await Promise.all([
+                supabase.from('vendas').select('total, valor, quantidade').gte('data', firstDayIso),
+                supabase.from('pedidos_online').select('total').gte('created_at', firstDayIso).in('status', ['entregue', 'confirmado', 'preparando', 'pronto'])
+            ])
 
             let totalMes = 0
             let countMes = 0
+
             vendasMes?.forEach(venda => {
                 const valorVenda = venda.total || (venda.quantidade * venda.valor) || 0
                 totalMes += Number(valorVenda)
                 countMes += 1
             })
 
+            pedidosMes?.forEach(pedido => {
+                totalMes += Number(pedido.total || 0)
+                countMes += 1
+            })
+
             setTotalVendasMes(totalMes)
             setTicketMedio(countMes > 0 ? totalMes / countMes : 0)
 
-            // Buscar top 5 produtos mais vendidos (últimos 30 dias)
-            const { data: itensVenda } = await supabase
-                .from('itens_venda')
-                .select(`
-                    quantidade,
-                    subtotal,
-                    produto_id,
-                    produtos (nome)
-                `)
+            // Buscar top 5 produtos mais vendidos (últimos 30 dias - Manuais e Online)
+            const [{ data: itensVenda }, { data: pedidosProdutos }] = await Promise.all([
+                supabase.from('itens_venda').select('quantidade, subtotal, produtos (nome)').gte('created_at', thirtyDaysAgo.toISOString()),
+                supabase.from('pedidos_online').select('itens').gte('created_at', thirtyDaysAgo.toISOString()).in('status', ['entregue', 'confirmado', 'preparando', 'pronto'])
+            ])
 
             // Agrupar por produto
             const produtosAgrupados: { [key: string]: { nome: string, quantidade: number, total: number } } = {}
+
+            // Do itens_venda (vendas manuais)
             itensVenda?.forEach((item: any) => {
                 const produtoNome = item.produtos?.nome || 'Produto Desconhecido'
                 if (!produtosAgrupados[produtoNome]) {
@@ -179,6 +243,19 @@ export default function DashboardPage() {
                 }
                 produtosAgrupados[produtoNome].quantidade += Number(item.quantidade || 0)
                 produtosAgrupados[produtoNome].total += Number(item.subtotal || 0)
+            })
+
+            // Do pedidos_online (vendas automáticas)
+            pedidosProdutos?.forEach((pedido: any) => {
+                const itens = Array.isArray(pedido.itens) ? pedido.itens : []
+                itens.forEach((item: any) => {
+                    const produtoNome = item.nome || 'Produto Desconhecido'
+                    if (!produtosAgrupados[produtoNome]) {
+                        produtosAgrupados[produtoNome] = { nome: produtoNome, quantidade: 0, total: 0 }
+                    }
+                    produtosAgrupados[produtoNome].quantidade += Number(item.quantidade || 0)
+                    produtosAgrupados[produtoNome].total += Number(item.subtotal || 0)
+                })
             })
 
             const topProdutosArray = Object.values(produtosAgrupados)

@@ -87,7 +87,7 @@ export default function RelatoriosPage() {
     async function fetchData() {
         setLoading(true)
 
-        // Buscar Vendas
+        // Buscar Vendas Manuais
         const { data: vendasData, error: vendasError } = await supabase
             .from('vendas')
             .select(`
@@ -107,10 +107,17 @@ export default function RelatoriosPage() {
             .lte('data', `${dataFim}T23:59:59`)
             .order('data', { ascending: true })
 
-        console.log('📊 Período:', dataInicio, 'até', dataFim)
-        console.log('📊 Vendas encontradas:', vendasData?.length || 0)
-        console.log('📊 Dados de vendas:', vendasData)
+        // Buscar Pedidos Online
+        const { data: pedidosData, error: pedidosError } = await supabase
+            .from('pedidos_online')
+            .select('*')
+            .gte('created_at', `${dataInicio}T00:00:00`)
+            .lte('created_at', `${dataFim}T23:59:59`)
+            .in('status', ['entregue', 'confirmado', 'preparando', 'pronto'])
+            .order('created_at', { ascending: true })
+
         if (vendasError) console.error('❌ Erro ao buscar vendas:', vendasError)
+        if (pedidosError) console.error('❌ Erro ao buscar pedidos online:', pedidosError)
 
         // Buscar Despesas
         const { data: despesasData } = await supabase
@@ -120,67 +127,77 @@ export default function RelatoriosPage() {
             .lte('data', `${dataFim}T23:59:59`)
 
         if (vendasData && despesasData) {
-            setVendas(vendasData)
+            // Consolidar as vendas
+            const vendasConsolidadas = [
+                ...vendasData.map(v => ({
+                    ...v,
+                    origem: 'PDV',
+                    data_venda: v.data,
+                    itens: v.itens_venda
+                })),
+                ...(pedidosData || []).map(p => ({
+                    ...p,
+                    origem: 'Online',
+                    data_venda: p.created_at,
+                    forma_pagamento: p.metodo_pagamento || 'Online',
+                    total: p.total,
+                    itens: p.itens
+                }))
+            ]
+
+            setVendas(vendasConsolidadas)
             setDespesas(despesasData)
-            processarDados(vendasData, despesasData)
+            processarDados(vendasConsolidadas, despesasData)
         }
 
         setLoading(false)
     }
 
     function processarDados(vendas: any[], despesas: any[]) {
-        console.log('🔄 Processando dados...')
-        console.log('🔄 Total de vendas:', vendas.length)
-
         // 1. KPIs
         const faturamento = vendas.reduce((acc, v) => acc + Number(v.total || 0), 0)
         const totalDespesas = despesas.reduce((acc, d) => acc + Number(d.valor || 0), 0)
-        const pedidos = vendas.length
-        const ticketMedio = pedidos > 0 ? faturamento / pedidos : 0
+        const pedidosCount = vendas.length
+        const ticketMedio = pedidosCount > 0 ? faturamento / pedidosCount : 0
         const lucro = faturamento - totalDespesas
 
-        setKpis({ faturamento, ticketMedio, pedidos, lucro })
+        setKpis({ faturamento, ticketMedio, pedidos: pedidosCount, lucro })
 
         // 2. Gráfico: Vendas por Dia
         const vendasPorDiaMap = new Map()
         vendas.forEach(v => {
-            const data = new Date(v.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+            const data = new Date(v.data_venda).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
             vendasPorDiaMap.set(data, (vendasPorDiaMap.get(data) || 0) + Number(v.total || 0))
         })
-        const vendasPorDia = Array.from(vendasPorDiaMap.entries()).map(([data, valor]) => ({ data, valor }))
-        console.log('📈 Vendas por dia:', vendasPorDia)
+        const vendasPorDia = Array.from(vendasPorDiaMap.entries())
+            .map(([data, valor]) => ({ data, valor }))
+            .sort((a, b) => {
+                const [diaA, mesA] = a.data.split('/')
+                const [diaB, mesB] = b.data.split('/')
+                return new Date(2026, Number(mesA) - 1, Number(diaA)).getTime() - new Date(2026, Number(mesB) - 1, Number(diaB)).getTime()
+            })
 
         // 3. Gráfico: Top Produtos
         const produtosMap = new Map()
-        let vendasComItens = 0
-        let vendasSemItens = 0
 
         vendas.forEach(v => {
-            console.log('🛒 Processando venda:', v.id, 'itens_venda:', v.itens_venda)
-            if (v.itens_venda && Array.isArray(v.itens_venda) && v.itens_venda.length > 0) {
-                // Vendas novas com itens_venda detalhados
-                vendasComItens++
-                v.itens_venda.forEach((item: any) => {
-                    const nome = item.produtos?.nome || 'Desconhecido'
-                    console.log('  📦 Item:', nome, 'qtd:', item.quantidade)
-                    produtosMap.set(nome, (produtosMap.get(nome) || 0) + item.quantidade)
+            if (v.itens && Array.isArray(v.itens) && v.itens.length > 0) {
+                v.itens.forEach((item: any) => {
+                    const nome = item.produtos?.nome || item.nome || 'Desconhecido'
+                    produtosMap.set(nome, (produtosMap.get(nome) || 0) + (item.quantidade || 0))
                 })
-            } else {
-                // Vendas antigas sem itens_venda - usar fallback
-                vendasSemItens++
+            } else if (v.origem === 'PDV') {
+                // Fallback para vendas manuais antigas
                 const tipoVenda = v.tipo === 'delivery' ? 'Delivery' : 'Local'
                 const quantidade = v.quantidade || 1
                 produtosMap.set(tipoVenda, (produtosMap.get(tipoVenda) || 0) + quantidade)
             }
         })
 
-        console.log(`📊 Vendas com itens: ${vendasComItens}, sem itens: ${vendasSemItens}`)
-
         const topProdutos = Array.from(produtosMap.entries())
             .map(([nome, qtd]) => ({ nome, qtd }))
             .sort((a, b) => b.qtd - a.qtd)
             .slice(0, 5)
-        console.log('🏆 Top produtos:', topProdutos)
 
         // 4. Gráfico: Formas de Pagamento
         const pagamentosMap = new Map()
@@ -189,7 +206,6 @@ export default function RelatoriosPage() {
             pagamentosMap.set(forma, (pagamentosMap.get(forma) || 0) + Number(v.total || 0))
         })
         const formasPagamento = Array.from(pagamentosMap.entries()).map(([nome, valor]) => ({ nome, valor }))
-        console.log('💳 Formas de pagamento:', formasPagamento)
 
         setGraficos({
             vendasPorDia,
@@ -238,15 +254,15 @@ export default function RelatoriosPage() {
         doc.text('Detalhamento de Vendas', 14, finalY)
 
         const vendasData = vendas.map(v => [
-            new Date(v.data).toLocaleDateString(),
-            v.tipo,
+            new Date(v.data_venda).toLocaleDateString(),
+            v.origem || 'PDV',
             v.forma_pagamento,
             `R$ ${Number(v.total || 0).toFixed(2)}`
         ])
 
         autoTable(doc, {
             startY: finalY + 5,
-            head: [['Data', 'Tipo', 'Pagamento', 'Valor']],
+            head: [['Data', 'Origem', 'Pagamento', 'Valor']],
             body: vendasData,
             theme: 'striped',
             headStyles: { fillColor: [102, 126, 234] }
@@ -260,8 +276,8 @@ export default function RelatoriosPage() {
 
         // Planilha de Vendas
         const wsVendas = XLSX.utils.json_to_sheet(vendas.map(v => ({
-            Data: new Date(v.data).toLocaleDateString(),
-            Tipo: v.tipo,
+            Data: new Date(v.data_venda).toLocaleDateString(),
+            Origem: v.origem || 'PDV',
             Pagamento: v.forma_pagamento,
             Total: v.total
         })))
