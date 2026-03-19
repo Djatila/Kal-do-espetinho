@@ -66,10 +66,18 @@ export async function POST(request: Request) {
         let authUserId = existingClient?.user_id
 
         if (authUserId) {
-            // Usuário já vinculado, atualizar senha
+            // Usuário já vinculado, atualizar dados, senha apenas se informada
+            const updateParams: any = {
+                user_metadata: { nome, telefone }
+            }
+
+            if (senha && senha.trim().length >= 6) {
+                updateParams.password = senha
+            }
+
             const { error: updateAuthError } = await supabaseAdmin.auth.admin.updateUserById(
                 authUserId,
-                { password: senha }
+                updateParams
             )
             if (updateAuthError) throw updateAuthError
         } else {

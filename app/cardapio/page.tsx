@@ -375,7 +375,7 @@ export default function CardapioPublicoPage() {
         try {
             const { data: pedido, error } = await supabase
                 .from('pedidos_online')
-                .select('status, id, cliente_nome')
+                .select('status, id, cliente_nome, metodo_pagamento')
                 .eq('numero_pedido', numeroPedido)
                 .maybeSingle()
 
@@ -389,6 +389,11 @@ export default function CardapioPublicoPage() {
                 setModoComplemento(true)
                 setPedidoComplementoNumero(numeroPedido)
                 setPedidoConfirmado(null)
+                // Preservar o método de pagamento original
+                setDadosCliente(prev => ({
+                    ...prev,
+                    metodo_pagamento: pedido.metodo_pagamento as any
+                }))
             } else {
                 const nomeCliente = dadosCliente.nome || pedido.cliente_nome || 'Cliente'
                 const { data: solicitacao, error: solErr } = await supabase
@@ -437,6 +442,10 @@ export default function CardapioPublicoPage() {
                                 // para que o cliente possa ver e abrir o carrinho
                                 setModoComplemento(true)
                                 setPedidoComplementoNumero(numeroPedido)
+                                setDadosCliente(prev => ({
+                                    ...prev,
+                                    metodo_pagamento: pedido.metodo_pagamento as any
+                                }))
                                 // Abre o carrinho automaticamente para o cliente escolher itens
                                 setMostrarCarrinho(true)
                                 showToast('success', '✅ Autorizado!', 'Selecione o item e confirme no carrinho.')
@@ -1131,6 +1140,16 @@ export default function CardapioPublicoPage() {
                 pixKey={configuracao.chave_pix}
                 deliveryFee={taxaEntrega}
                 allowPayLater={tipoCliente === 'credito'}
+                isComplement={modoComplemento}
+                initialPaymentMethod={modoComplemento ? (() => {
+                    const map: Record<string, string> = {
+                        'pix': 'pix',
+                        'cartao': 'credit_card',
+                        'dinheiro': 'cash',
+                        'pagamento_posterior': 'pay_later'
+                    };
+                    return map[dadosCliente.metodo_pagamento || ''] || 'pix';
+                })() : undefined}
                 limiteCredito={dadosCliente.limite_credito || 0}
                 creditoUtilizado={dadosCliente.credito_utilizado || 0}
                 initialCustomerName={dadosCliente.nome}

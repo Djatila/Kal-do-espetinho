@@ -17,6 +17,8 @@ interface CartSidebarProps {
   initialCustomerPhone?: string;
   limiteCredito?: number;
   creditoUtilizado?: number;
+  isComplement?: boolean;
+  initialPaymentMethod?: string;
 }
 
 const CartSidebar: React.FC<CartSidebarProps> = ({
@@ -33,7 +35,9 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   initialCustomerName,
   initialCustomerPhone,
   limiteCredito = 0,
-  creditoUtilizado = 0
+  creditoUtilizado = 0,
+  isComplement = false,
+  initialPaymentMethod = ''
 }) => {
   // Estado do formulário
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
@@ -62,14 +66,15 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
 
   // Sincroniza dados iniciais do cliente quando mudam no pai (identificação)
   React.useEffect(() => {
-    if (initialCustomerName || initialCustomerPhone) {
+    if (initialCustomerName || initialCustomerPhone || (isComplement && initialPaymentMethod)) {
       setOrderDetails(prev => ({
         ...prev,
         customerName: initialCustomerName || prev.customerName,
-        customerPhone: initialCustomerPhone || prev.customerPhone
+        customerPhone: initialCustomerPhone || prev.customerPhone,
+        paymentMethod: (isComplement && initialPaymentMethod) ? (initialPaymentMethod as any) : prev.paymentMethod
       }));
     }
-  }, [initialCustomerName, initialCustomerPhone]);
+  }, [initialCustomerName, initialCustomerPhone, initialPaymentMethod, isComplement]);
 
   // Calcula subtotal (apenas itens)
   const subtotal = useMemo(() => {
@@ -338,23 +343,68 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
               <div>
                 <h3 className="text-white font-bold mb-3 text-sm uppercase tracking-wider border-l-2 border-orange-500 pl-2">Pagamento</h3>
                 <div className="space-y-2">
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'pix' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'}`}>
-                    <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'pix'} onChange={() => handleInputChange('paymentMethod', 'pix')} />
+                  <label
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${orderDetails.paymentMethod === 'pix' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'} ${isComplement && initialPaymentMethod !== 'pix' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      className="hidden"
+                      checked={orderDetails.paymentMethod === 'pix'}
+                      onChange={() => !isComplement && handleInputChange('paymentMethod', 'pix')}
+                      disabled={isComplement && initialPaymentMethod !== 'pix'}
+                    />
                     <img src="/pix-logo.png" alt="Pix" className="w-5 h-5 object-contain" />
                     <span className="text-sm font-medium">PIX (Chave/QR Code)</span>
                   </label>
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'credit_card' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'}`}>
-                    <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'credit_card'} onChange={() => handleInputChange('paymentMethod', 'credit_card')} />
+
+                  <label
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${orderDetails.paymentMethod === 'credit_card' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'} ${isComplement && initialPaymentMethod !== 'credit_card' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      className="hidden"
+                      checked={orderDetails.paymentMethod === 'credit_card'}
+                      onChange={() => !isComplement && handleInputChange('paymentMethod', 'credit_card')}
+                      disabled={isComplement && initialPaymentMethod !== 'credit_card'}
+                    />
                     <CreditCard size={18} className="text-blue-400" /><span className="text-sm font-medium">Cartão</span>
                   </label>
-                  <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'cash' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'}`}>
-                    <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'cash'} onChange={() => handleInputChange('paymentMethod', 'cash')} />
+
+                  <label
+                    className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${orderDetails.paymentMethod === 'cash' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'} ${isComplement && initialPaymentMethod !== 'cash' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <input
+                      type="radio"
+                      name="payment"
+                      className="hidden"
+                      checked={orderDetails.paymentMethod === 'cash'}
+                      onChange={() => !isComplement && handleInputChange('paymentMethod', 'cash')}
+                      disabled={isComplement && initialPaymentMethod !== 'cash'}
+                    />
                     <Banknote size={18} className="text-green-400" /><span className="text-sm font-medium">Dinheiro</span>
                   </label>
+
+                  {isComplement && (
+                    <p className="text-[10px] text-orange-500/80 italic mt-1 bg-orange-500/5 p-2 rounded border border-orange-500/10">
+                      * O método de pagamento não pode ser alterado para complementos de pedido.
+                    </p>
+                  )}
+
                   {allowPayLater && (
                     <div className="space-y-2">
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'pay_later' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'}`}>
-                        <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'pay_later'} onChange={() => handleInputChange('paymentMethod', 'pay_later')} />
+                      <label
+                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${orderDetails.paymentMethod === 'pay_later' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'} ${isComplement && initialPaymentMethod !== 'pay_later' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        <input
+                          type="radio"
+                          name="payment"
+                          className="hidden"
+                          checked={orderDetails.paymentMethod === 'pay_later'}
+                          onChange={() => !isComplement && handleInputChange('paymentMethod', 'pay_later')}
+                          disabled={isComplement && initialPaymentMethod !== 'pay_later'}
+                        />
                         <Clock size={18} className="text-yellow-400" /><span className="text-sm font-medium">Pagar Depois</span>
                       </label>
                       {limiteCredito > 0 && orderDetails.paymentMethod === 'pay_later' && (
