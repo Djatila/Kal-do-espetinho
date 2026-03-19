@@ -47,7 +47,12 @@ export default function DashboardPage() {
     const [ticketMedio, setTicketMedio] = useState(0)
     const [totalVendasMes, setTotalVendasMes] = useState(0)
     const [loading, setLoading] = useState(true)
+    const [mounted, setMounted] = useState(false)
     const supabase = createClient()
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     useEffect(() => {
         async function loadData() {
@@ -408,7 +413,7 @@ export default function DashboardPage() {
                         <h2 className={styles.chartTitle}>Vendas dos Últimos 7 Dias</h2>
                     </div>
                     <div className={styles.chartContent}>
-                        {vendasPorDia.length > 0 ? (
+                        {mounted && vendasPorDia.length > 0 ? (
                             <ResponsiveContainer width="100%" height={300}>
                                 <LineChart data={vendasPorDia}>
                                     <defs>
@@ -462,7 +467,7 @@ export default function DashboardPage() {
                         <h2 className={styles.chartTitle}>Despesas por Categoria (30 dias)</h2>
                     </div>
                     <div className={styles.chartContent}>
-                        {despesasPorCategoria.length > 0 ? (
+                        {mounted && despesasPorCategoria.length > 0 ? (
                             <ResponsiveContainer width="100%" height={300}>
                                 <PieChart>
                                     <Pie
@@ -509,7 +514,7 @@ export default function DashboardPage() {
                         <h2 className={styles.chartTitle}>Vendas por Tipo (30 dias)</h2>
                     </div>
                     <div className={styles.chartContent}>
-                        {vendasPorTipo.length > 0 ? (
+                        {mounted && vendasPorTipo.length > 0 ? (
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={vendasPorTipo}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />
@@ -555,7 +560,7 @@ export default function DashboardPage() {
                         </h2>
                     </div>
                     <div className={styles.chartContent}>
-                        {topProdutos.length > 0 ? (
+                        {mounted && topProdutos.length > 0 ? (
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={topProdutos} layout="vertical">
                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.3} />

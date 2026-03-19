@@ -187,14 +187,14 @@ export default function DespesasPage() {
                                                 <Link href={`/dashboard/despesas/${despesa.id}/editar`}>
                                                     <Button
                                                         variant="ghost"
-                                                        className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700"
+                                                        className="!h-8 !w-8 !p-0 !text-blue-500 hover:!text-blue-700 flex items-center justify-center shrink-0"
                                                     >
                                                         <Edit size={16} />
                                                     </Button>
                                                 </Link>
                                                 <Button
                                                     variant="ghost"
-                                                    className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                                                    className="!h-8 !w-8 !p-0 !text-red-500 hover:!text-red-700 flex items-center justify-center shrink-0"
                                                     onClick={() => setDeleteModal({ isOpen: true, id: despesa.id })}
                                                 >
                                                     <Trash2 size={16} />

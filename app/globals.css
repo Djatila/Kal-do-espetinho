@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --background: #f8f9fa;
   --foreground: #1a1a1a;
@@ -29,6 +33,13 @@
   --ring: #e65100;
 
   --radius: 0.5rem;
+
+  /* Cores Neon Kal */
+  --neon-400: #fb923c;
+  --neon-500: #f97316;
+  --neon-600: #ea580c;
+
+  color-scheme: light;
 }
 
 .dark {
@@ -59,12 +70,27 @@
   --border: #1e293b;
   --input: #1e293b;
   --ring: #ff9800;
+
+  color-scheme: dark;
 }
 
 button {
   background-color: transparent;
   background-image: none;
   cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  background-color: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+}
+
+select option {
+  background-color: var(--card);
+  color: var(--card-foreground);
 }
 
 * {

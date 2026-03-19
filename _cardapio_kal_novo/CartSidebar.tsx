@@ -15,6 +15,8 @@ interface CartSidebarProps {
   allowPayLater?: boolean;
   initialCustomerName?: string;
   initialCustomerPhone?: string;
+  limiteCredito?: number;
+  creditoUtilizado?: number;
 }
 
 const CartSidebar: React.FC<CartSidebarProps> = ({
@@ -29,7 +31,9 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   onPlaceOrder,
   allowPayLater,
   initialCustomerName,
-  initialCustomerPhone
+  initialCustomerPhone,
+  limiteCredito = 0,
+  creditoUtilizado = 0
 }) => {
   // Estado do formulário
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
@@ -54,6 +58,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
 
   const [copiedPix, setCopiedPix] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLimitWarning, setShowLimitWarning] = useState(false);
 
   // Sincroniza dados iniciais do cliente quando mudam no pai (identificação)
   React.useEffect(() => {
@@ -76,6 +81,8 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
 
   // Calcula total final
   const total = subtotal + currentDeliveryFee;
+  // limiteDisponivel = quanto o cliente ainda pode gastar no crédito
+  const limiteDisponivel = limiteCredito - creditoUtilizado;
 
   // Função auxiliar para classes de input com erro
   const getInputClass = (fieldName: string, isAddress = false) => {
@@ -140,12 +147,17 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
       if (isNaN(val) || val < total) {
         newErrors.changeFor = true;
         hasError = true;
-        // Se for erro de valor inválido (não vazio), alertamos também
-        if (!orderDetails.changeFor.trim()) {
-          // Apenas highlight visual se estiver vazio
-        } else {
+        if (orderDetails.changeFor.trim()) {
           alert(`O valor para troco deve ser maior que o total (R$ ${total.toFixed(2)}).`);
         }
+      }
+    }
+
+    // Validação Pagar Depois
+    if (orderDetails.paymentMethod === 'pay_later') {
+      if (total > limiteDisponivel) {
+        setShowLimitWarning(true);
+        return;
       }
     }
 
@@ -165,7 +177,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
       items: cart,
       total: total,
       deliveryFee: currentDeliveryFee > 0 ? currentDeliveryFee : undefined,
-      status: 'pending',
+      status: 'pendente',
       createdAt: Date.now()
     };
 
@@ -340,10 +352,22 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
                     <Banknote size={18} className="text-green-400" /><span className="text-sm font-medium">Dinheiro</span>
                   </label>
                   {allowPayLater && (
-                    <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'pay_later' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'}`}>
-                      <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'pay_later'} onChange={() => handleInputChange('paymentMethod', 'pay_later')} />
-                      <Clock size={18} className="text-yellow-400" /><span className="text-sm font-medium">Pagar Depois</span>
-                    </label>
+                    <div className="space-y-2">
+                      <label className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${orderDetails.paymentMethod === 'pay_later' ? 'bg-orange-600/20 border-orange-500 text-white' : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:text-white'}`}>
+                        <input type="radio" name="payment" className="hidden" checked={orderDetails.paymentMethod === 'pay_later'} onChange={() => handleInputChange('paymentMethod', 'pay_later')} />
+                        <Clock size={18} className="text-yellow-400" /><span className="text-sm font-medium">Pagar Depois</span>
+                      </label>
+                      {limiteCredito > 0 && orderDetails.paymentMethod === 'pay_later' && (
+                        <div className={`p-3 text-sm rounded-lg border ${limiteDisponivel / limiteCredito <= 0.35 ? 'bg-orange-500/10 border-orange-500/30 text-orange-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}>
+                          <p className="font-bold flex items-center justify-between">
+                            Limite Restante: <span>R$ {limiteDisponivel.toFixed(2)}</span>
+                          </p>
+                          {limiteDisponivel / limiteCredito <= 0.35 && (
+                            <p className="text-xs mt-1 text-orange-500">Seu limite está atingindo a cota máxima em breve.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
 
                   {orderDetails.paymentMethod === 'cash' && (
@@ -405,6 +429,63 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
           </div>
         )}
       </div>
+
+      {showLimitWarning && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#1a1a1a] border border-neutral-800 rounded-xl p-6 w-full max-w-sm relative shadow-2xl flex flex-col items-center text-center">
+
+            <button
+              onClick={() => setShowLimitWarning(false)}
+              className="absolute top-4 right-4 text-neutral-500 hover:text-white transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="w-12 h-12 bg-orange-500/10 rounded-full flex items-center justify-center mb-4">
+              <AlertCircle size={24} className="text-orange-500" />
+            </div>
+
+            <h3 className="text-lg font-bold text-white mb-2">Limite Insuficiente</h3>
+            <p className="text-neutral-400 text-sm mb-4">
+              *Seu limite está abaixo do valor da compra*
+            </p>
+
+            <div className="w-full bg-neutral-900 border border-neutral-800 rounded-lg p-4 mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-neutral-500 text-sm">Valor do Pedido:</span>
+                <span className="text-white font-bold">R$ {total.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-neutral-500 text-sm">Seu Limite Atual:</span>
+                <span className="text-orange-500 font-bold">R$ {limiteDisponivel.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <p className="text-neutral-300 text-sm mb-6">
+              Fale com a gerência pelo WhatsApp abaixo para solicitar mais limite e liberar sua comanda.
+            </p>
+
+            <a
+              href={`https://wa.me/55${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(`Olá Kal! Estou tentando finalizar meu pedido de R$ ${total.toFixed(2)}, mas meu limite de crédito disponível é de R$ ${limiteDisponivel.toFixed(2)}. Consegue me dar uma forcinha e aumentar meu limite para eu liberar essa comanda?`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(249,115,22,0.5)] mb-3"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z" />
+              </svg>
+              Falar com o Kal
+            </a>
+
+            <button
+              onClick={() => setShowLimitWarning(false)}
+              className="w-full py-2 bg-transparent text-neutral-400 hover:text-white transition-colors text-sm font-medium border border-neutral-800 rounded-xl"
+            >
+              Voltar ao Carrinho
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };

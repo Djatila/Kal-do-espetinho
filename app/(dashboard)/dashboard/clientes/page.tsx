@@ -28,7 +28,9 @@ export default function ClientesPage() {
         endereco: '',
         observacoes: '',
         tipo_cliente: 'informal',
-        senha: ''
+        senha: '',
+        limite_credito: 0,
+        limite_ilimitado: false
     })
 
     async function loadClientes() {
@@ -133,7 +135,9 @@ export default function ClientesPage() {
             endereco: cliente.endereco || '',
             observacoes: cliente.observacoes || '',
             tipo_cliente: cliente.tipo_cliente || 'informal',
-            senha: '' // Senha sempre vazia ao editar
+            senha: '', // Senha sempre vazia ao editar
+            limite_credito: cliente.limite_credito || 0,
+            limite_ilimitado: cliente.limite_ilimitado || false
         })
         setEditingId(cliente.id)
         setShowForm(true)
@@ -164,7 +168,9 @@ export default function ClientesPage() {
             endereco: '',
             observacoes: '',
             tipo_cliente: 'informal',
-            senha: ''
+            senha: '',
+            limite_credito: 0,
+            limite_ilimitado: false
         })
         setEditingId(null)
         setShowForm(false)
@@ -229,14 +235,40 @@ export default function ClientesPage() {
                             </div>
 
                             {formData.tipo_cliente === 'credito' && (
-                                <Input
-                                    label={editingId ? "Nova Senha (deixe em branco para manter)" : "Senha de Acesso"}
-                                    type="password"
-                                    value={formData.senha}
-                                    onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
-                                    placeholder={editingId ? "******" : "Mínimo 6 caracteres"}
-                                    required={!editingId}
-                                />
+                                <>
+                                    <Input
+                                        label={editingId ? "Nova Senha (deixe em branco para manter)" : "Senha de Acesso"}
+                                        type="password"
+                                        value={formData.senha}
+                                        onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
+                                        placeholder={editingId ? "******" : "Mínimo 6 caracteres"}
+                                        required={!editingId}
+                                    />
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium">Limite de Crédito (R$)</label>
+                                            <Input
+                                                type="number"
+                                                step="0.01"
+                                                disabled={formData.limite_ilimitado}
+                                                value={formData.limite_credito}
+                                                onChange={(e) => setFormData({ ...formData, limite_credito: Number(e.target.value) })}
+                                                placeholder="0.00"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2 pb-3">
+                                            <input
+                                                type="checkbox"
+                                                id="limite_ilimitado"
+                                                className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                checked={formData.limite_ilimitado}
+                                                onChange={(e) => setFormData({ ...formData, limite_ilimitado: e.target.checked, limite_credito: e.target.checked ? 0 : formData.limite_credito })}
+                                            />
+                                            <label htmlFor="limite_ilimitado" className="text-sm font-medium">Limite Ilimitado</label>
+                                        </div>
+                                    </div>
+                                </>
                             )}
 
                             <Input
@@ -328,6 +360,7 @@ export default function ClientesPage() {
                                     <th className="p-4 font-medium text-muted-foreground">Telefone</th>
                                     <th className="p-4 font-medium text-muted-foreground">Endereço</th>
                                     <th className="p-4 font-medium text-muted-foreground">Pedidos</th>
+                                    <th className="p-4 font-medium text-muted-foreground">Limite Disp.</th>
                                     <th className="p-4 font-medium text-muted-foreground">Total Gasto</th>
                                     <th className="p-4 font-medium text-muted-foreground">Ações</th>
                                 </tr>
@@ -377,6 +410,22 @@ export default function ClientesPage() {
                                                     {cliente.total_pedidos || 0} pedidos
                                                 </span>
                                             </td>
+                                            <td className="p-4">
+                                                {cliente.tipo_cliente === 'credito' ? (
+                                                    cliente.limite_ilimitado ? (
+                                                        <span className="text-green-600 font-bold">Ilimitado</span>
+                                                    ) : (
+                                                        <div className="flex flex-col">
+                                                            <span className={((cliente.limite_credito || 0) - (cliente.credito_utilizado || 0)) <= 0 ? 'text-red-500' : 'text-blue-600'}>
+                                                                R$ {((cliente.limite_credito || 0) - (cliente.credito_utilizado || 0)).toFixed(2)}
+                                                            </span>
+                                                            <span className="text-[10px] text-muted-foreground">de R$ {(cliente.limite_credito || 0).toFixed(2)}</span>
+                                                        </div>
+                                                    )
+                                                ) : (
+                                                    <span className="text-muted-foreground">-</span>
+                                                )}
+                                            </td>
                                             <td className="p-4 font-medium">
                                                 R$ {(cliente.total_gasto || 0).toFixed(2)}
                                             </td>
@@ -384,14 +433,14 @@ export default function ClientesPage() {
                                                 <div className="flex gap-2">
                                                     <Button
                                                         variant="ghost"
-                                                        className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700"
+                                                        className="!h-8 !w-8 !p-0 !text-blue-500 hover:!text-blue-700 flex items-center justify-center shrink-0"
                                                         onClick={() => handleEdit(cliente)}
                                                     >
                                                         <Edit size={16} />
                                                     </Button>
                                                     <Button
                                                         variant="ghost"
-                                                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                                                        className="!h-8 !w-8 !p-0 !text-red-500 hover:!text-red-700 flex items-center justify-center shrink-0"
                                                         onClick={() => setDeleteModal({ isOpen: true, id: cliente.id })}
                                                     >
                                                         <Trash2 size={16} />

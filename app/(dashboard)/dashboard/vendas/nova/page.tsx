@@ -375,7 +375,7 @@ export default function NovaVendaPage() {
                                                         <Button
                                                             type="button"
                                                             variant="ghost"
-                                                            className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                                                            className="!h-8 !w-8 !p-0 !text-red-500 hover:!text-red-700 flex items-center justify-center shrink-0"
                                                             onClick={() => removerItem(index)}
                                                         >
                                                             <Trash2 size={16} />

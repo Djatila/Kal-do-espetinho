@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 export async function POST(request: Request) {
     try {
         const body = await request.json()
-        const { nome, telefone, senha, endereco, observacoes, tipo_cliente } = body
+        const { nome, telefone, senha, endereco, observacoes, tipo_cliente, limite_credito, limite_ilimitado } = body
 
         const supabaseAdmin = createAdminClient()
 
@@ -27,7 +27,9 @@ export async function POST(request: Request) {
                     endereco,
                     observacoes,
                     tipo_cliente: 'credito', // Forçar crédito
-                    status: 'ativo'
+                    status: 'ativo',
+                    limite_credito: limite_credito || 0,
+                    limite_ilimitado: limite_ilimitado || false
                 })
                 .eq('id', existingClient.id)
 
@@ -42,7 +44,9 @@ export async function POST(request: Request) {
                     endereco,
                     observacoes,
                     tipo_cliente: 'credito',
-                    status: 'ativo'
+                    status: 'ativo',
+                    limite_credito: limite_credito || 0,
+                    limite_ilimitado: limite_ilimitado || false
                 })
                 .select('id')
                 .single()

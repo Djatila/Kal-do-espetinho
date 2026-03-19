@@ -38,6 +38,8 @@ interface DadosCliente {
     precisa_troco: boolean
     valor_para_troco: string
     observacoes: string
+    limite_credito?: number
+    credito_utilizado?: number
 }
 
 export default function CardapioPublicoPage() {
@@ -61,11 +63,13 @@ export default function CardapioPublicoPage() {
     const [mostrarModalBloqueio, setMostrarModalBloqueio] = useState(false)
     const [mostrarModalNovoPedido, setMostrarModalNovoPedido] = useState(false)
     const [mostrarModalWhatsAppCancela, setMostrarModalWhatsAppCancela] = useState(false)
-    const [statusCancelamento, setStatusCancelamento] = useState<string | null>(null)
+    const [statusCancelamento, setStatusCancelamento] = useState<'verificando' | 'cancelando' | null>(null)
     const [confirmacoMinimizada, setConfirmacoMinimizada] = useState(false)
     const [solicitacaoId, setSolicitacaoId] = useState<string | null>(null)
     const [solicitacaoStatus, setSolicitacaoStatus] = useState<'pendente' | 'autorizado' | 'recusado' | null>(null)
+    const [orderStatus, setOrderStatus] = useState<string | null>(null) // Novo estado para status real-time
     const solicitacaoChannelRef = useRef<any>(null)
+    const orderStatusStatusRef = useRef<any>(null) // Ref para listener do status do pedido
 
     // Customer identification
     const [mostrarIdentificacao, setMostrarIdentificacao] = useState(false)
@@ -106,7 +110,9 @@ export default function CardapioPublicoPage() {
         metodo_pagamento: undefined,
         precisa_troco: false,
         valor_para_troco: '',
-        observacoes: ''
+        observacoes: '',
+        limite_credito: 0,
+        credito_utilizado: 0
     })
 
     // Carregar carrinho do localStorage
@@ -133,7 +139,72 @@ export default function CardapioPublicoPage() {
         loadProdutos()
         loadConfiguracao()
         checkClienteSession()
+        restoreActiveOrder()
     }, [])
+
+    async function restoreActiveOrder() {
+        const activeOrderStr = localStorage.getItem('activeOrder')
+        if (activeOrderStr) {
+            try {
+                const activeOrder = JSON.parse(activeOrderStr)
+                if (activeOrder && activeOrder.numero) {
+                    // Verificar status atual no banco
+                    const { data: pedido } = await supabase
+                        .from('pedidos_online')
+                        .select('status, tipo_entrega')
+                        .eq('numero_pedido', activeOrder.numero)
+                        .maybeSingle()
+
+                    if (pedido && pedido.status !== 'cancelado') {
+                        setPedidoConfirmado(activeOrder.numero)
+                        setOrderStatus(pedido.status)
+                        setDadosCliente(prev => ({ ...prev, tipo_entrega: pedido.tipo_entrega as any }))
+                        setupOrderStatusListener(activeOrder.numero)
+                    } else {
+                        // Se estiver cancelado, limpa a persistência
+                        localStorage.removeItem('activeOrder')
+                    }
+                }
+            } catch (e) {
+                console.error('Erro ao restaurar pedido ativo:', e)
+            }
+        }
+    }
+
+    function setupOrderStatusListener(numeroPedido: number) {
+        if (orderStatusStatusRef.current) {
+            supabase.removeChannel(orderStatusStatusRef.current)
+        }
+
+        const ch = supabase
+            .channel(`order_status_${numeroPedido}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'pedidos_online',
+                    filter: `numero_pedido=eq.${numeroPedido}`
+                },
+                (payload) => {
+                    const novoStatus = (payload.new as any).status
+                    setOrderStatus(novoStatus)
+
+                    if (['cancelado', 'entregue'].includes(novoStatus)) {
+                        // Aguarda um pouco antes de mostrar a opção de novo pedido ou resetar
+                        setTimeout(() => {
+                            if (novoStatus === 'cancelado') {
+                                showToast('info', 'Pedido Cancelado', 'Este pedido foi cancelado.')
+                                resetarEstadoTotal()
+                            }
+                        }, 2000)
+                    }
+                }
+            )
+            .subscribe()
+
+        orderStatusStatusRef.current = ch
+    }
 
     async function checkClienteSession() {
         // Verificar se há sessão de cliente salva
@@ -181,7 +252,9 @@ export default function CardapioPublicoPage() {
                 ...prev,
                 nome: cliente.nome || '',
                 telefone: cliente.telefone || '',
-                endereco: cliente.endereco || ''
+                endereco: cliente.endereco || '',
+                limite_credito: cliente.limite_credito || 0,
+                credito_utilizado: cliente.credito_utilizado || 0
             }))
         }
     }
@@ -196,13 +269,13 @@ export default function CardapioPublicoPage() {
         window.location.reload()
     }
 
-    function handleClienteIdentified(id: string, tipo: 'credito' | 'informal') {
+    async function handleClienteIdentified(id: string, tipo: 'credito' | 'informal') {
         setClienteId(id)
         setTipoCliente(tipo)
         sessionStorage.setItem('clienteId', id)
         sessionStorage.setItem('tipoCliente', tipo)
         setMostrarIdentificacao(false)
-        loadClienteData(id)
+        await loadClienteData(id)
     }
 
     async function loadProdutos() {
@@ -386,164 +459,6 @@ export default function CardapioPublicoPage() {
     const taxaAplicada = dadosCliente.tipo_entrega === 'delivery' ? taxaEntrega : 0
     const total = subtotal + taxaAplicada
 
-    async function finalizarPedido() {
-        if (!dadosCliente.nome || !dadosCliente.telefone) {
-            alert('Por favor, preencha seu nome e telefone')
-            return
-        }
-
-        if (dadosCliente.tipo_entrega === 'delivery' && !dadosCliente.endereco) {
-            alert('Por favor, preencha seu endereço para entrega')
-            return
-        }
-
-        if (!dadosCliente.metodo_pagamento) {
-            alert('Por favor, selecione a forma de pagamento')
-            return
-        }
-
-        if (dadosCliente.metodo_pagamento === 'dinheiro' && dadosCliente.precisa_troco) {
-            const valorParaTroco = parseFloat(dadosCliente.valor_para_troco)
-            if (!dadosCliente.valor_para_troco || isNaN(valorParaTroco) || valorParaTroco < total) {
-                alert('Por favor, informe um valor válido para o troco (deve ser maior ou igual ao total)')
-                return
-            }
-        }
-
-        if (carrinho.length === 0) {
-            alert('Seu carrinho está vazio')
-            return
-        }
-
-        setEnviando(true)
-
-        const itens = carrinho.map(item => ({
-            id: item.id,
-            nome: item.nome,
-            quantidade: item.quantidade,
-            preco: item.preco,
-            subtotal: item.preco * item.quantidade
-        }))
-
-        // Modo Complemento: Atualizar pedido existente
-        if (modoComplemento && pedidoComplementoNumero) {
-            // Buscar pedido original
-            const { data: pedidoOriginal, error: fetchError } = await supabase
-                .from('pedidos_online')
-                .select('*')
-                .eq('numero_pedido', pedidoComplementoNumero)
-                .single()
-
-            if (fetchError || !pedidoOriginal) {
-                setEnviando(false)
-                alert('Erro: Pedido original não encontrado')
-                return
-            }
-
-            // Calcular novos totais
-            const novosItens = [...pedidoOriginal.itens, ...itens]
-            const novoSubtotal = pedidoOriginal.subtotal + subtotal
-            const novoTotal = pedidoOriginal.total + total
-
-            // Criar registro de complemento para histórico
-            const complemento = {
-                data: new Date().toISOString(),
-                itens: itens,
-                subtotal: subtotal,
-                total: total
-            }
-
-            const historico = Array.isArray(pedidoOriginal.historico_complementos)
-                ? [...pedidoOriginal.historico_complementos, complemento]
-                : [complemento]
-
-            // Atualizar pedido
-            const { error: updateError } = await supabase
-                .from('pedidos_online')
-                .update({
-                    itens: novosItens,
-                    subtotal: novoSubtotal,
-                    total: novoTotal,
-                    historico_complementos: historico
-                })
-                .eq('numero_pedido', pedidoComplementoNumero)
-
-            setEnviando(false)
-
-            if (updateError) {
-                console.error('Erro ao adicionar complemento:', updateError)
-                alert('Erro ao adicionar itens. Tente novamente.')
-            } else {
-                // Resetar modo complemento
-                setModoComplemento(false)
-                setPedidoComplementoNumero(null)
-                setCarrinho([])
-                localStorage.removeItem('carrinho')
-                setMostrarCheckout(false)
-                setMostrarCarrinho(false)
-                setPedidoConfirmado(pedidoComplementoNumero)
-
-                // Disparar Webhook para Complemento/Adição de Itens
-                if (pedidoOriginal) {
-                    sendOrderWebhook('delivery_order', {
-                        ...pedidoOriginal,
-                        itens: novosItens,
-                        subtotal: novoSubtotal,
-                        total: novoTotal
-                    });
-                }
-            }
-        } else {
-            // Modo Normal: Criar novo pedido
-            const { data, error } = await supabase
-                .from('pedidos_online')
-                .insert({
-                    cliente_id: clienteId,
-                    cliente_nome: dadosCliente.nome,
-                    cliente_telefone: dadosCliente.telefone,
-                    cliente_endereco: dadosCliente.endereco || null,
-                    tipo_entrega: dadosCliente.tipo_entrega,
-                    metodo_pagamento: dadosCliente.metodo_pagamento,
-                    precisa_troco: dadosCliente.precisa_troco,
-                    valor_para_troco: dadosCliente.precisa_troco && dadosCliente.valor_para_troco
-                        ? parseFloat(dadosCliente.valor_para_troco)
-                        : null,
-                    itens: itens,
-                    subtotal: subtotal,
-                    taxa_entrega: taxaAplicada,
-                    total: total,
-                    observacoes: dadosCliente.observacoes || null,
-                    status: 'pendente'
-                })
-                .select('numero_pedido')
-                .single()
-
-            setEnviando(false)
-
-            if (error) {
-                console.error('Erro ao criar pedido:', error)
-                alert('Erro ao enviar pedido. Tente novamente.')
-            } else if (data) {
-                setPedidoConfirmado(data.numero_pedido)
-                setCarrinho([])
-                localStorage.removeItem('carrinho')
-                setMostrarCheckout(false)
-                setMostrarCarrinho(false)
-
-                // Disparar Webhook para Novo Pedido
-                supabase
-                    .from('pedidos_online')
-                    .select('*')
-                    .eq('numero_pedido', data.numero_pedido)
-                    .single()
-                    .then(({ data: fullOrder }) => {
-                        if (fullOrder) {
-                            sendOrderWebhook('delivery_order', fullOrder);
-                        }
-                    });
-            }
-        }
-    }
 
     const resetarEstadoTotal = () => {
         setPedidoConfirmado(null)
@@ -553,6 +468,11 @@ export default function CardapioPublicoPage() {
         setMostrarModalBloqueio(false)
         setSolicitacaoId(null)
         setSolicitacaoStatus(null)
+        localStorage.removeItem('activeOrder') // Limpar pedido ativo
+        if (orderStatusStatusRef.current) {
+            supabase.removeChannel(orderStatusStatusRef.current)
+            orderStatusStatusRef.current = null
+        }
         if (solicitacaoChannelRef.current) {
             supabase.removeChannel(solicitacaoChannelRef.current)
             solicitacaoChannelRef.current = null
@@ -693,51 +613,68 @@ export default function CardapioPublicoPage() {
                         <p>Seu pedido foi recebido aguarde as próximas etapas pelo Whatsapp.</p>
                         <p className={styles.textoSecundario}>
                             {dadosCliente.tipo_entrega === 'delivery'
-                                ? 'Entraremos em contato em breve para confirmar a entrega.'
+                                ? 'voce deverá receber seu pedido em breve...'
                                 : 'Você pode retirar seu pedido em breve...'}
                         </p>
+                        {tipoCliente === 'credito' && dadosCliente.limite_credito && (
+                            <div style={{
+                                marginTop: '-0.3rem',
+                                padding: '0.4rem 1.5rem',
+                                background: '#1c1c1c',
+                                borderRadius: '10px',
+                                border: '1px solid #333',
+                                display: 'block',
+                                width: '90%',
+                                margin: '-0.3rem auto 0.4rem'
+                            }}>
+                                <p style={{ fontSize: '0.65rem', color: '#999', marginBottom: '0.05rem' }}>Seu Limite Restante</p>
+                                <p style={{ fontSize: '1rem', fontWeight: 'bold', color: '#22c55e' }}>
+                                    R$ {((dadosCliente.limite_credito || 0) - (dadosCliente.credito_utilizado || 0)).toFixed(2)}
+                                </p>
+                            </div>
+                        )}
                     </>
                 )}
 
                 {/* Modal de bloqueio de adição de itens */}
                 {mostrarModalBloqueio && (
                     <div style={{
-                        marginTop: '1rem',
-                        padding: '1.25rem',
-                        borderRadius: '12px',
+                        marginTop: '0.4rem',
+                        padding: '0.4rem',
+                        borderRadius: '10px',
                         border: solicitacaoStatus === 'recusado' ? '2px solid #ef4444' : '2px solid #f59e0b',
                         background: solicitacaoStatus === 'recusado' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
                         textAlign: 'center'
                     }}>
                         {solicitacaoStatus === 'pendente' && (
                             <>
-                                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏳</div>
-                                <p style={{ color: '#f59e0b', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                                <div style={{ fontSize: '1rem', marginBottom: '0.1rem' }}>⏳</div>
+                                <p style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '0.72rem', marginBottom: '0.1rem' }}>
                                     Item não pode ser adicionado agora
                                 </p>
-                                <p style={{ color: '#ccc', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                                <p style={{ color: '#ccc', fontSize: '0.64rem', marginBottom: '0.2rem' }}>
                                     Seu pedido já está em preparação. Uma solicitação foi enviada ao atendente.
                                 </p>
-                                <p style={{ color: '#f59e0b', fontSize: '0.8rem', animation: 'pulse 2s infinite' }}>
+                                <p style={{ color: '#f59e0b', fontSize: '0.6rem', animation: 'pulse 2s infinite' }}>
                                     🔔 Aguardando autorização do atendente...
                                 </p>
-                                <p style={{ color: '#888', fontSize: '0.75rem', marginTop: '0.5rem' }}>
+                                <p style={{ color: '#888', fontSize: '0.58rem', marginTop: '0.1rem' }}>
                                     Caso prefira, chame o atendente pessoalmente.
                                 </p>
                             </>
                         )}
                         {solicitacaoStatus === 'recusado' && (
                             <>
-                                <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>❌</div>
-                                <p style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                                <div style={{ fontSize: '1rem', marginBottom: '0.1rem' }}>❌</div>
+                                <p style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '0.72rem', marginBottom: '0.1rem' }}>
                                     Adição não autorizada
                                 </p>
-                                <p style={{ color: '#ccc', fontSize: '0.85rem' }}>
+                                <p style={{ color: '#ccc', fontSize: '0.64rem' }}>
                                     O atendente não pôde autorizar a adição do item. Por favor, chame o atendente para mais informações.
                                 </p>
                                 <button
                                     onClick={() => { setMostrarModalBloqueio(false); setSolicitacaoStatus(null) }}
-                                    style={{ marginTop: '0.75rem', padding: '0.5rem 1.25rem', borderRadius: '8px', background: '#ef4444', color: '#fff', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}
+                                    style={{ marginTop: '0.35rem', padding: '0.25rem 0.8rem', borderRadius: '8px', background: '#ef4444', color: '#fff', fontWeight: 'bold', fontSize: '0.7rem', border: 'none', cursor: 'pointer' }}
                                 >
                                     Fechar
                                 </button>
@@ -746,95 +683,106 @@ export default function CardapioPublicoPage() {
                     </div>
                 )}
 
-                {/* Botão principal - apenas na tela de Pedido Recebido */}
+                {/* Botão Cancelar Pedido e Voltar ao Início */}
                 {!modoComplemento && (
-                    <button
-                        className={styles.botaoPrimario}
-                        onClick={() => setMostrarModalNovoPedido(true)}
-                    >
-                        Fazer um novo pedido
-                    </button>
+                    <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <button
+                            className={styles.botaoCancelarDireto}
+                            onClick={() => handleCancelarPedido(pedidoConfirmado!)}
+                            disabled={statusCancelamento !== null}
+                            style={{
+                                width: '100%',
+                                padding: '1rem',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                color: '#f87171',
+                                fontWeight: 'bold',
+                                fontSize: '1rem',
+                                border: '1px solid rgba(248, 113, 113, 0.3)',
+                                borderRadius: '0.75rem',
+                                cursor: statusCancelamento ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {statusCancelamento === 'verificando' ? '⏳ Verificando...' :
+                                statusCancelamento === 'cancelando' ? '🔴 Cancelando...' :
+                                    '❌ Cancelar Pedido'}
+                        </button>
+                    </div>
                 )}
 
-                {/* Popup de confirmacao novo pedido */}
-                {!modoComplemento && mostrarModalNovoPedido && (
+                {/* Status em tempo real */}
+                {pedidoConfirmado && orderStatus && (
                     <div style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'rgba(0,0,0,0.7)',
-                        zIndex: 200,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        marginTop: '1.5rem',
                         padding: '1rem',
-                        backdropFilter: 'blur(4px)'
+                        borderRadius: '0.75rem',
+                        background: 'rgba(255,255,255,0.05)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        textAlign: 'center'
                     }}>
+                        <p style={{ color: '#aaa', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Status do seu pedido:</p>
                         <div style={{
-                            background: '#1c1c1c',
-                            borderRadius: '1.25rem',
-                            padding: '2rem',
-                            maxWidth: '440px',
-                            width: '100%',
-                            textAlign: 'center',
-                            border: '1px solid #333',
-                            boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+                            display: 'inline-block',
+                            padding: '0.4rem 1.2rem',
+                            borderRadius: '2rem',
+                            fontWeight: 'bold',
+                            fontSize: '0.9rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            background:
+                                orderStatus === 'pendente' ? 'rgba(245, 158, 11, 0.1)' :
+                                    orderStatus === 'confirmado' ? 'rgba(59, 130, 246, 0.1)' :
+                                        orderStatus === 'preparando' ? 'rgba(139, 92, 246, 0.1)' :
+                                            orderStatus === 'pronto' ? 'rgba(34, 197, 94, 0.1)' :
+                                                orderStatus === 'saiu_para_entrega' ? 'rgba(234, 179, 8, 0.1)' :
+                                                    orderStatus === 'entregue' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.1)',
+                            color:
+                                orderStatus === 'pendente' ? '#f59e0b' :
+                                    orderStatus === 'confirmado' ? '#3b82f6' :
+                                        orderStatus === 'preparando' ? '#8b5cf6' :
+                                            orderStatus === 'pronto' ? '#22c55e' :
+                                                orderStatus === 'saiu_para_entrega' ? '#eab308' :
+                                                    orderStatus === 'entregue' ? '#22c55e' : '#fff',
+                            border: `1px solid ${orderStatus === 'pendente' ? 'rgba(245, 158, 11, 0.3)' :
+                                orderStatus === 'confirmado' ? 'rgba(59, 130, 246, 0.3)' :
+                                    orderStatus === 'preparando' ? 'rgba(139, 92, 246, 0.3)' :
+                                        orderStatus === 'pronto' ? 'rgba(34, 197, 94, 0.3)' :
+                                            orderStatus === 'saiu_para_entrega' ? 'rgba(234, 179, 8, 0.3)' :
+                                                orderStatus === 'entregue' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(255,255,255,0.1)'
+                                }`
                         }}>
-                            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>⚠️</div>
-                            <p style={{ color: '#fff', fontWeight: 'bold', fontSize: '1.05rem', marginBottom: '0.75rem', lineHeight: 1.5 }}>
-                                Já existe um pedido seu em curso!
-                            </p>
-                            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-                                Deseja adicionar mais algum item? Clique em{' '}
-                                <strong style={{ color: '#fbbf24' }}>“Adicionar mais itens ao pedido”</strong>{' '}
-                                ou se quer realmente criar um novo pedido clique em{' '}
-                                <strong style={{ color: '#f87171' }}>“Cancelar este pedido e criar um novo”</strong>.
-                            </p>
+                            {orderStatus === 'pendente' && '⏳ Aguardando confirmação'}
+                            {orderStatus === 'confirmado' && '✅ Confirmado'}
+                            {orderStatus === 'preparando' && '👨‍🍳 Em preparação'}
+                            {orderStatus === 'pronto' && '✅ Pronto para retirada!'}
+                            {orderStatus === 'saiu_para_entrega' && '🛵 Saiu para entrega'}
+                            {orderStatus === 'entregue' && '🏁 Entregue! Bom apetite!'}
+                            {(!['pendente', 'confirmado', 'preparando', 'saiu_para_entrega', 'entregue', 'pronto'].includes(orderStatus)) && `Status: ${orderStatus}`}
+                        </div>
+
+                        {orderStatus === 'entregue' && (
                             <button
-                                onClick={() => {
-                                    setMostrarModalNovoPedido(false)
-                                    handleAdicionarItens(pedidoConfirmado!)
-                                }}
+                                onClick={resetarEstadoTotal}
                                 style={{
+                                    marginTop: '1.5rem',
                                     width: '100%',
                                     padding: '0.85rem',
-                                    background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
-                                    color: '#78350f',
+                                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                                    color: '#fff',
                                     fontWeight: 'bold',
                                     fontSize: '0.95rem',
                                     border: 'none',
                                     borderRadius: '0.75rem',
-                                    cursor: 'pointer',
-                                    marginBottom: '0.75rem'
+                                    cursor: 'pointer'
                                 }}
                             >
-                                Adicionar mais itens ao pedido
+                                Fazer um novo pedido
                             </button>
-                            <button
-                                onClick={() => handleCancelarPedido(pedidoConfirmado!)}
-                                disabled={statusCancelamento !== null}
-                                style={{
-                                    width: '100%',
-                                    padding: '0.75rem',
-                                    background: 'transparent',
-                                    color: '#f87171',
-                                    fontWeight: '600',
-                                    fontSize: '0.9rem',
-                                    border: '1px solid #f87171',
-                                    borderRadius: '0.75rem',
-                                    cursor: statusCancelamento ? 'not-allowed' : 'pointer',
-                                    opacity: statusCancelamento ? 0.7 : 1
-                                }}
-                            >
-                                {statusCancelamento === 'verificando' ? 'Verificando status...'
-                                    : statusCancelamento === 'cancelando' ? 'Cancelando...'
-                                        : 'Cancelar este pedido e criar um novo'}
-                            </button>
-                        </div>
+                        )}
                     </div>
                 )}
+
+                {/* Popup de confirmacao novo pedido - REMOVIDO pois agora o fluxo é fixo */}
 
                 {/* Popup de Contato WhatsApp para Cancelamento */}
                 {!modoComplemento && mostrarModalWhatsAppCancela && (
@@ -1183,6 +1131,8 @@ export default function CardapioPublicoPage() {
                 pixKey={configuracao.chave_pix}
                 deliveryFee={taxaEntrega}
                 allowPayLater={tipoCliente === 'credito'}
+                limiteCredito={dadosCliente.limite_credito || 0}
+                creditoUtilizado={dadosCliente.credito_utilizado || 0}
                 initialCustomerName={dadosCliente.nome}
                 initialCustomerPhone={dadosCliente.telefone}
                 onPlaceOrder={async (order) => {
@@ -1270,6 +1220,19 @@ export default function CardapioPublicoPage() {
                             localStorage.removeItem('carrinho')
                             setMostrarCarrinho(false)
                             setPedidoConfirmado(pedidoComplementoNumero)
+                            setOrderStatus(pedidoOriginal.status) // Manter status atual
+
+                            // Persistir pedido ativo e iniciar listener
+                            localStorage.setItem('activeOrder', JSON.stringify({ numero: pedidoComplementoNumero }))
+                            setupOrderStatusListener(pedidoComplementoNumero)
+
+                            if (clienteId && tipoCliente === 'credito') {
+                                await loadClienteData(clienteId)
+                            }
+
+                            // Garantir que tipo_entrega esteja correto para a mensagem
+                            setDadosCliente(prev => ({ ...prev, tipo_entrega: pedidoOriginal.tipo_entrega as any }))
+
                             window.scrollTo({ top: 0, behavior: 'smooth' })
                         } else {
                             const { data, error } = await supabase
@@ -1301,9 +1264,27 @@ export default function CardapioPublicoPage() {
                             }
 
                             setPedidoConfirmado(data.numero_pedido)
+                            setOrderStatus('pendente') // Inicializa status
                             setCarrinho([])
                             localStorage.removeItem('carrinho')
                             setMostrarCarrinho(false)
+
+                            // Persistir pedido ativo e iniciar listener
+                            localStorage.setItem('activeOrder', JSON.stringify({ numero: data.numero_pedido }))
+                            setupOrderStatusListener(data.numero_pedido)
+
+                            if (clienteId && tipoCliente === 'credito') {
+                                await loadClienteData(clienteId)
+                            }
+
+                            // Garantir que tipo_entrega esteja correto para a mensagem
+                            setDadosCliente(prev => ({
+                                ...prev,
+                                nome: order.customer.customerName,
+                                telefone: order.customer.customerPhone,
+                                tipo_entrega: tipoEntregaMapped as any
+                            }))
+
                             window.scrollTo({ top: 0, behavior: 'smooth' })
                         }
                     } catch (error) {

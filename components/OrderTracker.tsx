@@ -9,15 +9,15 @@ interface OrderTrackerProps {
 
 const OrderTracker: React.FC<OrderTrackerProps> = ({ order, onBack }) => {
   const steps: { status: OrderStatus; label: string; icon: React.ReactNode; color: string }[] = [
-    { status: 'pending', label: 'Recebido', icon: <Clock size={20} />, color: 'bg-yellow-500' },
-    { status: 'preparing', label: 'Preparando', icon: <ChefHat size={20} />, color: 'bg-orange-500' },
-    { status: 'ready', label: 'Pronto', icon: <CheckCircle size={20} />, color: 'bg-green-500' },
-    { status: 'finished', label: order.customer.deliveryMethod === 'delivery' ? 'Entregue' : 'Finalizado', icon: <MapPin size={20} />, color: 'bg-blue-500' },
+    { status: 'pendente', label: 'Recebido', icon: <Clock size={20} />, color: 'bg-yellow-500' },
+    { status: 'preparando', label: 'Preparando', icon: <ChefHat size={20} />, color: 'bg-orange-500' },
+    { status: 'pronto', label: 'Pronto', icon: <CheckCircle size={20} />, color: 'bg-green-500' },
+    { status: 'entregue', label: order.customer.deliveryMethod === 'delivery' ? 'Entregue' : 'Finalizado', icon: <MapPin size={20} />, color: 'bg-blue-500' },
   ];
 
   const currentStepIndex = steps.findIndex(s => s.status === order.status);
   // Se cancelado, não mapeamos index normal
-  const isCanceled = order.status === 'canceled';
+  const isCanceled = order.status === 'cancelado';
 
   // Calculate subtotal for display
   const subtotal = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -25,7 +25,7 @@ const OrderTracker: React.FC<OrderTrackerProps> = ({ order, onBack }) => {
   return (
     <div className="min-h-screen bg-black text-white p-6 flex flex-col items-center">
       <div className="w-full max-w-md space-y-8 animate-fade-in">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <button onClick={onBack} className="text-neutral-400 hover:text-white flex items-center gap-2 transition-colors">
@@ -56,7 +56,7 @@ const OrderTracker: React.FC<OrderTrackerProps> = ({ order, onBack }) => {
 
               {steps.map((step, index) => {
                 const isActive = index === currentStepIndex;
-                const isCompleted = index < currentStepIndex || order.status === 'finished';
+                const isCompleted = index < currentStepIndex || order.status === 'entregue';
                 const isPending = index > currentStepIndex;
 
                 let circleClass = 'bg-neutral-800 text-neutral-500 border-neutral-700';
@@ -94,37 +94,37 @@ const OrderTracker: React.FC<OrderTrackerProps> = ({ order, onBack }) => {
           </div>
 
           <div className="border-t border-neutral-800 pt-2 space-y-1">
-             <div className="flex justify-between text-sm text-neutral-400">
-               <span>Subtotal</span>
-               <span>R$ {subtotal.toFixed(2)}</span>
-             </div>
-             {order.deliveryFee && (
-               <div className="flex justify-between text-sm text-orange-400 font-bold">
-                 <span>Entrega</span>
-                 <span>R$ {order.deliveryFee.toFixed(2)}</span>
-               </div>
-             )}
-             <div className="flex justify-between font-bold text-lg pt-2 border-t border-neutral-800 mt-2">
-               <span>Total</span>
-               <span className="text-orange-500">R$ {order.total.toFixed(2)}</span>
-             </div>
+            <div className="flex justify-between text-sm text-neutral-400">
+              <span>Subtotal</span>
+              <span>R$ {subtotal.toFixed(2)}</span>
+            </div>
+            {order.deliveryFee && (
+              <div className="flex justify-between text-sm text-orange-400 font-bold">
+                <span>Entrega</span>
+                <span>R$ {order.deliveryFee.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between font-bold text-lg pt-2 border-t border-neutral-800 mt-2">
+              <span>Total</span>
+              <span className="text-orange-500">R$ {order.total.toFixed(2)}</span>
+            </div>
           </div>
-          
+
           <div className="text-xs text-neutral-500 mt-4 bg-neutral-950 p-3 rounded-lg border border-neutral-800">
-             <p className="font-bold mb-1 uppercase tracking-wider">Dados do Cliente</p>
-             <p>Nome: {order.customer.customerName}</p>
-             <p>Pagamento: {order.customer.paymentMethod === 'pix' ? 'PIX' : order.customer.paymentMethod === 'cash' ? 'Dinheiro' : 'Cartão'}</p>
-             {order.customer.deliveryMethod === 'delivery' && (
-                <p>Endereço: {order.customer.address.street}, {order.customer.address.number}</p>
-             )}
-             {order.customer.deliveryMethod === 'table' && (
-                <p>Mesa: {order.customer.tableNumber}</p>
-             )}
-             {order.customer.observations && (
-               <p className="mt-2 pt-2 border-t border-neutral-800 text-neutral-400">
-                 <span className="font-bold text-orange-500">Obs:</span> {order.customer.observations}
-               </p>
-             )}
+            <p className="font-bold mb-1 uppercase tracking-wider">Dados do Cliente</p>
+            <p>Nome: {order.customer.customerName}</p>
+            <p>Pagamento: {order.customer.paymentMethod === 'pix' ? 'PIX' : order.customer.paymentMethod === 'cash' ? 'Dinheiro' : 'Cartão'}</p>
+            {order.customer.deliveryMethod === 'delivery' && (
+              <p>Endereço: {order.customer.address.street}, {order.customer.address.number}</p>
+            )}
+            {order.customer.deliveryMethod === 'table' && (
+              <p>Mesa: {order.customer.tableNumber}</p>
+            )}
+            {order.customer.observations && (
+              <p className="mt-2 pt-2 border-t border-neutral-800 text-neutral-400">
+                <span className="font-bold text-orange-500">Obs:</span> {order.customer.observations}
+              </p>
+            )}
           </div>
         </div>
       </div>

@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { Clock, Phone, MapPin, Package, CheckCircle, XCircle, AlertCircle, Truck, Trash2, ShoppingBag, CreditCard, Banknote, Printer } from 'lucide-react'
+import { Clock, Phone, MapPin, Package, CheckCircle, XCircle, AlertCircle, Truck, Trash2, ShoppingBag, CreditCard, Banknote, Printer, Wallet } from 'lucide-react'
 import styles from './page.module.css'
 import { sendOrderWebhook } from '@/utils/webhook'
+import clsx from 'clsx'
 
 
 interface ItemPedido {
@@ -51,14 +53,19 @@ const STATUS_CONFIG = {
 }
 
 const PAGAMENTO_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
-    pix: { label: 'PIX', color: '#00a868', icon: '/pix-logo.png' },
+    pix: { label: 'PIX', color: '#00a868', icon: Wallet }, // Usando Wallet como fallback para PIX se o logo falhar
     cartao: { label: 'Cartão', color: '#3b82f6', icon: CreditCard },
     dinheiro: { label: 'Dinheiro', color: '#22c55e', icon: Banknote },
+    credit_card: { label: 'Cartão de Crédito', color: '#3b82f6', icon: CreditCard },
+    debit_card: { label: 'Cartão de Débito', color: '#3b82f6', icon: CreditCard },
+    cash: { label: 'Dinheiro', color: '#22c55e', icon: Banknote },
     pagamento_posterior: { label: 'Pagamento Posterior', color: '#f59e0b', icon: Clock }
 }
 
 export default function PedidosPage() {
     const supabase = createClient()
+    const searchParams = useSearchParams()
+    const highlightId = searchParams.get('id')
     const [pedidos, setPedidos] = useState<Pedido[]>([])
     const [filtroStatus, setFiltroStatus] = useState<string>('todos')
     const [loading, setLoading] = useState(true)
@@ -66,12 +73,15 @@ export default function PedidosPage() {
     const audioRef = useRef<HTMLAudioElement | null>(null)
     // Solicitações de item pendentes do cliente
     const [solicitacoesPendentes, setSolicitacoesPendentes] = useState<Record<number, any[]>>({})
+    const [configuracao, setConfiguracao] = useState<any>(null)
+    const scrolledIdRef = useRef<string | null>(null)
 
     useEffect(() => {
         loadPedidos()
+        loadConfiguracao()
 
         // Criar elemento de áudio para notificação
-        audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGWi77eafTRAMUKfj8LZjHAY4ktfzzHksBSR3x/DdkEAKFF606+uoVRQKRp/g8r5sIQUrgs7y2Ik2CBlou+3mn00QDFA=')
+        audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGWi77eafTRAMUKfj8LZjHAY4ktfzzHksBSR3x/DdkEAKFF606+uoVRQKRp/g8r5sIQUrgs7y2Iz2CBlou+3mn00QDFA=')
 
         const cleanup = setupRealtimeSubscription()
         const cleanupSol = setupSolicitacoesSubscription()
@@ -81,6 +91,20 @@ export default function PedidosPage() {
             cleanupSol()
         }
     }, [])
+
+    useEffect(() => {
+        if (highlightId && pedidos.length > 0 && scrolledIdRef.current !== highlightId) {
+            // Pequeno delay para garantir que o DOM renderizou após o loading
+            const timer = setTimeout(() => {
+                const element = document.getElementById(`pedido-${highlightId}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    scrolledIdRef.current = highlightId;
+                }
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [highlightId, pedidos])
 
     async function loadPedidos() {
         setLoading(true)
@@ -95,6 +119,17 @@ export default function PedidosPage() {
             setPedidos(data)
         }
         setLoading(false)
+    }
+
+    async function loadConfiguracao() {
+        const { data } = await supabase
+            .from('configuracoes')
+            .select('*')
+            .maybeSingle()
+
+        if (data) {
+            setConfiguracao(data)
+        }
     }
 
     function setupRealtimeSubscription() {
@@ -401,9 +436,9 @@ export default function PedidosPage() {
                         border-radius: 20px;
                         font-weight: bold;
                         margin: 10px 0;
-                        background-color: ${STATUS_CONFIG[pedido.status].color}20;
-                        color: ${STATUS_CONFIG[pedido.status].color};
-                        border: 2px solid ${STATUS_CONFIG[pedido.status].color};
+                        background-color: ${(STATUS_CONFIG[pedido.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente).color}20;
+                        color: ${(STATUS_CONFIG[pedido.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente).color};
+                        border: 2px solid ${(STATUS_CONFIG[pedido.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente).color};
                     }
                     .secao {
                         margin: 25px 0;
@@ -479,9 +514,9 @@ export default function PedidosPage() {
             </head>
             <body>
                 <div class="header">
-                    <h1>Quentinhas da Goi</h1>
+                    <h1>${configuracao?.nome_restaurante || 'Kal do Espetinho'}</h1>
                     <div class="pedido-numero">Pedido #${pedido.numero_pedido}</div>
-                    <div class="status">${STATUS_CONFIG[pedido.status].label}</div>
+                    <div class="status">${(STATUS_CONFIG[pedido.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente).label}</div>
                 </div>
 
                 <div class="secao">
@@ -537,7 +572,7 @@ export default function PedidosPage() {
 
                 <div class="footer">
                     <p>Obrigado pela preferência!</p>
-                    <p>Quentinhas da Goi</p>
+                    <p>${configuracao?.nome_restaurante || 'Kal do Espetinho'}</p>
                 </div>
 
                 <script>
@@ -613,13 +648,19 @@ export default function PedidosPage() {
                     <p className={styles.vazio}>Nenhum pedido encontrado</p>
                 ) : (
                     pedidosFiltrados.map(pedido => {
-                        const StatusIcon = STATUS_CONFIG[pedido.status].icon
+                        const statusKey = pedido.status || 'pendente'
+                        const currentStatusConfig = STATUS_CONFIG[statusKey as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente
+                        const StatusIcon = currentStatusConfig.icon
                         const proximoStatus = getProximoStatus(pedido.status)
 
                         return (
                             <div
                                 key={pedido.id}
-                                className={styles.pedidoCard}
+                                id={`pedido-${pedido.id}`}
+                                className={clsx(
+                                    styles.pedidoCard,
+                                    highlightId === pedido.id && styles.highlightCard
+                                )}
                                 onClick={() => setPedidoSelecionado(pedido)}
                             >
                                 <div className={styles.pedidoHeader}>
@@ -631,12 +672,12 @@ export default function PedidosPage() {
                                             <div
                                                 className={styles.statusBadge}
                                                 style={{
-                                                    backgroundColor: `${STATUS_CONFIG[pedido.status].color}20`,
-                                                    color: STATUS_CONFIG[pedido.status].color
+                                                    backgroundColor: `${currentStatusConfig.color}20`,
+                                                    color: currentStatusConfig.color
                                                 }}
                                             >
                                                 <StatusIcon size={16} />
-                                                {STATUS_CONFIG[pedido.status].label}
+                                                {currentStatusConfig.label}
                                             </div>
                                         )}
                                         <button
@@ -675,7 +716,11 @@ export default function PedidosPage() {
                                         <span>{pedido.tipo_entrega === 'delivery' ? 'Entrega (Delivery)' : 'Retirada no Local'}</span>
                                     </div>
                                     {pedido.metodo_pagamento && (() => {
-                                        const PagamentoConfig = PAGAMENTO_CONFIG[pedido.metodo_pagamento];
+                                        const PagamentoConfig = PAGAMENTO_CONFIG[pedido.metodo_pagamento] || {
+                                            label: pedido.metodo_pagamento,
+                                            color: '#6b7280',
+                                            icon: CreditCard
+                                        };
                                         const PagamentoIcon = PagamentoConfig.icon;
                                         return (
                                             <div className={styles.infoItem} style={{ color: PagamentoConfig.color, fontWeight: 500 }}>
@@ -872,14 +917,20 @@ export default function PedidosPage() {
                                 <p><strong>Nome:</strong> {pedidoSelecionado.cliente_nome}</p>
                                 <p><strong>Telefone:</strong> {pedidoSelecionado.cliente_telefone}</p>
                                 <p><strong>Tipo:</strong> {pedidoSelecionado.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}</p>
-                                {pedidoSelecionado.metodo_pagamento && (
+                                {pedidoSelecionado.metodo_pagamento && PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento] && (
                                     <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <strong>Pagamento:</strong>
-                                        {PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].icon.startsWith('/') ? (
-                                            <img src={PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].icon} alt="Pix" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
-                                        ) : (
-                                            <span style={{ fontSize: '18px' }}>{PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].icon}</span>
-                                        )}
+                                        {(() => {
+                                            const config = PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento as string];
+                                            const Icon = config.icon;
+                                            if (typeof Icon === 'string') {
+                                                if (Icon.startsWith('/')) {
+                                                    return <img src={Icon} alt="Pix" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />;
+                                                }
+                                                return <span style={{ fontSize: '18px' }}>{Icon}</span>;
+                                            }
+                                            return <Icon size={18} />;
+                                        })()}
                                         {PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].label}
                                     </p>
                                 )}

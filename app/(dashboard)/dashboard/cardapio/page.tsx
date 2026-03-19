@@ -182,7 +182,7 @@ export default function CardapioPage() {
             </div>
 
             {/* Gestão do Pop-up de Promoção */}
-            <Card className="border-orange-200 bg-orange-50/30">
+            <Card className="border-orange-200 bg-orange-50/30 dark:bg-orange-950/20 dark:border-orange-900/50">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Zap className="text-orange-500" size={20} />
@@ -413,14 +413,14 @@ export default function CardapioPage() {
                                                     <Link href={`/dashboard/produtos/${produto.id}/editar`}>
                                                         <Button
                                                             variant="ghost"
-                                                            className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700"
+                                                            className="!h-8 !w-8 !p-0 !text-blue-500 hover:!text-blue-700 flex items-center justify-center shrink-0"
                                                         >
                                                             <Edit size={16} />
                                                         </Button>
                                                     </Link>
                                                     <Button
                                                         variant="ghost"
-                                                        className={`h-8 w-8 p-0 ${produto.ativo ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'}`}
+                                                        className={`!h-8 !w-8 !p-0 flex items-center justify-center shrink-0 ${produto.ativo ? '!text-orange-500 hover:!text-orange-700' : '!text-green-500 hover:!text-green-700'}`}
                                                         onClick={() => toggleAtivo(produto.id, produto.ativo)}
                                                         title={produto.ativo ? 'Ocultar do cardápio' : 'Mostrar no cardápio'}
                                                     >
@@ -461,6 +461,6 @@ export default function CardapioPage() {
                     </div>
                 </CardContent>
             </Card>
-        </div>
+        </div >
     )
 }

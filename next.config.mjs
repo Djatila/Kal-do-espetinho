@@ -4,12 +4,15 @@ const nextConfig = {
         remotePatterns: [
             {
                 protocol: 'https',
-                hostname: 'mtvehkyansdqiwpddwwa.supabase.co',
-                port: '',
-                pathname: '/storage/v1/object/public/**',
+                hostname: 'images.unsplash.com',
             },
+            {
+                protocol: 'https',
+                hostname: 'mtvehkyansdqiwpddwwa.supabase.co',
+            }
         ],
     },
+    transpilePackages: ['lucide-react', 'recharts'],
 };
 
 export default nextConfig;

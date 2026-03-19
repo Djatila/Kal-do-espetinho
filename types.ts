@@ -28,7 +28,7 @@ export interface ChatMessage {
 
 export type PaymentMethod = 'pix' | 'credit_card' | 'debit_card' | 'cash';
 export type DeliveryMethod = 'delivery' | 'pickup' | 'table';
-export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'finished' | 'canceled';
+export type OrderStatus = 'pendente' | 'confirmado' | 'preparando' | 'pronto' | 'entregue' | 'cancelado';
 
 export interface OrderDetails {
   customerName: string;

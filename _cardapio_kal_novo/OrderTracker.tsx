@@ -9,15 +9,15 @@ interface OrderTrackerProps {
 
 const OrderTracker: React.FC<OrderTrackerProps> = ({ order, onBack }) => {
   const steps: { status: OrderStatus; label: string; icon: React.ReactNode; color: string }[] = [
-    { status: 'pending', label: 'Recebido', icon: <Clock size={20} />, color: 'bg-yellow-500' },
-    { status: 'preparing', label: 'Preparando', icon: <ChefHat size={20} />, color: 'bg-orange-500' },
-    { status: 'ready', label: 'Pronto', icon: <CheckCircle size={20} />, color: 'bg-green-500' },
-    { status: 'finished', label: order.customer.deliveryMethod === 'delivery' ? 'Entregue' : 'Finalizado', icon: <MapPin size={20} />, color: 'bg-blue-500' },
+    { status: 'pendente', label: 'Recebido', icon: <Clock size={20} />, color: 'bg-yellow-500' },
+    { status: 'preparando', label: 'Preparando', icon: <ChefHat size={20} />, color: 'bg-orange-500' },
+    { status: 'pronto', label: 'Pronto', icon: <CheckCircle size={20} />, color: 'bg-green-500' },
+    { status: 'entregue', label: order.customer.deliveryMethod === 'delivery' ? 'Entregue' : 'Finalizado', icon: <MapPin size={20} />, color: 'bg-blue-500' },
   ];
 
   const currentStepIndex = steps.findIndex(s => s.status === order.status);
   // Se cancelado, não mapeamos index normal
-  const isCanceled = order.status === 'canceled';
+  const isCanceled = order.status === 'cancelado';
 
   // Calculate subtotal for display
   const subtotal = order.items.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -56,7 +56,7 @@ const OrderTracker: React.FC<OrderTrackerProps> = ({ order, onBack }) => {
 
               {steps.map((step, index) => {
                 const isActive = index === currentStepIndex;
-                const isCompleted = index < currentStepIndex || order.status === 'finished';
+                const isCompleted = index < currentStepIndex || order.status === 'entregue';
                 const isPending = index > currentStepIndex;
 
                 let circleClass = 'bg-neutral-800 text-neutral-500 border-neutral-700';

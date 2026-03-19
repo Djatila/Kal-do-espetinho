@@ -7,15 +7,25 @@ import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { FileDown, Calendar, FileSpreadsheet, TrendingUp, DollarSign, ShoppingBag, Wallet, Filter } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts'
-import jsPDF from 'jspdf'
+import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 import styles from './page.module.css'
 
 // Cores para gráficos
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d']
+const PAGAMENTO_CONFIG: Record<string, { label: string; icon: any }> = {
+    'pix': { label: 'Pix', icon: DollarSign },
+    'credit_card': { label: 'Cartão de Crédito', icon: Wallet },
+    'debit_card': { label: 'Cartão de Débito', icon: Wallet },
+    'cash': { label: 'Dinheiro', icon: Wallet },
+    'dinheiro': { label: 'Dinheiro', icon: Wallet },
+    'cartao': { label: 'Cartão', icon: Wallet },
+    'Online': { label: 'Online', icon: ShoppingBag }
+}
 
 export default function RelatoriosPage() {
+    const [mounted, setMounted] = useState(false)
     const [loading, setLoading] = useState(false)
     const [dataInicio, setDataInicio] = useState('')
     const [dataFim, setDataFim] = useState('')
@@ -42,6 +52,7 @@ export default function RelatoriosPage() {
     })
 
     useEffect(() => {
+        setMounted(true)
         aplicarFiltroPredefinido('hoje')
     }, [])
 
@@ -126,8 +137,11 @@ export default function RelatoriosPage() {
             .gte('data', `${dataInicio}T00:00:00`)
             .lte('data', `${dataFim}T23:59:59`)
 
-        if (vendasData && despesasData) {
+        if (vendasData) {
             // Consolidar as vendas
+            const despesasFinal = despesasData || []
+            const pedidosFinal = pedidosData || []
+
             const vendasConsolidadas = [
                 ...vendasData.map(v => ({
                     ...v,
@@ -135,7 +149,7 @@ export default function RelatoriosPage() {
                     data_venda: v.data,
                     itens: v.itens_venda
                 })),
-                ...(pedidosData || []).map(p => ({
+                ...pedidosFinal.map(p => ({
                     ...p,
                     origem: 'Online',
                     data_venda: p.created_at,
@@ -146,8 +160,8 @@ export default function RelatoriosPage() {
             ]
 
             setVendas(vendasConsolidadas)
-            setDespesas(despesasData)
-            processarDados(vendasConsolidadas, despesasData)
+            setDespesas(despesasFinal)
+            processarDados(vendasConsolidadas, despesasFinal)
         }
 
         setLoading(false)
@@ -166,7 +180,10 @@ export default function RelatoriosPage() {
         // 2. Gráfico: Vendas por Dia
         const vendasPorDiaMap = new Map()
         vendas.forEach(v => {
-            const data = new Date(v.data_venda).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+            if (!v.data_venda) return
+            const dateObj = new Date(v.data_venda)
+            if (isNaN(dateObj.getTime())) return
+            const data = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
             vendasPorDiaMap.set(data, (vendasPorDiaMap.get(data) || 0) + Number(v.total || 0))
         })
         const vendasPorDia = Array.from(vendasPorDiaMap.entries())
@@ -202,8 +219,10 @@ export default function RelatoriosPage() {
         // 4. Gráfico: Formas de Pagamento
         const pagamentosMap = new Map()
         vendas.forEach(v => {
-            const forma = v.forma_pagamento || 'Não informado'
-            pagamentosMap.set(forma, (pagamentosMap.get(forma) || 0) + Number(v.total || 0))
+            const formaRaw = v.forma_pagamento || 'Não informado'
+            const config = PAGAMENTO_CONFIG[formaRaw as keyof typeof PAGAMENTO_CONFIG] || { label: formaRaw, icon: Wallet }
+            const nome = config.label
+            pagamentosMap.set(nome, (pagamentosMap.get(nome) || 0) + Number(v.total || 0))
         })
         const formasPagamento = Array.from(pagamentosMap.entries()).map(([nome, valor]) => ({ nome, valor }))
 
@@ -405,8 +424,8 @@ export default function RelatoriosPage() {
                         <CardTitle>Evolução de Vendas</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {graficos.vendasPorDia.length > 0 ? (
-                            <div className="h-[300px]">
+                        {mounted && graficos.vendasPorDia.length > 0 ? (
+                            <div className="h-[300px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart data={graficos.vendasPorDia}>
                                         <CartesianGrid strokeDasharray="3 3" />
@@ -435,8 +454,8 @@ export default function RelatoriosPage() {
                         <CardTitle>Top 5 Produtos</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {graficos.topProdutos.length > 0 ? (
-                            <div className="h-[300px]">
+                        {mounted && graficos.topProdutos.length > 0 ? (
+                            <div className="h-[300px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <BarChart data={graficos.topProdutos} layout="vertical">
                                         <CartesianGrid strokeDasharray="3 3" />
@@ -465,25 +484,27 @@ export default function RelatoriosPage() {
                         <CardTitle>Formas de Pagamento</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {graficos.formasPagamento.length > 0 ? (
-                            <div className="h-[300px]">
+                        {mounted && graficos.formasPagamento.length > 0 ? (
+                            <div className="h-[300px] w-full">
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
                                             data={graficos.formasPagamento}
                                             cx="50%"
                                             cy="50%"
-                                            labelLine={false}
-                                            label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                                            labelLine={true}
+                                            label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
                                             outerRadius={80}
                                             fill="#8884d8"
                                             dataKey="valor"
+                                            nameKey="nome"
                                         >
                                             {graficos.formasPagamento.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
                                         <Tooltip formatter={(value) => `R$ ${Number(value).toFixed(2)}`} />
+                                        <Legend verticalAlign="bottom" height={36} />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
