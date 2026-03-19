@@ -446,9 +446,9 @@ export default function CardapioPublicoPage() {
                                     ...prev,
                                     metodo_pagamento: pedido.metodo_pagamento as any
                                 }))
-                                // Abre o carrinho automaticamente para o cliente escolher itens
-                                setMostrarCarrinho(true)
-                                showToast('success', '✅ Autorizado!', 'Selecione o item e confirme no carrinho.')
+                                // REMOVIDO: Abre o carrinho automaticamente para o cliente escolher itens
+                                // setMostrarCarrinho(true)
+                                showToast('success', '✅ Autorizado!', 'Siga as instruções na tela para adicionar itens.')
                             }
                             if (novoStatus === 'recusado') {
                                 supabase.removeChannel(ch)
@@ -471,12 +471,15 @@ export default function CardapioPublicoPage() {
 
     const resetarEstadoTotal = () => {
         setPedidoConfirmado(null)
+        setCarrinho([]) // Limpar o carrinho para o novo pedido
         setMostrarModalNovoPedido(false)
         setMostrarModalWhatsAppCancela(false)
         setStatusCancelamento(null)
         setMostrarModalBloqueio(false)
         setSolicitacaoId(null)
         setSolicitacaoStatus(null)
+        setModoComplemento(false)
+        setPedidoComplementoNumero(null)
         localStorage.removeItem('activeOrder') // Limpar pedido ativo
         if (orderStatusStatusRef.current) {
             supabase.removeChannel(orderStatusStatusRef.current)
@@ -486,16 +489,14 @@ export default function CardapioPublicoPage() {
             supabase.removeChannel(solicitacaoChannelRef.current)
             solicitacaoChannelRef.current = null
         }
-        setDadosCliente({
-            nome: '',
-            telefone: '',
-            endereco: '',
-            tipo_entrega: 'retirada',
+        // Preserva nome, telefone e dados de crédito para o próximo pedido
+        setDadosCliente(prev => ({
+            ...prev,
             metodo_pagamento: undefined,
             precisa_troco: false,
             valor_para_troco: '',
             observacoes: ''
-        })
+        }))
     }
 
     const handleCancelarPedido = async (numero: number) => {

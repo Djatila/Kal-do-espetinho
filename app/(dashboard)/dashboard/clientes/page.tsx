@@ -11,6 +11,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal'
 
 export default function ClientesPage() {
     const [clientes, setClientes] = useState<any[]>([])
+    const [resumoPagamentos, setResumoPagamentos] = useState<Record<string, any>>({})
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false)
     const [editingId, setEditingId] = useState<string | null>(null)
@@ -35,12 +36,47 @@ export default function ClientesPage() {
 
     async function loadClientes() {
         setLoading(true)
-        const { data } = await supabase
+        const { data: clientesData } = await supabase
             .from('clientes')
             .select('*')
             .order('nome')
 
-        setClientes(data || [])
+        if (!clientesData) {
+            setClientes([])
+            setLoading(false)
+            return
+        }
+
+        setClientes(clientesData)
+
+        // Buscar breakdown de pagamentos para estes clientes
+        const ids = clientesData.map(c => c.id)
+
+        // 1. Vendas PDV
+        const { data: vendas } = await supabase
+            .from('vendas')
+            .select('cliente_id, forma_pagamento, total')
+            .in('cliente_id', ids)
+
+        // 2. Pedidos Online
+        const { data: pedidos } = await supabase
+            .from('pedidos_online')
+            .select('cliente_id, metodo_pagamento, total')
+            .in('cliente_id', ids)
+            .neq('status', 'cancelado')
+
+        const breakdown: Record<string, any> = {}
+
+        const addGasto = (cid: string, metodo: string, valor: number) => {
+            if (!breakdown[cid]) breakdown[cid] = {}
+            const m = metodo?.toLowerCase() || 'outros'
+            breakdown[cid][m] = (breakdown[cid][m] || 0) + Number(valor)
+        }
+
+        vendas?.forEach(v => addGasto(v.cliente_id, v.forma_pagamento, v.total))
+        pedidos?.forEach(p => addGasto(p.cliente_id, p.metodo_pagamento, p.total))
+
+        setResumoPagamentos(breakdown)
         setLoading(false)
     }
 
@@ -426,8 +462,19 @@ export default function ClientesPage() {
                                                     <span className="text-muted-foreground">-</span>
                                                 )}
                                             </td>
-                                            <td className="p-4 font-medium">
-                                                R$ {(cliente.total_gasto || 0).toFixed(2)}
+                                            <td className="p-4">
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold">R$ {(cliente.total_gasto || 0).toFixed(2)}</span>
+                                                    {resumoPagamentos[cliente.id] && (
+                                                        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1">
+                                                            {Object.entries(resumoPagamentos[cliente.id]).map(([metodo, valor]: [string, any]) => (
+                                                                <span key={metodo} className="text-[10px] text-muted-foreground whitespace-nowrap capitalize">
+                                                                    {metodo.replace('_', ' ')}: R$ {Number(valor).toFixed(2)}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex gap-2">
