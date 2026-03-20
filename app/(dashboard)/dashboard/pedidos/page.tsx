@@ -754,6 +754,26 @@ export default function PedidosPage() {
                                     )}
                                 </div>
 
+                                {pedido.observacoes && pedido.observacoes !== 'Cancelado pelo cliente' && (
+                                    <div style={{
+                                        margin: '0.75rem 1rem 0',
+                                        padding: '0.5rem 0.75rem',
+                                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                                        borderLeft: '4px solid #eab308',
+                                        borderRadius: '0.25rem',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '0.25rem'
+                                    }}>
+                                        <span style={{ color: '#eab308', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            Observações
+                                        </span>
+                                        <span style={{ color: '#d1d5db', fontSize: '0.875rem' }}>
+                                            {pedido.observacoes}
+                                        </span>
+                                    </div>
+                                )}
+
                                 <div className={styles.pedidoItens}>
                                     {pedido.status === 'cancelado' && pedido.observacoes === 'Cancelado pelo cliente' && (
                                         <div style={{
