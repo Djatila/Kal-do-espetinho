@@ -19,7 +19,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
     customerName: '',
     customerPhone: '',
-    deliveryMethod: 'table',
+    deliveryMethod: 'delivery',
     tableNumber: '',
     address: {
       street: '',
@@ -55,8 +55,8 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
     const hasError = isAddress ? errors[`address.${fieldName}`] : errors[fieldName];
 
     return `w-full bg-neutral-950 border rounded-lg p-3 text-white text-sm focus:outline-none transition-all duration-300 ${hasError
-        ? 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.6)] animate-pulse placeholder-red-400/50'
-        : 'border-neutral-800 focus:border-orange-500'
+      ? 'border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.6)] animate-pulse placeholder-red-400/50'
+      : 'border-neutral-800 focus:border-orange-500'
       }`;
   };
 
@@ -236,9 +236,9 @@ const CartSidebar: React.FC<CartSidebarProps> = ({ isOpen, onClose, cart, onRemo
               <div>
                 <h3 className="text-white font-bold mb-3 text-sm uppercase tracking-wider border-l-2 border-orange-500 pl-2">Modo de Pedido</h3>
                 <div className="grid grid-cols-3 gap-2 mb-4">
-                  <button onClick={() => handleInputChange('deliveryMethod', 'table')} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${orderDetails.deliveryMethod === 'table' ? 'bg-orange-600/20 border-orange-500 text-orange-500' : 'bg-neutral-800 border-neutral-700 text-neutral-400'}`}>
-                    <Utensils size={20} className="mb-1" />
-                    <span className="text-[10px] font-bold uppercase">Mesa</span>
+                  <button disabled={true} onClick={() => handleInputChange('deliveryMethod', 'table')} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all bg-neutral-800/50 border-neutral-800 text-neutral-600 cursor-not-allowed`} title="Pedidos na mesa apenas via atendente">
+                    <Utensils size={20} className="mb-1 opacity-50" />
+                    <span className="text-[10px] font-bold uppercase opacity-50">Mesa</span>
                   </button>
                   <button onClick={() => handleInputChange('deliveryMethod', 'delivery')} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${orderDetails.deliveryMethod === 'delivery' ? 'bg-orange-600/20 border-orange-500 text-orange-500' : 'bg-neutral-800 border-neutral-700 text-neutral-400'}`}>
                     <MapPin size={20} className="mb-1" />

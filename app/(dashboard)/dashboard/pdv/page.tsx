@@ -38,6 +38,8 @@ export default function PDVPage() {
     const [telefone, setTelefone] = useState('')
     const [observacoes, setObservacoes] = useState('')
     const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao' | 'dinheiro' | null>('pix')
+    const [precisaTroco, setPrecisaTroco] = useState(false)
+    const [trocoPara, setTrocoPara] = useState('')
 
     useEffect(() => {
         loadProdutos()
@@ -124,6 +126,15 @@ export default function PDVPage() {
 
         setEnviando(true)
 
+        if (metodoPagamento === 'dinheiro' && precisaTroco) {
+            const val = parseFloat(trocoPara.replace(/[^\d.,]/g, '').replace(',', '.'));
+            if (isNaN(val) || val < total) {
+                showToast('error', 'Atenção', `O valor para troco deve ser maior que o total (R$ ${total.toFixed(2)})`);
+                setEnviando(false);
+                return;
+            }
+        }
+
         const itens = comanda.map(item => ({
             id: item.id,
             nome: item.nome,
@@ -133,7 +144,9 @@ export default function PDVPage() {
         }))
 
         const notasPDV = numeroMesa ? `MESA: ${numeroMesa}` : 'PDV Balcão'
-        const objObservacoes = observacoes ? `${notasPDV}\n${observacoes}` : notasPDV
+        let objObservacoes = observacoes ? `${notasPDV}\n${observacoes}` : notasPDV
+
+        const valorTrocoNumero = (metodoPagamento === 'dinheiro' && precisaTroco) ? parseFloat(trocoPara.replace(/[^\d.,]/g, '').replace(',', '.')) : null;
 
         const { data, error } = await supabase
             .from('pedidos_online')
@@ -147,7 +160,9 @@ export default function PDVPage() {
                 taxa_entrega: 0,
                 total: total,
                 observacoes: objObservacoes,
-                status: 'pendente'
+                status: 'pendente',
+                precisa_troco: metodoPagamento === 'dinheiro' ? precisaTroco : false,
+                valor_para_troco: valorTrocoNumero
             })
             .select()
 
@@ -165,6 +180,8 @@ export default function PDVPage() {
             setTelefone('')
             setObservacoes('')
             setMetodoPagamento('pix')
+            setPrecisaTroco(false)
+            setTrocoPara('')
 
             // Disparar Webhook para Novo Pedido via PDV
             supabase
@@ -382,6 +399,28 @@ export default function PDVPage() {
                             >
                                 {metodoPagamento === 'dinheiro' && <span className={styles.radioDot} />} Dinheiro
                             </button>
+                            {metodoPagamento === 'dinheiro' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem 1rem', backgroundColor: '#1a1a1a', borderRadius: '8px', border: '1px solid #333' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#e5e5e5' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={precisaTroco}
+                                            onChange={(e) => setPrecisaTroco(e.target.checked)}
+                                            style={{ accentColor: '#f97316', width: '16px', height: '16px' }}
+                                        />
+                                        Precisa de troco?
+                                    </label>
+                                    {precisaTroco && (
+                                        <input
+                                            type="text"
+                                            className={styles.inputField}
+                                            placeholder="Troco para... (Ex: 50)"
+                                            value={trocoPara}
+                                            onChange={(e) => setTrocoPara(e.target.value)}
+                                        />
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 

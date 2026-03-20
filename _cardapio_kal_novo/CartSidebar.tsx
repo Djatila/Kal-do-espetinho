@@ -43,7 +43,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   const [orderDetails, setOrderDetails] = useState<OrderDetails>({
     customerName: '',
     customerPhone: '',
-    deliveryMethod: 'table',
+    deliveryMethod: 'delivery',
     tableNumber: '',
     address: {
       street: '',
@@ -280,9 +280,9 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
               <div>
                 <h3 className="text-white font-bold mb-3 text-sm uppercase tracking-wider border-l-2 border-orange-500 pl-2">Modo de Pedido</h3>
                 <div className="grid grid-cols-3 gap-2 mb-4">
-                  <button onClick={() => handleInputChange('deliveryMethod', 'table')} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${orderDetails.deliveryMethod === 'table' ? 'bg-orange-600/20 border-orange-500 text-orange-500' : 'bg-neutral-800 border-neutral-600 text-neutral-300 hover:text-white'}`}>
-                    <Utensils size={20} className="mb-1" />
-                    <span className="text-[10px] font-bold uppercase">Mesa</span>
+                  <button disabled={true} onClick={() => handleInputChange('deliveryMethod', 'table')} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all bg-neutral-800/50 border-neutral-800 text-neutral-600 cursor-not-allowed`} title="Pedidos na mesa apenas via atendente">
+                    <Utensils size={20} className="mb-1 opacity-50" />
+                    <span className="text-[10px] font-bold uppercase opacity-50">Mesa</span>
                   </button>
                   <button onClick={() => handleInputChange('deliveryMethod', 'delivery')} className={`flex flex-col items-center justify-center p-3 rounded-lg border transition-all ${orderDetails.deliveryMethod === 'delivery' ? 'bg-orange-600/20 border-orange-500 text-orange-500' : 'bg-neutral-800 border-neutral-600 text-neutral-300 hover:text-white'}`}>
                     <MapPin size={20} className="mb-1" />
