@@ -711,10 +711,21 @@ export default function PedidosPage() {
                                         <Phone size={16} />
                                         <span>{pedido.cliente_nome}</span>
                                     </div>
-                                    <div className={styles.infoItem} style={{ color: pedido.tipo_entrega === 'delivery' ? '#f59e0b' : '#3b82f6', fontWeight: 500 }}>
-                                        {pedido.tipo_entrega === 'delivery' ? <Truck size={16} /> : <ShoppingBag size={16} />}
-                                        <span>{pedido.tipo_entrega === 'delivery' ? 'Entrega (Delivery)' : 'Retirada no Local'}</span>
-                                    </div>
+                                    {(() => {
+                                        let deliveryText = pedido.tipo_entrega === 'delivery' ? 'Entrega (Delivery)' : 'Retirada no Local';
+                                        if (pedido.tipo_entrega === 'retirada' && pedido.observacoes) {
+                                            const match = pedido.observacoes.match(/MESA:\s*([^\s\n]+)/i);
+                                            if (match) {
+                                                deliveryText = `Mesa ${match[1]}`;
+                                            }
+                                        }
+                                        return (
+                                            <div className={styles.infoItem} style={{ color: pedido.tipo_entrega === 'delivery' ? '#f59e0b' : '#3b82f6', fontWeight: 500 }}>
+                                                {pedido.tipo_entrega === 'delivery' ? <Truck size={16} /> : <ShoppingBag size={16} />}
+                                                <span>{deliveryText}</span>
+                                            </div>
+                                        );
+                                    })()}
                                     {pedido.metodo_pagamento && (() => {
                                         const PagamentoConfig = PAGAMENTO_CONFIG[pedido.metodo_pagamento] || {
                                             label: pedido.metodo_pagamento,
