@@ -36,6 +36,7 @@ export default function PDVPage() {
     const [numeroMesa, setNumeroMesa] = useState('')
     const [nomeCliente, setNomeCliente] = useState('')
     const [telefone, setTelefone] = useState('')
+    const [observacoes, setObservacoes] = useState('')
     const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao' | 'dinheiro' | null>('pix')
 
     useEffect(() => {
@@ -132,6 +133,7 @@ export default function PDVPage() {
         }))
 
         const notasPDV = numeroMesa ? `MESA: ${numeroMesa}` : 'PDV Balcão'
+        const objObservacoes = observacoes ? `${notasPDV}\n${observacoes}` : notasPDV
 
         const { data, error } = await supabase
             .from('pedidos_online')
@@ -144,7 +146,7 @@ export default function PDVPage() {
                 subtotal: total,
                 taxa_entrega: 0,
                 total: total,
-                observacoes: notasPDV,
+                observacoes: objObservacoes,
                 status: 'pendente'
             })
             .select()
@@ -161,6 +163,7 @@ export default function PDVPage() {
             setNumeroMesa('')
             setNomeCliente('')
             setTelefone('')
+            setObservacoes('')
             setMetodoPagamento('pix')
 
             // Disparar Webhook para Novo Pedido via PDV
@@ -208,6 +211,13 @@ export default function PDVPage() {
                         placeholder="Telefone/Contato"
                         value={telefone}
                         onChange={(e) => setTelefone(e.target.value)}
+                    />
+                    <input
+                        type="text"
+                        className={styles.inputField}
+                        placeholder="Observações (opcional)"
+                        value={observacoes}
+                        onChange={(e) => setObservacoes(e.target.value)}
                     />
                 </div>
             </div>
@@ -313,6 +323,13 @@ export default function PDVPage() {
                             placeholder="Telefone/Contato"
                             value={telefone}
                             onChange={(e) => setTelefone(e.target.value)}
+                        />
+                        <input
+                            type="text"
+                            className={styles.inputField}
+                            placeholder="Observações (opcional)"
+                            value={observacoes}
+                            onChange={(e) => setObservacoes(e.target.value)}
                         />
                     </div>
                 </div>
