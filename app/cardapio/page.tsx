@@ -64,6 +64,7 @@ export default function CardapioPublicoPage() {
     const [mostrarModalNovoPedido, setMostrarModalNovoPedido] = useState(false)
     const [mostrarModalWhatsAppCancela, setMostrarModalWhatsAppCancela] = useState(false)
     const [statusCancelamento, setStatusCancelamento] = useState<'verificando' | 'cancelando' | null>(null)
+    const [mostrarConfirmacaoCancelamento, setMostrarConfirmacaoCancelamento] = useState(false)
     const [confirmacoMinimizada, setConfirmacoMinimizada] = useState(false)
     const [solicitacaoId, setSolicitacaoId] = useState<string | null>(null)
     const [solicitacaoStatus, setSolicitacaoStatus] = useState<'pendente' | 'autorizado' | 'recusado' | null>(null)
@@ -474,6 +475,7 @@ export default function CardapioPublicoPage() {
         setCarrinho([]) // Limpar o carrinho para o novo pedido
         setMostrarModalNovoPedido(false)
         setMostrarModalWhatsAppCancela(false)
+        setMostrarConfirmacaoCancelamento(false)
         setStatusCancelamento(null)
         setMostrarModalBloqueio(false)
         setSolicitacaoId(null)
@@ -698,7 +700,7 @@ export default function CardapioPublicoPage() {
                     <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         <button
                             className={styles.botaoCancelarDireto}
-                            onClick={() => handleCancelarPedido(pedidoConfirmado!)}
+                            onClick={() => setMostrarConfirmacaoCancelamento(true)}
                             disabled={statusCancelamento !== null}
                             style={{
                                 width: '100%',
@@ -717,6 +719,86 @@ export default function CardapioPublicoPage() {
                                 statusCancelamento === 'cancelando' ? '🔴 Cancelando...' :
                                     '❌ Cancelar Pedido'}
                         </button>
+                    </div>
+                )}
+
+                {/* Modal de Confirmação de Cancelamento */}
+                {mostrarConfirmacaoCancelamento && (
+                    <div style={{
+                        position: 'fixed',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.85)',
+                        zIndex: 300,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '1.5rem',
+                        backdropFilter: 'blur(10px)'
+                    }}>
+                        <div style={{
+                            background: '#1c1c1c',
+                            borderRadius: '1.5rem',
+                            padding: '2rem',
+                            maxWidth: '400px',
+                            width: '100%',
+                            textAlign: 'center',
+                            border: '1px solid #ef4444',
+                            boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+                        }}>
+                            <div style={{
+                                width: '60px', height: '60px', margin: '0 auto 1.5rem',
+                                background: 'rgba(239, 68, 68, 0.1)', borderRadius: '50%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
+                            </div>
+                            <h3 style={{ color: '#fff', fontSize: '1.25rem', marginBottom: '0.75rem', fontWeight: 'bold' }}>
+                                Deseja mesmo cancelar este pedido?
+                            </h3>
+                            <p style={{ color: '#aaa', fontSize: '0.9rem', marginBottom: '2rem' }}>
+                                Esta ação não poderá ser desfeita após a confirmação.
+                            </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <button
+                                    onClick={() => {
+                                        setMostrarConfirmacaoCancelamento(false)
+                                        handleCancelarPedido(pedidoConfirmado!)
+                                    }}
+                                    style={{
+                                        padding: '0.85rem',
+                                        background: '#ef4444',
+                                        color: '#fff',
+                                        fontWeight: 'bold',
+                                        borderRadius: '0.75rem',
+                                        border: 'none',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Confirmar (Sim)
+                                </button>
+                                <button
+                                    onClick={() => setMostrarConfirmacaoCancelamento(false)}
+                                    style={{
+                                        padding: '0.85rem',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        color: '#fff',
+                                        fontWeight: 'bold',
+                                        borderRadius: '0.75rem',
+                                        border: '1px solid #444',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Voltar (Não)
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
