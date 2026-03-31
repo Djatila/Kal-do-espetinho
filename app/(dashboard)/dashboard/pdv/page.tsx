@@ -152,8 +152,12 @@ export default function PDVPage() {
             }
             if (mesaFull.status === 'em_atendimento') {
                 const nomeGarcom = mesaFull.garcom_atual_nome ? `pelo garçom ${mesaFull.garcom_atual_nome}` : 'por outro garçom'
-                showToast('error', '🟠 Em Atendimento', `A Mesa ${mesaFull.numero_mesa} está sendo atendida ${nomeGarcom}.`)
-                return
+                if (mesaFull.garcom_atual_id !== garcomId) {
+                    if (!window.confirm(`A Mesa ${mesaFull.numero_mesa} está sendo atendida ${nomeGarcom}.\n\nDeseja assumir o atendimento desta mesa?`)) {
+                        return
+                    }
+                }
+
             }
         }
 

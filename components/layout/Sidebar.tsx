@@ -108,13 +108,19 @@ export function Sidebar() {
         <>
             {/* NO MOBILE: SE ESTIVER NO PDV, MOSTRA O CABEÇALHO VOLTAR. CASO CONTRÁRIO, MOSTRA HAMBURGER */}
             {isPdvRoute ? (
-                !isAtendente ? (
-                    <div className={clsx(styles.mobilePdvHeader, styles.showMobilePdvHeader)}>
-                        <button onClick={() => router.push('/dashboard')} className={styles.backButton}>
-                            <ArrowLeft size={20} />
-                        </button>
-                    </div>
-                ) : null
+                <div className={clsx(styles.mobilePdvHeader, styles.showMobilePdvHeader)}>
+                    <button 
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            window.location.href = '/dashboard';
+                        }} 
+                        className={styles.backButton}
+                        style={{ padding: '1rem', background: '#f97316' }} // Forçando cor laranja e tamanho maior para teste
+                    >
+                        <ArrowLeft size={24} />
+                    </button>
+                </div>
             ) : (
                 <button
                     className={styles.mobileMenuToggle}
