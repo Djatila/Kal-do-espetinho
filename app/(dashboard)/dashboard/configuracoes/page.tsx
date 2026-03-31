@@ -14,7 +14,9 @@ export default function ConfiguracoesPage() {
     const { showToast } = useToast()
     const [loading, setLoading] = useState(true)
     const [uploadingLogo, setUploadingLogo] = useState(false)
+    const [uploadingBanner, setUploadingBanner] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const bannerFileInputRef = useRef<HTMLInputElement>(null)
 
     // Estados para Configurações do Restaurante
     const [configId, setConfigId] = useState<string | null>(null)
@@ -29,7 +31,10 @@ export default function ConfiguracoesPage() {
         chave_pix: '',
         whatsapp_loja: '',
         layout_cardapio: 'padrao',
-        webhook_n8n: ''
+        webhook_n8n: '',
+        banner_url: '',
+        banner_titulo: 'SABOR PREMIUM',
+        banner_subtitulo: 'O melhor espetinho da cidade em um ambiente exclusivo.'
     })
 
     // Estados para Perfil do Usuário
@@ -93,7 +98,10 @@ export default function ConfiguracoesPage() {
                         chave_pix: '',
                         whatsapp_loja: '',
                         layout_cardapio: 'padrao',
-                        webhook_n8n: ''
+                        webhook_n8n: '',
+                        banner_url: '',
+                        banner_titulo: 'SABOR PREMIUM',
+                        banner_subtitulo: 'O melhor espetinho da cidade em um ambiente exclusivo.'
                     })
                 }
             }
@@ -110,7 +118,10 @@ export default function ConfiguracoesPage() {
                 chave_pix: config.chave_pix || '',
                 whatsapp_loja: config.whatsapp_loja || '',
                 layout_cardapio: config.layout_cardapio || 'padrao',
-                webhook_n8n: config.webhook_n8n || ''
+                webhook_n8n: config.webhook_n8n || '',
+                banner_url: config.banner_url || '',
+                banner_titulo: config.banner_titulo || 'SABOR PREMIUM',
+                banner_subtitulo: config.banner_subtitulo || 'O melhor espetinho da cidade em um ambiente exclusivo.'
             })
         }
 
@@ -169,6 +180,35 @@ export default function ConfiguracoesPage() {
             showToast('error', 'Erro no upload', error.message)
         } finally {
             setUploadingLogo(false)
+        }
+    }
+
+    const handleBannerUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        try {
+            setUploadingBanner(true)
+            const file = event.target.files?.[0]
+            if (!file) return
+
+            const fileExt = file.name.split('.').pop()
+            const fileName = `banner_${Math.random()}.${fileExt}`
+            const filePath = `${fileName}`
+
+            const { error: uploadError } = await supabase.storage
+                .from('promos')
+                .upload(filePath, file)
+
+            if (uploadError) throw uploadError
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('promos')
+                .getPublicUrl(filePath)
+
+            setRestaurante(prev => ({ ...prev, banner_url: publicUrl }))
+            showToast('success', 'Sucesso', 'Banner carregado com sucesso! Clique em Salvar para confirmar.')
+        } catch (error: any) {
+            showToast('error', 'Erro no upload', error.message)
+        } finally {
+            setUploadingBanner(false)
         }
     }
 
@@ -265,6 +305,66 @@ export default function ConfiguracoesPage() {
                                 <p className="text-xs text-muted-foreground">Recomendado: 500x500px (PNG ou JPG)</p>
                             </div>
                         </div>
+
+                        {/* Banner Principal Upload */}
+                        <div className="flex flex-col gap-4 p-4 border border-dashed border-border rounded-lg bg-muted/30">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                                <ImageIcon size={16} className="text-primary" />
+                                Banner do Topo (Hero)
+                            </label>
+                            <div className="relative w-full h-32 rounded-lg overflow-hidden bg-muted flex items-center justify-center border border-border">
+                                {restaurante.banner_url ? (
+                                    <Image
+                                        src={restaurante.banner_url}
+                                        alt="Banner do Cardápio"
+                                        fill
+                                        className="object-cover"
+                                    />
+                                ) : (
+                                    <div className="text-center p-4">
+                                        <ImageIcon size={24} className="text-muted-foreground mx-auto mb-1" />
+                                        <p className="text-[10px] text-muted-foreground">Sem banner definido</p>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-col gap-2">
+                                <Button
+                                    variant="outline"
+                                    className="h-8 text-sm"
+                                    onClick={() => bannerFileInputRef.current?.click()}
+                                    disabled={uploadingBanner}
+                                >
+                                    <Upload size={16} className="mr-2" />
+                                    {uploadingBanner ? 'Enviando...' : 'Alterar Banner Principal'}
+                                </Button>
+                                <input
+                                    type="file"
+                                    ref={bannerFileInputRef}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={handleBannerUpload}
+                                />
+                                <p className="text-[10px] text-muted-foreground">Ideal: Imagens horizontais (1920x1080px)</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 mt-2">
+                                <Input
+                                    label="Título do Topo"
+                                    value={restaurante.banner_titulo}
+                                    onChange={(e) => setRestaurante({ ...restaurante, banner_titulo: e.target.value })}
+                                    placeholder="Ex: SABOR PREMIUM"
+                                    className="text-xs"
+                                />
+                                <Input
+                                    label="Subtítulo do Topo"
+                                    value={restaurante.banner_subtitulo}
+                                    onChange={(e) => setRestaurante({ ...restaurante, banner_subtitulo: e.target.value })}
+                                    placeholder="Frase curta de efeito"
+                                    className="text-xs"
+                                />
+                            </div>
+                        </div>
+
 
                         <Input
                             label="Nome do Restaurante"

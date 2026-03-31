@@ -100,7 +100,10 @@ export default function CardapioPublicoPage() {
         taxa_entrega_padrao: 0,
         chave_pix: '',
         whatsapp_loja: '',
-        layout_cardapio: 'padrao'
+        layout_cardapio: 'padrao',
+        banner_url: '',
+        banner_titulo: 'SABOR PREMIUM',
+        banner_subtitulo: 'O melhor espetinho da cidade em um ambiente exclusivo.'
     })
 
     const [dadosCliente, setDadosCliente] = useState<DadosCliente>({
@@ -309,7 +312,10 @@ export default function CardapioPublicoPage() {
                 taxa_entrega_padrao: data.taxa_entrega_padrao || 0,
                 chave_pix: data.chave_pix || '',
                 whatsapp_loja: data.whatsapp_loja || '',
-                layout_cardapio: data.layout_cardapio || 'padrao'
+                layout_cardapio: data.layout_cardapio || 'padrao',
+                banner_url: data.banner_url || '',
+                banner_titulo: data.banner_titulo || 'SABOR PREMIUM',
+                banner_subtitulo: data.banner_subtitulo || 'O melhor espetinho da cidade em um ambiente exclusivo.'
             })
             setTaxaEntrega(data.taxa_entrega_padrao || 0)
 
@@ -1137,12 +1143,24 @@ export default function CardapioPublicoPage() {
                 {/* Hero */}
                 <div className="relative mt-20 h-[40vh] sm:h-[50vh] w-full overflow-hidden flex items-center justify-center">
                     <div className="absolute inset-0">
-                        <img src="https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2574&auto=format&fit=crop" alt="Hero" className="w-full h-full object-cover opacity-40" />
+                        <img 
+                            src={configuracao.banner_url || "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2574&auto=format&fit=crop"} 
+                            alt="Hero" 
+                            className="w-full h-full object-cover opacity-40" 
+                        />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
                     </div>
                     <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
-                        <h2 className="text-4xl sm:text-5xl md:text-7xl font-display font-bold text-white mb-4 drop-shadow-2xl">SABOR <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-600">PREMIUM</span></h2>
-                        <p className="text-base sm:text-lg md:text-xl text-neutral-300 max-w-2xl mx-auto mb-8">O melhor espetinho da cidade em um ambiente exclusivo.</p>
+                        <h2 className="text-4xl sm:text-5xl md:text-7xl font-display font-bold text-white mb-4 drop-shadow-2xl">
+                            {configuracao.banner_titulo.split(' ').map((word, i) => (
+                                i === configuracao.banner_titulo.split(' ').length - 1 ? (
+                                    <span key={i} className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-600"> {word}</span>
+                                ) : <span key={i}> {word}</span>
+                            ))}
+                        </h2>
+                        <p className="text-base sm:text-lg md:text-xl text-neutral-300 max-w-2xl mx-auto mb-8">
+                            {configuracao.banner_subtitulo}
+                        </p>
                     </div>
                 </div>
 
