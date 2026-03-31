@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createClient } from '@/utils/supabase/client'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -53,33 +54,34 @@ export default function EquipePage() {
 
     const carregarStats = async (ids: string[]) => {
         if (!ids.length) return
-        const { createClient } = await import('@supabase/supabase-js')
-        const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        )
-        const hoje = new Date()
-        const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).toISOString()
-        const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString()
+        try {
+            const supabase = createClient()
+            const hoje = new Date()
+            const inicioDia = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).toISOString()
+            const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString()
 
-        const { data } = await supabase
-            .from('pedidos_online')
-            .select('garcom_id, created_at')
-            .in('garcom_id', ids)
-            .gte('created_at', inicioMes)
+            const { data } = await supabase
+                .from('pedidos_online')
+                .select('garcom_id, created_at')
+                .in('garcom_id', ids)
+                .gte('created_at', inicioMes)
 
-        const newStats: Record<string, AtendendeStats> = {}
-        ids.forEach(id => { newStats[id] = { id, atendimentos_hoje: 0, atendimentos_mes: 0 } })
+            const newStats: Record<string, AtendendeStats> = {}
+            ids.forEach(id => { newStats[id] = { id, atendimentos_hoje: 0, atendimentos_mes: 0 } })
 
-        if (data) {
-            data.forEach((p: any) => {
-                if (!p.garcom_id) return
-                if (!newStats[p.garcom_id]) newStats[p.garcom_id] = { id: p.garcom_id, atendimentos_hoje: 0, atendimentos_mes: 0 }
-                newStats[p.garcom_id].atendimentos_mes++
-                if (p.created_at >= inicioDia) newStats[p.garcom_id].atendimentos_hoje++
-            })
+            if (data) {
+                data.forEach((p: any) => {
+                    if (!p.garcom_id) return
+                    if (!newStats[p.garcom_id]) newStats[p.garcom_id] = { id: p.garcom_id, atendimentos_hoje: 0, atendimentos_mes: 0 }
+                    newStats[p.garcom_id].atendimentos_mes++
+                    if (p.created_at >= inicioDia) newStats[p.garcom_id].atendimentos_hoje++
+                })
+            }
+            setStats(newStats)
+        } catch (e) {
+            // Stats failure is silent - doesn't block the main page
+            console.error('Erro ao carregar stats:', e)
         }
-        setStats(newStats)
     }
 
     useEffect(() => {

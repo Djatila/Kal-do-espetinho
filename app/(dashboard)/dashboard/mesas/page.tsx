@@ -12,7 +12,9 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal'
 interface Mesa {
     id: string
     numero_mesa: string
-    status: 'livre' | 'ocupada'
+    status: 'livre' | 'ocupada' | 'em_atendimento'
+    garcom_atual_nome?: string | null
+    garcom_atual_id?: string | null
 }
 
 export default function MesasPage() {
@@ -49,6 +51,30 @@ export default function MesasPage() {
 
     useEffect(() => {
         loadMesas()
+
+        // Escuta mudanças em TEMPO REAL na tabela mesas
+        const channel = supabase
+            .channel('mesas-admin-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'mesas' },
+                (payload) => {
+                    if (payload.eventType === 'INSERT') {
+                        setMesas(prev => [...prev, payload.new as Mesa].sort((a, b) =>
+                            a.numero_mesa.localeCompare(b.numero_mesa, undefined, { numeric: true })
+                        ))
+                    } else if (payload.eventType === 'UPDATE') {
+                        setMesas(prev => prev.map(m => m.id === payload.new.id ? payload.new as Mesa : m))
+                    } else if (payload.eventType === 'DELETE') {
+                        setMesas(prev => prev.filter(m => m.id !== payload.old.id))
+                    }
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
     }, [])
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -60,7 +86,6 @@ export default function MesasPage() {
         }
 
         if (editingId) {
-            // Atualizar
             const { error } = await supabase
                 .from('mesas')
                 .update({
@@ -74,10 +99,8 @@ export default function MesasPage() {
             } else {
                 showToast('success', 'Mesa atualizada!', 'Os dados foram atualizados com sucesso.')
                 resetForm()
-                loadMesas()
             }
         } else {
-            // Criar
             const { error } = await supabase
                 .from('mesas')
                 .insert({
@@ -86,7 +109,6 @@ export default function MesasPage() {
                 })
 
             if (error) {
-                // Handle duplicate unique constraint gracefully if possible
                 if (error.code === '23505') {
                     showToast('error', 'Erro', 'Já existe uma mesa cadastrada com esse número.')
                 } else {
@@ -95,7 +117,6 @@ export default function MesasPage() {
             } else {
                 showToast('success', 'Mesa cadastrada!', 'A mesa foi adicionada com sucesso.')
                 resetForm()
-                loadMesas()
             }
         }
     }
@@ -103,7 +124,7 @@ export default function MesasPage() {
     const handleEdit = (mesa: Mesa) => {
         setFormData({
             numero_mesa: mesa.numero_mesa,
-            status: mesa.status
+            status: mesa.status === 'em_atendimento' ? 'livre' : mesa.status
         })
         setEditingId(mesa.id)
         setShowForm(true)
@@ -121,7 +142,6 @@ export default function MesasPage() {
             showToast('error', 'Erro ao excluir', error.message)
         } else {
             showToast('success', 'Mesa excluída!', 'A mesa foi removida com sucesso.')
-            loadMesas()
         }
 
         setDeleteModal({ isOpen: false, id: null })
@@ -136,12 +156,30 @@ export default function MesasPage() {
         setShowForm(false)
     }
 
+    const getStatusConfig = (mesa: Mesa) => {
+        if (mesa.status === 'em_atendimento') return {
+            icon: 'bg-orange-100 text-orange-600',
+            badge: 'bg-orange-100 text-orange-700',
+            label: mesa.garcom_atual_nome ? `Em Atend. (${mesa.garcom_atual_nome})` : 'Em Atendimento'
+        }
+        if (mesa.status === 'ocupada') return {
+            icon: 'bg-red-100 text-red-600',
+            badge: 'bg-red-100 text-red-700',
+            label: 'Ocupada'
+        }
+        return {
+            icon: 'bg-green-100 text-green-600',
+            badge: 'bg-green-100 text-green-700',
+            label: 'Livre'
+        }
+    }
+
     return (
         <div className="flex flex-col gap-6">
             <div className="flex justify-between items-center">
                 <div>
                     <h1 className="text-2xl font-bold">Mesas</h1>
-                    <p className="text-muted-foreground">Gerencie as mesas do estabelecimento</p>
+                    <p className="text-muted-foreground">Gerencie as mesas do estabelecimento — status atualiza em tempo real</p>
                 </div>
                 {!showForm && (
                     <Button onClick={() => setShowForm(true)}>
@@ -211,41 +249,44 @@ export default function MesasPage() {
                                         <td colSpan={4} className="p-8 text-center text-muted-foreground">Carregando...</td>
                                     </tr>
                                 )}
-                                {!loading && mesas.map((mesa) => (
-                                    <tr key={mesa.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
-                                        <td className="p-4">
-                                            <div className={`p-2 rounded-md inline-flex ${mesa.status === 'livre' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                                <Square size={20} />
-                                            </div>
-                                        </td>
-                                        <td className="p-4">
-                                            <span className="font-medium text-lg">Mesa {mesa.numero_mesa}</span>
-                                        </td>
-                                        <td className="p-4">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase ${mesa.status === 'livre' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                                {mesa.status}
-                                            </span>
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    className="!h-8 !w-8 !p-0 !text-blue-500 hover:!text-blue-700 flex items-center justify-center shrink-0"
-                                                    onClick={() => handleEdit(mesa)}
-                                                >
-                                                    <Edit size={16} />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    className="!h-8 !w-8 !p-0 !text-red-500 hover:!text-red-700 flex items-center justify-center shrink-0"
-                                                    onClick={() => setDeleteModal({ isOpen: true, id: mesa.id })}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </Button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {!loading && mesas.map((mesa) => {
+                                    const cfg = getStatusConfig(mesa)
+                                    return (
+                                        <tr key={mesa.id} className="border-b last:border-0 hover:bg-muted/50 transition-colors">
+                                            <td className="p-4">
+                                                <div className={`p-2 rounded-md inline-flex ${cfg.icon}`}>
+                                                    <Square size={20} />
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className="font-medium text-lg">Mesa {mesa.numero_mesa}</span>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase ${cfg.badge}`}>
+                                                    {cfg.label}
+                                                </span>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        variant="ghost"
+                                                        className="!h-8 !w-8 !p-0 !text-blue-500 hover:!text-blue-700 flex items-center justify-center shrink-0"
+                                                        onClick={() => handleEdit(mesa)}
+                                                    >
+                                                        <Edit size={16} />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        className="!h-8 !w-8 !p-0 !text-red-500 hover:!text-red-700 flex items-center justify-center shrink-0"
+                                                        onClick={() => setDeleteModal({ isOpen: true, id: mesa.id })}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
                                 {!loading && mesas.length === 0 && (
                                     <tr>
                                         <td colSpan={4} className="p-8 text-center text-muted-foreground">

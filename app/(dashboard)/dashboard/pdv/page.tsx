@@ -68,6 +68,33 @@ export default function PDVPage() {
         loadProdutos()
         loadMesas()
         loadGarcomInfo()
+
+        // Canal único por sessão para evitar conflitos entre garçons
+        const channelName = `mesas-pdv-${Math.random().toString(36).slice(2)}`
+        const channel = supabase
+            .channel(channelName)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'mesas' },
+                (payload) => {
+                    if (payload.eventType === 'UPDATE') {
+                        setMesas(prev => prev.map(m => m.id === payload.new.id ? payload.new as Mesa : m))
+                    } else if (payload.eventType === 'INSERT') {
+                        setMesas(prev => [...prev, payload.new as Mesa].sort((a, b) =>
+                            a.numero_mesa.localeCompare(b.numero_mesa, undefined, { numeric: true })
+                        ))
+                    } else if (payload.eventType === 'DELETE') {
+                        setMesas(prev => prev.filter(m => m.id !== payload.old.id))
+                    }
+                }
+            )
+            .subscribe((status) => {
+                console.log('📡 Mesas realtime status:', status)
+            })
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
     }, [])
 
     async function loadMesas() {
@@ -116,6 +143,20 @@ export default function PDVPage() {
     }
 
     const selecionarMesa = async (mesa: Mesa | { id: 'balcao', numero_mesa: 'Balcão/Viagem' }) => {
+        // Bloquear acesso a mesas ocupadas ou em atendimento por outro garçom
+        if (mesa.id !== 'balcao') {
+            const mesaFull = mesa as Mesa
+            if (mesaFull.status === 'ocupada') {
+                showToast('error', '🔴 Mesa Ocupada', `A Mesa ${mesaFull.numero_mesa} já foi atendida e está aguardando entrega.`)
+                return
+            }
+            if (mesaFull.status === 'em_atendimento') {
+                const nomeGarcom = mesaFull.garcom_atual_nome ? `pelo garçom ${mesaFull.garcom_atual_nome}` : 'por outro garçom'
+                showToast('error', '🟠 Em Atendimento', `A Mesa ${mesaFull.numero_mesa} está sendo atendida ${nomeGarcom}.`)
+                return
+            }
+        }
+
         if (mesa.id !== 'balcao') {
             // Mark mesa as 'em_atendimento' with the garcom's name
             await supabase
