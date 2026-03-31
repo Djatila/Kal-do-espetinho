@@ -233,14 +233,11 @@ export default function PDVPage() {
             const itemExistenteIndex = prev.findIndex(item => item.id === produto.id)
 
             if (itemExistenteIndex >= 0) {
-                const novaComanda = [...prev]
-                const novaQuantidade = novaComanda[itemExistenteIndex].quantidade + delta
-
-                if (novaQuantidade <= 0) {
-                    novaComanda.splice(itemExistenteIndex, 1)
-                } else {
-                    novaComanda[itemExistenteIndex].quantidade = novaQuantidade
-                }
+                const novaComanda = prev.map((item, idx) => 
+                    idx === itemExistenteIndex 
+                        ? { ...item, quantidade: item.quantidade + delta } 
+                        : item
+                ).filter(item => item.quantidade > 0)
                 return novaComanda
             } else if (delta > 0) {
                 return [...prev, { ...produto, quantidade: 1 }]
@@ -477,6 +474,43 @@ export default function PDVPage() {
                         onChange={(e) => setObservacoes(e.target.value)}
                     />
                 </div>
+
+                {/* Mobile: lista de itens + total + finalizar */}
+                {comanda.length > 0 && (
+                    <div className="flex flex-col gap-1 bg-zinc-800/80 rounded-xl px-3 py-2 border border-white/10 lg:hidden">
+                        {comanda.map(item => (
+                            <div key={item.id} className="flex items-center justify-between text-sm">
+                                <span className="text-zinc-400 w-6 shrink-0">{item.quantidade}x</span>
+                                <span className="text-white flex-1 truncate">
+                                    {item.nome} 
+                                    <span className="text-zinc-500 text-[10px] ml-1">(R$ {item.preco.toFixed(0)})</span>
+                                </span>
+                                <span className="text-white font-semibold ml-2 shrink-0">R$ {(item.preco * item.quantidade).toFixed(0)}</span>
+                            </div>
+                        ))}
+                        <div className="flex items-center justify-between pt-1 mt-1 border-t border-white/10">
+                            <span className="text-orange-400 font-bold text-base">Total: R$ {total.toFixed(0)}</span>
+                            <button
+                                onClick={finalizarPedido}
+                                disabled={enviando}
+                                className="bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm px-4 py-1.5 rounded-lg transition active:scale-95"
+                            >
+                                {enviando ? 'Enviando...' : 'Finalizar ✓'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+                {comanda.length === 0 && (
+                    <div className="flex items-center justify-between gap-2 bg-zinc-800/50 rounded-xl px-3 py-2 border border-white/10 lg:hidden">
+                        <span className="text-zinc-500 text-sm italic">Nenhum item adicionado</span>
+                        <button
+                            disabled
+                            className="bg-orange-500 opacity-40 cursor-not-allowed text-white font-bold text-sm px-4 py-1.5 rounded-lg"
+                        >
+                            Finalizar ✓
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* LEFT COLUMN: Menu, Search, Tabs */}

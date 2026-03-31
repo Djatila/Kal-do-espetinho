@@ -108,14 +108,13 @@ export function Sidebar() {
         <>
             {/* NO MOBILE: SE ESTIVER NO PDV, MOSTRA O CABEÇALHO VOLTAR. CASO CONTRÁRIO, MOSTRA HAMBURGER */}
             {isPdvRoute ? (
-                <div className={clsx(styles.mobilePdvHeader, styles.showMobilePdvHeader)}>
-                    { !isAtendente && (
+                !isAtendente ? (
+                    <div className={clsx(styles.mobilePdvHeader, styles.showMobilePdvHeader)}>
                         <button onClick={() => router.push('/dashboard')} className={styles.backButton}>
-                            <ArrowLeft size={24} />
+                            <ArrowLeft size={20} />
                         </button>
-                    )}
-                    <h1 className={styles.mobilePdvTitle}>PDV Atendente</h1>
-                </div>
+                    </div>
+                ) : null
             ) : (
                 <button
                     className={styles.mobileMenuToggle}
