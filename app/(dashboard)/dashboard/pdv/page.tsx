@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Utensils, CupSoda, ShoppingBag, Plus, Minus, Search, ChevronDown, Check } from 'lucide-react'
+import { Utensils, CupSoda, ShoppingBag, Plus, Minus, Search, ChevronDown, Check, Trash2, Store, Square, ArrowLeft } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import styles from './page.module.css'
 import { sendOrderWebhook } from '@/utils/webhook'
@@ -19,6 +19,14 @@ interface Produto {
 
 interface ItemComanda extends Produto {
     quantidade: number
+}
+
+interface Mesa {
+    id: string
+    numero_mesa: string
+    status: 'livre' | 'ocupada' | 'em_atendimento'
+    garcom_atual_nome?: string | null
+    garcom_atual_id?: string | null
 }
 
 export default function PDVPage() {
@@ -41,9 +49,105 @@ export default function PDVPage() {
     const [precisaTroco, setPrecisaTroco] = useState(false)
     const [trocoPara, setTrocoPara] = useState('')
 
+    const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+    const handleCloseSuccess = () => {
+        setShowSuccessPopup(false)
+        setMesaEscolhida(null)
+    }
+
+    // Estados de Mesas
+    const [mesas, setMesas] = useState<Mesa[]>([])
+    const [loadingMesas, setLoadingMesas] = useState(true)
+    const [mesaEscolhida, setMesaEscolhida] = useState<Mesa | { id: 'balcao', numero_mesa: 'Balcão/Viagem' } | null>(null)
+
+    // Estado do Garçom logado
+    const [garcomId, setGarcomId] = useState<string>('')
+    const [garcomNome, setGarcomNome] = useState<string>('')
+
     useEffect(() => {
         loadProdutos()
+        loadMesas()
+        loadGarcomInfo()
     }, [])
+
+    async function loadMesas() {
+        setLoadingMesas(true)
+        const { data, error } = await supabase
+            .from('mesas')
+            .select('*')
+            .order('numero_mesa', { ascending: true })
+
+        if (!error && data) {
+            setMesas(data)
+        }
+        setLoadingMesas(false)
+    }
+
+    async function loadGarcomInfo() {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+        setGarcomId(user.id)
+        // Try getting name from metadata first
+        if (user.user_metadata?.nome) {
+            setGarcomNome(user.user_metadata.nome)
+        } else {
+            const { data: userData } = await supabase
+                .from('usuarios')
+                .select('nome')
+                .eq('id', user.id)
+                .single()
+            setGarcomNome(userData?.nome || user.email?.split('@')[0] || 'Garçom')
+        }
+    }
+
+    async function toggleMesaStatus(e: React.MouseEvent, id: string, currentStatus: string) {
+        e.stopPropagation() 
+        const newStatus = currentStatus === 'livre' ? 'ocupada' : 'livre'
+        const { error } = await supabase
+            .from('mesas')
+            .update({ status: newStatus })
+            .eq('id', id)
+        
+        if (error) {
+            showToast('error', 'Erro', 'Falha ao atualizar mesa')
+        } else {
+            setMesas(prev => prev.map(m => m.id === id ? { ...m, status: newStatus as 'livre' | 'ocupada' } : m))
+        }
+    }
+
+    const selecionarMesa = async (mesa: Mesa | { id: 'balcao', numero_mesa: 'Balcão/Viagem' }) => {
+        if (mesa.id !== 'balcao') {
+            // Mark mesa as 'em_atendimento' with the garcom's name
+            await supabase
+                .from('mesas')
+                .update({ 
+                    status: 'em_atendimento', 
+                    garcom_atual_id: garcomId || null, 
+                    garcom_atual_nome: garcomNome || null 
+                })
+                .eq('id', mesa.id)
+            setMesas(prev => prev.map(m => m.id === mesa.id ? { ...m, status: 'em_atendimento', garcom_atual_nome: garcomNome } : m))
+        }
+        setMesaEscolhida(mesa)
+        setNumeroMesa(mesa.numero_mesa === 'Balcão/Viagem' ? '' : mesa.numero_mesa)
+        setComanda([])
+        setNomeCliente('')
+        setTelefone('')
+        setObservacoes('')
+        setMetodoPagamento('pix')
+    }
+
+    const voltarDaMesa = async () => {
+        if (mesaEscolhida && mesaEscolhida.id !== 'balcao') {
+            // Release mesa back to 'livre'
+            await supabase
+                .from('mesas')
+                .update({ status: 'livre', garcom_atual_id: null, garcom_atual_nome: null })
+                .eq('id', mesaEscolhida.id)
+            setMesas(prev => prev.map(m => m.id === mesaEscolhida.id ? { ...m, status: 'livre', garcom_atual_nome: null } : m))
+        }
+        setMesaEscolhida(null)
+    }
 
     async function loadProdutos() {
         setLoading(true)
@@ -162,7 +266,10 @@ export default function PDVPage() {
                 observacoes: objObservacoes,
                 status: 'pendente',
                 precisa_troco: metodoPagamento === 'dinheiro' ? precisaTroco : false,
-                valor_para_troco: valorTrocoNumero
+                valor_para_troco: valorTrocoNumero,
+                mesa_id: mesaEscolhida && mesaEscolhida.id !== 'balcao' ? mesaEscolhida.id : null,
+                garcom_id: garcomId || null,
+                garcom_nome: garcomNome || null
             })
             .select()
 
@@ -173,7 +280,13 @@ export default function PDVPage() {
             console.error('Erro ao enviar pedido:', error)
             showToast('error', 'Erro', 'Falha ao registrar pedido: ' + error.message)
         } else {
-            showToast('success', 'Pedido Registrado', 'A comanda foi enviada para a cozinha!')
+            if (mesaEscolhida && mesaEscolhida.id !== 'balcao') {
+                supabase.from('mesas').update({ status: 'ocupada', garcom_atual_id: null, garcom_atual_nome: null }).eq('id', mesaEscolhida.id).then();
+                setMesas(prev => prev.map(m => m.id === mesaEscolhida.id ? { ...m, status: 'ocupada', garcom_atual_nome: null } : m));
+            }
+
+            setShowSuccessPopup(true);
+
             setComanda([])
             setNumeroMesa('')
             setNomeCliente('')
@@ -197,12 +310,98 @@ export default function PDVPage() {
         }
     }
 
-    if (loading) {
+    if (loading || loadingMesas) {
         return <div className="p-8 text-center text-white">Carregando PDV...</div>
+    }
+
+    if (!mesaEscolhida) {
+        return (
+            <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-5xl mx-auto h-full p-2 sm:p-4 overflow-y-auto overflow-x-hidden">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Acessar PDV</h1>
+                    <p className="text-white/70 text-sm sm:text-base">Selecione onde o cliente será atendido antes de abrir o cardápio.</p>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                    {/* Card Balcão fixo */}
+                    <button
+                        onClick={() => selecionarMesa({ id: 'balcao', numero_mesa: 'Balcão/Viagem' })}
+                        className="bg-blue-600 text-white rounded-xl p-4 sm:p-6 flex flex-col items-center justify-center gap-2 sm:gap-3 hover:bg-blue-700 transition transform hover:scale-105 shadow-md border border-blue-500"
+                    >
+                        <Store className="w-8 h-8 sm:w-10 sm:h-10" />
+                        <span className="font-bold text-base sm:text-xl">Balcão</span>
+                        <span className="text-[10px] sm:text-xs bg-black/20 px-2 py-1 rounded-full uppercase tracking-wider text-center leading-tight whitespace-normal">Viagem/Delivery</span>
+                    </button>
+
+                    {/* Cards das Mesas Dinâmicas */}
+                    {mesas.map(m => {
+                        const isEmAtendimento = m.status === 'em_atendimento'
+                        const isOcupada = m.status === 'ocupada'
+                        const borderClass = isEmAtendimento
+                            ? 'bg-zinc-800 border-orange-500/50 text-white border-b-4 border-b-orange-500'
+                            : isOcupada
+                            ? 'bg-zinc-800 border-red-500/50 text-white border-b-4 border-b-red-500'
+                            : 'bg-zinc-800 border-green-500/50 text-white border-b-4 border-b-green-500'
+                        const iconColor = isEmAtendimento ? 'text-orange-500' : isOcupada ? 'text-red-500' : 'text-green-500'
+                        const badgeClass = isEmAtendimento
+                            ? 'bg-orange-500/20 text-orange-400'
+                            : isOcupada ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
+                        const statusLabel = isEmAtendimento ? `Em Atend.` : isOcupada ? 'Ocupada' : 'Livre'
+                        return (
+                            <button
+                                key={m.id}
+                                onClick={() => selecionarMesa(m)}
+                                className={`p-4 sm:p-6 rounded-xl flex flex-col items-center justify-between gap-2 sm:gap-3 transition transform hover:scale-105 shadow-md border ${borderClass}`}
+                            >
+                                <Square className={`w-8 h-8 sm:w-9 sm:h-9 ${iconColor}`} />
+                                <span className="font-bold text-base sm:text-xl">Mesa {m.numero_mesa}</span>
+                                
+                                <div className="flex flex-col items-center gap-1 mt-1 w-full">
+                                    <div 
+                                        onClick={(e) => toggleMesaStatus(e, m.id, m.status)} 
+                                        className={`text-[10px] sm:text-xs px-2 sm:px-3 py-1 rounded-full uppercase tracking-wider font-semibold cursor-pointer hover:opacity-80 transition ${badgeClass}`}
+                                    >
+                                        {statusLabel}
+                                    </div>
+                                    {isEmAtendimento && m.garcom_atual_nome && (
+                                        <span className="text-[9px] sm:text-[10px] text-orange-300/80 truncate w-full text-center px-1">
+                                            {m.garcom_atual_nome}
+                                        </span>
+                                    )}
+                                </div>
+                            </button>
+                        )
+                    })}
+                </div>
+                
+                {mesas.length === 0 && (
+                    <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-xl border border-white/10 mt-4">
+                        <Square size={48} className="text-muted-foreground mb-4 opacity-50" />
+                        <p className="text-white/70">Nenhuma mesa foi configurada ainda.</p>
+                        <p className="text-white/50 text-sm mt-1">Vá na aba "Mesas" para cadastrar.</p>
+                    </div>
+                )}
+            </div>
+        )
     }
 
     return (
         <div className={styles.pdvContainer}>
+            {/* Header de Atendimento */}
+            <div className="flex items-center justify-between bg-zinc-900 border-b border-white/10 p-3 mb-0 text-white shrink-0">
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={voltarDaMesa} 
+                        className="p-2 hover:bg-white/10 rounded-lg transition"
+                        title="Voltar para seleção de mesas"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div className="font-bold text-lg">
+                        Atendimento: <span className="text-primary">{mesaEscolhida.numero_mesa}</span>
+                    </div>
+                </div>
+            </div>
 
             {/* MOBILE ONLY: Inputs at the top */}
             <div className={styles.mobileInputsTop}>
@@ -367,7 +566,18 @@ export default function PDVPage() {
                                 <div className={styles.resumoItemName}>
                                     {item.nome} <span className={styles.itemMuted}>(R$ {item.preco.toFixed(0)})</span>
                                 </div>
-                                <div className={styles.resumoItemPrice}>R$ {(item.preco * item.quantidade).toFixed(0)}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <div className={styles.resumoItemPrice}>R$ {(item.preco * item.quantidade).toFixed(0)}</div>
+                                    <button 
+                                        onClick={() => setComanda(prev => prev.filter(i => i.id !== item.id))}
+                                        title="Remover Item"
+                                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', opacity: 0.8, transition: 'opacity 0.2s' }}
+                                        onMouseOver={(e) => e.currentTarget.style.opacity = '1'}
+                                        onMouseOut={(e) => e.currentTarget.style.opacity = '0.8'}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -438,6 +648,25 @@ export default function PDVPage() {
                     </button>
                 </div>
             </div>
+            
+            {showSuccessPopup && (
+                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 p-4 sm:p-6 backdrop-blur-sm">
+                    <div className="bg-zinc-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 max-w-sm w-[90%] sm:w-full flex flex-col items-center text-center shadow-2xl animate-in zoom-in-95 duration-200 border border-white/10">
+                        <div className="w-16 h-16 sm:w-24 sm:h-24 bg-green-500/20 rounded-full flex items-center justify-center mb-4 sm:mb-6 shadow-[0_0_30px_rgba(34,197,94,0.3)]">
+                            <Check className="w-8 h-8 sm:w-12 sm:h-12 text-green-500" strokeWidth={3} />
+                        </div>
+                        <h2 className="text-xl sm:text-3xl font-black text-white mb-2 sm:mb-3">Pedido Enviado!</h2>
+                        <p className="text-zinc-400 text-sm sm:text-base mb-6 sm:mb-8 max-w-[200px] sm:max-w-[250px] leading-relaxed">A comanda foi registrada e já está na cozinha.</p>
+                        <button 
+                            onClick={handleCloseSuccess}
+                            className="w-full py-3 sm:py-4 bg-green-600 hover:bg-green-700 active:scale-[0.98] transform transition-all text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg flex items-center justify-center gap-2"
+                        >
+                            <Plus size={20} className="sm:w-6 sm:h-6" />
+                            Novo Atendimento
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

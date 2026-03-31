@@ -54,7 +54,15 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (user && user.user_metadata?.funcao === 'atendente') {
+        const url = request.nextUrl.clone()
+        if (url.pathname.startsWith('/dashboard') && url.pathname !== '/dashboard/pdv') {
+            url.pathname = '/dashboard/pdv'
+            return NextResponse.redirect(url)
+        }
+    }
 
     return response
 }

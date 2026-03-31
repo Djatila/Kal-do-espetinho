@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, TrendingUp, TrendingDown, Wallet, FileText, LogOut, User, UtensilsCrossed, Users, Settings, Package, ShoppingBag, Sun, Moon, MonitorSmartphone, ArrowLeft, Menu, X } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, TrendingDown, Wallet, FileText, LogOut, User, UtensilsCrossed, Users, Settings, Package, ShoppingBag, Sun, Moon, MonitorSmartphone, ArrowLeft, Menu, X, UsersRound, Square } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import styles from './Sidebar.module.css'
 import { clsx } from 'clsx'
@@ -17,8 +17,10 @@ const menuItems = [
     { icon: Package, label: 'Produtos', href: '/dashboard/produtos' },
     { icon: UtensilsCrossed, label: 'Cardápio', href: '/dashboard/cardapio' },
     { icon: Users, label: 'Clientes', href: '/dashboard/clientes' },
+    { icon: Square, label: 'Mesas', href: '/dashboard/mesas' },
     { icon: Wallet, label: 'Fluxo de Caixa', href: '/dashboard/fluxo' },
     { icon: FileText, label: 'Relatórios', href: '/dashboard/relatorios' },
+    { icon: UsersRound, label: 'Equipe', href: '/dashboard/equipe' },
     { icon: Settings, label: 'Configurações', href: '/dashboard/configuracoes' },
 ]
 
@@ -32,11 +34,26 @@ export function Sidebar() {
     const [userRole, setUserRole] = useState<string>('Proprietário')
     const [logoUrl, setLogoUrl] = useState<string | null>(null)
     const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [isAtendente, setIsAtendente] = useState(false)
 
     useEffect(() => {
         async function loadUser() {
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
+                if (user.user_metadata?.funcao === 'atendente') {
+                    setIsAtendente(true)
+                    setUserRole('Atendente')
+                } else {
+                    // Load actual title if admin
+                    const { data: config } = await supabase
+                        .from('configuracoes')
+                        .select('cargo_usuario')
+                        .single()
+                    if (config?.cargo_usuario) {
+                        setUserRole(config.cargo_usuario)
+                    }
+                }
+
                 if (user.user_metadata?.nome) {
                     setUserName(user.user_metadata.nome)
                 } else {
@@ -58,15 +75,13 @@ export function Sidebar() {
         async function loadRestaurantConfig() {
             const { data: config } = await supabase
                 .from('configuracoes')
-                .select('nome_restaurante, cargo_usuario, logo_url')
+                .select('nome_restaurante, logo_url')
                 .single()
 
             if (config?.nome_restaurante) {
                 setRestaurantName(config.nome_restaurante)
             }
-            if (config?.cargo_usuario) {
-                setUserRole(config.cargo_usuario)
-            }
+            
             if (config?.logo_url) {
                 setLogoUrl(config.logo_url)
             }
@@ -94,9 +109,11 @@ export function Sidebar() {
             {/* NO MOBILE: SE ESTIVER NO PDV, MOSTRA O CABEÇALHO VOLTAR. CASO CONTRÁRIO, MOSTRA HAMBURGER */}
             {isPdvRoute ? (
                 <div className={clsx(styles.mobilePdvHeader, styles.showMobilePdvHeader)}>
-                    <button onClick={() => router.push('/dashboard')} className={styles.backButton}>
-                        <ArrowLeft size={24} />
-                    </button>
+                    { !isAtendente && (
+                        <button onClick={() => router.push('/dashboard')} className={styles.backButton}>
+                            <ArrowLeft size={24} />
+                        </button>
+                    )}
                     <h1 className={styles.mobilePdvTitle}>PDV Atendente</h1>
                 </div>
             ) : (
@@ -115,7 +132,7 @@ export function Sidebar() {
 
             <aside className={clsx(
                 styles.sidebar,
-                isPdvRoute ? styles.hideOnMobilePdv : '',
+                isPdvRoute && !isAtendente ? styles.hideOnMobilePdv : '', // se for atendente não temos porquê esconder sidebar no mobile se for o único fluxo, porém ele só fica lá
                 !isPdvRoute && isMenuOpen ? styles.sidebarOpen : ''
             )}>
                 <div className={styles.header}>
@@ -150,26 +167,29 @@ export function Sidebar() {
                 <div className={styles.pdvActionContainer}>
                     <Link href="/dashboard/pdv" className={styles.pdvButton}>
                         <MonitorSmartphone size={20} />
-                        <span>PDV Atendente</span>
+                        <span>{isAtendente ? 'Acessar PDV' : 'PDV Atendente'}</span>
                     </Link>
                 </div>
 
-                <nav className={styles.nav}>
-                    {menuItems.map((item) => {
-                        const Icon = item.icon
-                        const isActive = pathname === item.href
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={clsx(styles.link, isActive && styles.active)}
-                            >
-                                <Icon size={20} />
-                                <span>{item.label}</span>
-                            </Link>
-                        )
-                    })}
-                </nav>
+                {!isAtendente && (
+                    <nav className={styles.nav}>
+                        {menuItems.map((item) => {
+                            const Icon = item.icon
+                            const isActive = pathname === item.href
+                            return (
+                                <Link
+                                    key={item.href}
+                                    href={item.href}
+                                    className={clsx(styles.link, isActive && styles.active)}
+                                >
+                                    <Icon size={20} />
+                                    <span>{item.label}</span>
+                                </Link>
+                            )
+                        })}
+                    </nav>
+                )}
+                
                 <div className={styles.footer}>
                     <button
                         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

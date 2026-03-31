@@ -87,51 +87,18 @@ export default function ClientesPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        if (formData.tipo_cliente === 'credito') {
-            // Validar senha
-            if (!editingId && !formData.senha) {
-                showToast('error', 'Erro', 'Senha é obrigatória para clientes crédito')
-                return
-            }
-            if (formData.senha && formData.senha.length < 6) {
-                showToast('error', 'Erro', 'A senha deve ter pelo menos 6 caracteres')
-                return
-            }
-
-            // Usar API Route para criar/atualizar cliente crédito e usuário Auth
-            try {
-                const response = await fetch('/api/clientes/create', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                })
-
-                const result = await response.json()
-
-                if (!response.ok) {
-                    throw new Error(result.error || 'Erro ao processar solicitação')
-                }
-
-                showToast('success', 'Sucesso', 'Cliente crédito salvo com sucesso!')
-                resetForm()
-                loadClientes()
-            } catch (error: any) {
-                showToast('error', 'Erro', error.message)
-            }
-            return
-        }
-
-        // Fluxo normal para clientes informais
         if (editingId) {
             // Atualizar
             const { error } = await supabase
                 .from('clientes')
                 .update({
                     nome: formData.nome,
-                    telefone: formData.telefone,
+                    telefone: formData.telefone.replace(/\D/g, ''),
                     endereco: formData.endereco,
                     observacoes: formData.observacoes,
-                    tipo_cliente: 'informal'
+                    tipo_cliente: formData.tipo_cliente,
+                    limite_credito: formData.tipo_cliente === 'informal' ? 0 : formData.limite_credito,
+                    limite_ilimitado: formData.tipo_cliente === 'informal' ? false : formData.limite_ilimitado
                 })
                 .eq('id', editingId)
 
@@ -148,10 +115,12 @@ export default function ClientesPage() {
                 .from('clientes')
                 .insert({
                     nome: formData.nome,
-                    telefone: formData.telefone,
+                    telefone: formData.telefone.replace(/\D/g, ''),
                     endereco: formData.endereco,
                     observacoes: formData.observacoes,
-                    tipo_cliente: 'informal'
+                    tipo_cliente: formData.tipo_cliente,
+                    limite_credito: formData.tipo_cliente === 'informal' ? 0 : formData.limite_credito,
+                    limite_ilimitado: formData.tipo_cliente === 'informal' ? false : formData.limite_ilimitado
                 })
 
             if (error) {
@@ -260,27 +229,23 @@ export default function ClientesPage() {
                                 <select
                                     className="w-full p-2 border rounded-md"
                                     value={formData.tipo_cliente}
-                                    onChange={(e) => setFormData({ ...formData, tipo_cliente: e.target.value })}
+                                    onChange={(e) => {
+                                        const val = e.target.value
+                                        setFormData({
+                                            ...formData,
+                                            tipo_cliente: val,
+                                            limite_credito: val === 'informal' ? 0 : formData.limite_credito,
+                                            limite_ilimitado: val === 'informal' ? false : formData.limite_ilimitado
+                                        })
+                                    }}
                                 >
                                     <option value="informal">Informal</option>
-                                    <option value="credito">Crédito (Pré-aprovado)</option>
+                                    <option value="credito">Crédito (Acesso para Pagar Depois)</option>
                                 </select>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    Clientes "Crédito" podem criar conta com senha. Clientes "Informal" apenas acesso rápido.
-                                </p>
                             </div>
 
                             {formData.tipo_cliente === 'credito' && (
                                 <>
-                                    <Input
-                                        label={editingId ? "Nova Senha (deixe em branco para manter)" : "Senha de Acesso"}
-                                        type="password"
-                                        value={formData.senha}
-                                        onChange={(e) => setFormData({ ...formData, senha: e.target.value })}
-                                        placeholder={editingId ? "******" : "Mínimo 6 caracteres"}
-                                        required={!editingId}
-                                    />
-
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium">Limite de Crédito (R$)</label>

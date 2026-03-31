@@ -212,9 +212,9 @@ export default function CardapioPublicoPage() {
         const savedClienteId = sessionStorage.getItem('clienteId')
         const savedTipoCliente = sessionStorage.getItem('tipoCliente') as 'credito' | 'informal' | null
 
-        if (savedClienteId && savedTipoCliente) {
+        if (savedClienteId) {
             setClienteId(savedClienteId)
-            setTipoCliente(savedTipoCliente)
+            // Sempre re-sincroniza tipo_cliente do banco (pode ter mudado desde o último login)
             await loadClienteData(savedClienteId)
         } else {
             // Verificar se há usuário autenticado (cliente crédito)
@@ -249,6 +249,8 @@ export default function CardapioPublicoPage() {
             .maybeSingle()
 
         if (cliente) {
+            setTipoCliente(cliente.tipo_cliente)
+            sessionStorage.setItem('tipoCliente', cliente.tipo_cliente)
             setDadosCliente(prev => ({
                 ...prev,
                 nome: cliente.nome || '',
@@ -1222,7 +1224,7 @@ export default function CardapioPublicoPage() {
                 whatsappNumber={configuracao.whatsapp_loja}
                 pixKey={configuracao.chave_pix}
                 deliveryFee={taxaEntrega}
-                allowPayLater={tipoCliente === 'credito'}
+                allowPayLater={tipoCliente === 'credito' || (dadosCliente.limite_credito !== undefined && dadosCliente.limite_credito > 0)}
                 isComplement={modoComplemento}
                 initialPaymentMethod={modoComplemento ? (() => {
                     const map: Record<string, string> = {

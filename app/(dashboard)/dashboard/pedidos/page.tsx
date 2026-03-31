@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
-import { Clock, Phone, MapPin, Package, CheckCircle, XCircle, AlertCircle, Truck, Trash2, ShoppingBag, CreditCard, Banknote, Printer, Wallet } from 'lucide-react'
+import { Clock, Phone, MapPin, Package, CheckCircle, XCircle, AlertCircle, Truck, Trash2, ShoppingBag, CreditCard, Banknote, Printer, Wallet, Pencil, Save, X, Plus } from 'lucide-react'
 import styles from './page.module.css'
 import { sendOrderWebhook } from '@/utils/webhook'
 import clsx from 'clsx'
@@ -35,12 +35,15 @@ interface Pedido {
     status: 'pendente' | 'confirmado' | 'preparando' | 'pronto' | 'entregue' | 'cancelado'
     created_at: string
     updated_at: string
+    garcom_nome?: string | null
+    garcom_id?: string | null
     historico_complementos?: Array<{
         data: string
         itens: ItemPedido[]
         subtotal: number
         total: number
     }>
+    mesaStr?: string
 }
 
 const STATUS_CONFIG = {
@@ -76,9 +79,17 @@ export default function PedidosPage() {
     const [configuracao, setConfiguracao] = useState<any>(null)
     const scrolledIdRef = useRef<string | null>(null)
 
+    // Edit states
+    const [isEditing, setIsEditing] = useState(false)
+    const [editData, setEditData] = useState<Partial<Pedido>>({})
+    const [produtosCadastrados, setProdutosCadastrados] = useState<any[]>([])
+    const [searchTerm, setSearchTerm] = useState('')
+    const [itemQuantidade, setItemQuantidade] = useState(1)
+
     useEffect(() => {
         loadPedidos()
         loadConfiguracao()
+        loadProdutos()
 
         // Criar elemento de áudio para notificação
         audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGWi77eafTRAMUKfj8LZjHAY4ktfzzHksBSR3x/DdkEAKFF606+uoVRQKRp/g8r5sIQUrgs7y2Iz2CBlou+3mn00QDFA=')
@@ -131,6 +142,127 @@ export default function PedidosPage() {
             setConfiguracao(data)
         }
     }
+
+    async function loadProdutos() {
+        const { data } = await supabase
+            .from('produtos')
+            .select('id, nome, preco, imagem_url')
+            .eq('ativo', true)
+        if (data) setProdutosCadastrados(data)
+    }
+
+    function iniciarEdicao() {
+        if (!pedidoSelecionado) return
+        setIsEditing(true)
+        let mesa = ''
+        let obsLimpa = pedidoSelecionado.observacoes || ''
+        const match = obsLimpa.match(/MESA:\s*([^\s\n]+)/i)
+        if (match) {
+            mesa = match[1]
+            obsLimpa = obsLimpa.replace(/MESA:\s*[^\s\n]+/i, '').trim()
+        }
+        setEditData({
+            ...pedidoSelecionado,
+            observacoes: obsLimpa,
+            mesaStr: mesa
+        })
+    }
+    
+    function cancelarEdicao() {
+        setIsEditing(false)
+        setEditData({})
+        setSearchTerm('')
+    }
+    
+    async function salvarEdicao() {
+        if (!pedidoSelecionado) return
+        
+        let newObs = editData.observacoes || ''
+        if (editData.tipo_entrega === 'retirada' && editData.mesaStr) {
+            newObs = `MESA: ${editData.mesaStr} ${newObs}`.trim()
+        }
+        
+        const { error } = await supabase.from('pedidos_online').update({
+            tipo_entrega: editData.tipo_entrega,
+            taxa_entrega: editData.taxa_entrega || 0,
+            observacoes: newObs,
+            itens: editData.itens,
+            subtotal: editData.subtotal,
+            total: editData.total,
+            metodo_pagamento: editData.metodo_pagamento
+        }).eq('id', pedidoSelecionado.id)
+        
+        if (!error) {
+            setIsEditing(false)
+            setSearchTerm('')
+        } else {
+            alert('Erro ao atualizar: ' + error.message)
+        }
+    }
+
+    function handleAdicionarItemEdit(produto: any) {
+        if (!editData.itens) return
+        
+        const newItem: ItemPedido = {
+            id: produto.id || Math.random().toString(36).substring(7),
+            nome: produto.nome,
+            quantidade: itemQuantidade,
+            preco: produto.preco,
+            subtotal: produto.preco * itemQuantidade
+        }
+        
+        const novosItens = [...editData.itens, newItem]
+        const novoSubtotal = novosItens.reduce((acc, item) => acc + item.subtotal, 0)
+        const novaTaxa = editData.tipo_entrega === 'delivery' ? (editData.taxa_entrega || 0) : 0
+        const novoTotal = novoSubtotal + novaTaxa
+        
+        setEditData({
+            ...editData,
+            itens: novosItens,
+            subtotal: novoSubtotal,
+            total: novoTotal
+        })
+        
+        setSearchTerm('')
+        setItemQuantidade(1)
+    }
+    
+    function removerItemEdit(idx: number) {
+        if (!editData.itens) return
+        const novosItens = [...editData.itens]
+        novosItens.splice(idx, 1)
+        
+        const novoSubtotal = novosItens.reduce((acc, item) => acc + item.subtotal, 0)
+        const novaTaxa = editData.tipo_entrega === 'delivery' ? (editData.taxa_entrega || 0) : 0
+        const novoTotal = novoSubtotal + novaTaxa
+        
+        setEditData({
+            ...editData,
+            itens: novosItens,
+            subtotal: novoSubtotal,
+            total: novoTotal
+        })
+    }
+
+    function handleTaxaChange(val: number) {
+        setEditData(prev => ({
+            ...prev,
+            taxa_entrega: val,
+            total: (prev.subtotal || 0) + val
+        }))
+    }
+
+    function handleTipoEntregaChange(val: 'retirada' | 'delivery') {
+        const novaTaxa = val === 'retirada' ? 0 : (editData.taxa_entrega || configuracao?.taxa_entrega || 0)
+        setEditData(prev => ({
+            ...prev,
+            tipo_entrega: val,
+            taxa_entrega: novaTaxa,
+            total: (prev.subtotal || 0) + novaTaxa
+        }))
+    }
+
+    const produtosFiltrados = searchTerm ? produtosCadastrados.filter(p => p.nome.toLowerCase().includes(searchTerm.toLowerCase())) : []
 
     function setupRealtimeSubscription() {
         console.log('🔄 Configurando Realtime Subscription...')
@@ -763,6 +895,12 @@ export default function PedidosPage() {
                                             <span>{pedido.cliente_endereco}</span>
                                         </div>
                                     )}
+                                    {pedido.garcom_nome && (
+                                        <div className={styles.infoItem} style={{ color: '#f97316', fontWeight: 500 }}>
+                                            <span>&#128107;</span>
+                                            <span>Garçom: {pedido.garcom_nome}</span>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {(() => {
@@ -927,112 +1065,323 @@ export default function PedidosPage() {
                         <div className={styles.modalHeader}>
                             <h2>Pedido #{pedidoSelecionado.numero_pedido}</h2>
                             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                                <button
-                                    onClick={() => imprimirPedido(pedidoSelecionado)}
-                                    style={{
-                                        background: '#22c55e',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '6px',
-                                        padding: '8px 16px',
-                                        cursor: 'pointer',
-                                        fontSize: '14px',
-                                        fontWeight: 600,
-                                        transition: 'background 0.2s',
-                                        whiteSpace: 'nowrap',
-                                        minWidth: '110px'
-                                    }}
-                                    onMouseOver={(e) => e.currentTarget.style.background = '#16a34a'}
-                                    onMouseOut={(e) => e.currentTarget.style.background = '#22c55e'}
-                                    title="Imprimir Pedido"
-                                >
-                                    🖨️ Imprimir
-                                </button>
-                                <button onClick={() => setPedidoSelecionado(null)}>✕</button>
+                                {!isEditing ? (
+                                    <>
+                                        <button
+                                            onClick={iniciarEdicao}
+                                            style={{
+                                                background: '#f59e0b',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                padding: '8px 16px',
+                                                cursor: 'pointer',
+                                                fontSize: '14px',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                width: 'auto',
+                                                height: 'auto'
+                                            }}
+                                            title="Editar Pedido Manualmente"
+                                        >
+                                            <Pencil size={16} /> Editar
+                                        </button>
+                                        <button
+                                            onClick={() => imprimirPedido(pedidoSelecionado)}
+                                            style={{
+                                                background: '#22c55e',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                padding: '8px 16px',
+                                                cursor: 'pointer',
+                                                fontSize: '14px',
+                                                fontWeight: 600,
+                                                transition: 'background 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                whiteSpace: 'nowrap',
+                                                width: 'auto',
+                                                height: 'auto'
+                                            }}
+                                            onMouseOver={(e) => e.currentTarget.style.background = '#16a34a'}
+                                            onMouseOut={(e) => e.currentTarget.style.background = '#22c55e'}
+                                            title="Imprimir Pedido"
+                                        >
+                                            <Printer size={16} /> Imprimir
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button
+                                            onClick={salvarEdicao}
+                                            style={{
+                                                background: '#3b82f6',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                padding: '8px 16px',
+                                                cursor: 'pointer',
+                                                fontSize: '14px',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                whiteSpace: 'nowrap',
+                                                flexShrink: 0,
+                                                width: 'auto',
+                                                height: 'auto'
+                                            }}
+                                        >
+                                            <Save size={16} /> Salvar
+                                        </button>
+                                        <button
+                                            onClick={cancelarEdicao}
+                                            style={{
+                                                background: '#ef4444',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                padding: '8px 16px',
+                                                cursor: 'pointer',
+                                                fontSize: '14px',
+                                                fontWeight: 600,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                whiteSpace: 'nowrap',
+                                                flexShrink: 0,
+                                                width: 'auto',
+                                                height: 'auto'
+                                            }}
+                                        >
+                                            <X size={16} /> Cancelar
+                                        </button>
+                                    </>
+                                )}
+                                <button onClick={() => { setPedidoSelecionado(null); setIsEditing(false); setSearchTerm(''); }} style={{ marginLeft: '10px' }}>✕</button>
                             </div>
                         </div>
 
                         <div className={styles.modalContent}>
                             <div className={styles.secao}>
-                                <h3>Informações do Cliente</h3>
+                                <h3>Informações do Cliente {isEditing && '(Modo Edição)'}</h3>
                                 <p><strong>Nome:</strong> {pedidoSelecionado.cliente_nome}</p>
                                 <p><strong>Telefone:</strong> {pedidoSelecionado.cliente_telefone}</p>
-                                <p><strong>Tipo:</strong> {pedidoSelecionado.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}</p>
-                                {pedidoSelecionado.metodo_pagamento && PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento] && (
-                                    <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <strong>Pagamento:</strong>
-                                        {(() => {
-                                            const config = PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento as string];
-                                            const Icon = config.icon;
-                                            if (typeof Icon === 'string') {
-                                                if (Icon.startsWith('/')) {
-                                                    return <img src={Icon} alt="Pix" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />;
-                                                }
-                                                return <span style={{ fontSize: '18px' }}>{Icon}</span>;
-                                            }
-                                            return <Icon size={18} />;
-                                        })()}
-                                        {PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].label}
-                                    </p>
-                                )}
-                                {pedidoSelecionado.metodo_pagamento === 'dinheiro' && pedidoSelecionado.precisa_troco && pedidoSelecionado.valor_para_troco && (
-                                    <p style={{ color: '#22c55e', fontWeight: 500 }}>
-                                        <strong>Troco:</strong> Cliente vai pagar com R$ {pedidoSelecionado.valor_para_troco.toFixed(2)}<br />
-                                        Troco a devolver: R$ {(pedidoSelecionado.valor_para_troco - pedidoSelecionado.total).toFixed(2)}
-                                    </p>
-                                )}
-                                {pedidoSelecionado.cliente_endereco && (
-                                    <p><strong>Endereço:</strong> {pedidoSelecionado.cliente_endereco}</p>
+                                
+                                {isEditing ? (
+                                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <label style={{ fontWeight: 600, width: '100px' }}>Modalidade:</label>
+                                            <select 
+                                                value={editData.tipo_entrega}
+                                                onChange={(e) => handleTipoEntregaChange(e.target.value as 'retirada' | 'delivery')}
+                                                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ddd', color: '#1e293b', backgroundColor: '#fff', flex: 1 }}
+                                            >
+                                                <option value="retirada">Retirada / Mesa</option>
+                                                <option value="delivery">Delivery</option>
+                                            </select>
+                                        </div>
+
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <label style={{ fontWeight: 600, width: '100px', flexShrink: 0 }}>Pagamento:</label>
+                                            <select 
+                                                value={editData.metodo_pagamento || ''}
+                                                onChange={(e) => setEditData({...editData, metodo_pagamento: e.target.value as any})}
+                                                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ddd', color: '#1e293b', backgroundColor: '#fff', flex: 1 }}
+                                            >
+                                                <option value="dinheiro">Dinheiro</option>
+                                                <option value="pix">PIX</option>
+                                                <option value="cartao">Cartão</option>
+                                                <option value="pagamento_posterior">Pagamento Posterior</option>
+                                            </select>
+                                        </div>
+                                        
+                                        {editData.tipo_entrega === 'delivery' && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <label style={{ fontWeight: 600, width: '100px' }}>Taxa de Entrega:</label>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    value={editData.taxa_entrega || 0}
+                                                    onChange={(e) => handleTaxaChange(parseFloat(e.target.value) || 0)}
+                                                    style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ddd', width: '120px', color: '#1e293b', backgroundColor: '#fff' }}
+                                                />
+                                            </div>
+                                        )}
+                                        
+                                        {editData.tipo_entrega === 'retirada' && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <label style={{ fontWeight: 600, width: '100px', flexShrink: 0 }}>Mesa (Opc.):</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Ex: 05"
+                                                    value={editData.mesaStr || ''}
+                                                    onChange={(e) => setEditData({...editData, mesaStr: e.target.value})}
+                                                    style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ddd', width: '120px', color: '#1e293b', backgroundColor: '#fff' }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <>
+                                        <p><strong>Tipo:</strong> {pedidoSelecionado.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}</p>
+                                        {pedidoSelecionado.metodo_pagamento && PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento] && (
+                                            <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <strong>Pagamento:</strong>
+                                                {(() => {
+                                                    const config = PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento as string];
+                                                    const Icon = config.icon;
+                                                    if (typeof Icon === 'string') {
+                                                        if (Icon.startsWith('/')) {
+                                                            return <img src={Icon} alt="Pix" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />;
+                                                        }
+                                                        return <span style={{ fontSize: '18px' }}>{Icon}</span>;
+                                                    }
+                                                    return <Icon size={18} />;
+                                                })()}
+                                                {PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].label}
+                                            </p>
+                                        )}
+                                        {pedidoSelecionado.metodo_pagamento === 'dinheiro' && pedidoSelecionado.precisa_troco && pedidoSelecionado.valor_para_troco && (
+                                            <p style={{ color: '#22c55e', fontWeight: 500 }}>
+                                                <strong>Troco:</strong> Cliente vai pagar com R$ {pedidoSelecionado.valor_para_troco.toFixed(2)}<br />
+                                                Troco a devolver: R$ {(pedidoSelecionado.valor_para_troco - pedidoSelecionado.total).toFixed(2)}
+                                            </p>
+                                        )}
+                                        {pedidoSelecionado.cliente_endereco && (
+                                            <p><strong>Endereço:</strong> {pedidoSelecionado.cliente_endereco}</p>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
                             <div className={styles.secao}>
                                 <h3>Itens do Pedido</h3>
-                                {pedidoSelecionado.itens.map((item, idx) => (
+                                {(isEditing ? (editData.itens || []) : (pedidoSelecionado.itens || [])).map((item, idx) => (
                                     <div key={idx} className={styles.itemDetalhe}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                                             <span>{item.quantidade}x {item.nome}</span>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                             <span style={{ fontWeight: 600 }}>R$ {item.subtotal.toFixed(2)}</span>
-                                            <button
-                                                onClick={() => removerItemPedido(pedidoSelecionado, idx)}
-                                                className={styles.itemRemoveBtn}
-                                                title="Remover Item"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            {isEditing ? (
+                                                <button
+                                                    onClick={() => removerItemEdit(idx)}
+                                                    className={styles.itemRemoveBtn}
+                                                    title="Remover Item da Edição"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => removerItemPedido(pedidoSelecionado, idx)}
+                                                    className={styles.itemRemoveBtn}
+                                                    title="Remover Item"
+                                                    disabled={pedidoSelecionado.status === 'cancelado'}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
+
+                                {/* Adicionar Novo Item no Modo Edição */}
+                                {isEditing && (
+                                    <div style={{ marginTop: '1rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                        <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem', color: '#475569' }}>Adicionar Produto</h4>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                            <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Pesquise o produto..."
+                                                    value={searchTerm}
+                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                    style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', color: '#1e293b', backgroundColor: '#fff' }}
+                                                />
+                                                {produtosFiltrados.length > 0 && searchTerm && (
+                                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', marginTop: '4px', zIndex: 10, maxHeight: '150px', overflowY: 'auto', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+                                                        {produtosFiltrados.map(prod => (
+                                                            <div 
+                                                                key={prod.id} 
+                                                                onClick={() => { setSearchTerm(''); handleAdicionarItemEdit(prod); }}
+                                                                style={{ padding: '8px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', color: '#1e293b' }}
+                                                            >
+                                                                <span>{prod.nome}</span>
+                                                                <span style={{ color: '#0ea5e9', fontWeight: 600 }}>R$ {prod.preco.toFixed(2)}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {searchTerm && produtosFiltrados.length === 0 && (
+                                                    <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', marginTop: '4px', padding: '8px', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                                        Nenhum produto encontrado. Pode apertar "Adicionar Livre" se quiser usar só esse nome.
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <input 
+                                                type="number" 
+                                                min="1" 
+                                                value={itemQuantidade}
+                                                onChange={(e) => setItemQuantidade(parseInt(e.target.value) || 1)}
+                                                style={{ width: '60px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', color: '#1e293b', backgroundColor: '#fff' }}
+                                            />
+                                            {searchTerm && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleAdicionarItemEdit({ nome: searchTerm, preco: 0 })}
+                                                    style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                >
+                                                    <Plus size={16} /> Adicionar Livre (R$ 0,00)
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
-                            {pedidoSelecionado.observacoes && (
+                            {(!isEditing && pedidoSelecionado.observacoes) && (
                                 <div className={styles.secao}>
                                     <h3>Observações</h3>
                                     <p>{pedidoSelecionado.observacoes}</p>
                                 </div>
                             )}
 
+                            {isEditing && (
+                                <div className={styles.secao}>
+                                    <h3>Observações Gerais</h3>
+                                    <textarea 
+                                        value={editData.observacoes || ''}
+                                        onChange={(e) => setEditData({...editData, observacoes: e.target.value})}
+                                        style={{ width: '100%', minHeight: '60px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', resize: 'vertical' }}
+                                    />
+                                </div>
+                            )}
+
                             <div className={styles.secao}>
-                                <h3>Resumo</h3>
+                                <h3>Resumo {isEditing && '(Pré-visualização)'}</h3>
                                 <div className={styles.resumoItem}>
                                     <span>Subtotal:</span>
-                                    <span>R$ {pedidoSelecionado.subtotal.toFixed(2)}</span>
+                                    <span>R$ {(isEditing ? (editData.subtotal || 0) : pedidoSelecionado.subtotal).toFixed(2)}</span>
                                 </div>
-                                {pedidoSelecionado.taxa_entrega > 0 && (
+                                {((isEditing ? editData.taxa_entrega : pedidoSelecionado.taxa_entrega) || 0) > 0 && (
                                     <div className={styles.resumoItem}>
                                         <span>Taxa de Entrega:</span>
-                                        <span>R$ {pedidoSelecionado.taxa_entrega.toFixed(2)}</span>
+                                        <span>R$ {((isEditing ? editData.taxa_entrega : pedidoSelecionado.taxa_entrega) || 0).toFixed(2)}</span>
                                     </div>
                                 )}
                                 <div className={`${styles.resumoItem} ${styles.resumoTotal}`}>
                                     <span>Total:</span>
-                                    <span>R$ {pedidoSelecionado.total.toFixed(2)}</span>
+                                    <span>R$ {(isEditing ? (editData.total || 0) : pedidoSelecionado.total).toFixed(2)}</span>
                                 </div>
                             </div>
 
-                            <div className={styles.secao}>
+                            {!isEditing && (
+                                <div className={styles.secao}>
                                 <h3>Alterar Status</h3>
                                 <div className={styles.statusOpcoes}>
                                     {Object.entries(STATUS_CONFIG).map(([status, config]) => (
@@ -1054,6 +1403,7 @@ export default function PedidosPage() {
                                     ))}
                                 </div>
                             </div>
+                            )}
                         </div>
                     </div>
                 </div>
