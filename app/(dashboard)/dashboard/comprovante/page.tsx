@@ -159,7 +159,6 @@ export default function ComprovantePage() {
                                     {comprovanteData.comprovante_logo_url && (
                                         <Button
                                             variant="ghost"
-                                            size="sm"
                                             className="text-destructive h-8 text-xs hover:bg-destructive/10"
                                             onClick={() => setComprovanteData(pr => ({ ...pr, comprovante_logo_url: '' }))}
                                         >
