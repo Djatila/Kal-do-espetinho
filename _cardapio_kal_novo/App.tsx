@@ -263,7 +263,10 @@ const App: React.FC = () => {
       <footer className="bg-neutral-900 border-t border-neutral-800 py-12 mt-12 relative">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <div className="flex flex-col items-center justify-center mb-4"><div className="flex items-center gap-2"><Flame className="text-orange-500" size={20} fill="currentColor" /><span className="font-display font-bold text-xl text-white uppercase">Kal do Espetinho</span></div><span className="text-xs text-neutral-500 uppercase tracking-widest mt-1">Arataca - Ba</span></div>
-          <p className="text-neutral-500 text-sm mb-4">© {new Date().getFullYear()} Todos os direitos reservados.</p>
+          <p className="text-neutral-500 text-sm">© {new Date().getFullYear()} Todos os direitos reservados.</p>
+          <p style={{ color: '#ff7000', fontSize: '13px', marginTop: '6px', fontWeight: 'bold', textShadow: '0 0 10px rgba(255, 112, 0, 0.5)' }}>
+            Desenvolvido por Atila Azevedo.
+          </p>
           <button onClick={() => setViewMode('admin')} className="text-neutral-700 hover:text-neutral-500 transition-colors text-xs flex items-center justify-center gap-1 mx-auto mt-4"><ShieldCheck size={12} /> Painel Administrativo</button>
         </div>
       </footer>

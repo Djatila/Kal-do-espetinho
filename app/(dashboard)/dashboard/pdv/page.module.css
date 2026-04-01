@@ -1,4 +1,3 @@
-/* Container for the whole PDV */
 .pdvContainer {
     display: flex;
     flex-direction: column;
@@ -8,14 +7,18 @@
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     overflow-y: auto;
     overflow-x: hidden;
-    /* Allow natural scrolling on mobile */
     background-color: #0f0f0f;
-    padding: 0.5rem;
-    padding-bottom: 5rem;
+    padding: 1rem 0.5rem; /* Ajustado para mobile */
+    padding-bottom: 6rem;
     width: 100%;
     max-width: 100vw;
-    min-width: 0;
     box-sizing: border-box;
+}
+
+@media (min-width: 640px) {
+    .pdvContainer {
+        padding: 1rem;
+    }
 }
 
 /* Tablet / Desktop View */
@@ -23,7 +26,6 @@
     .pdvContainer {
         flex-direction: row;
         height: calc(100vh - 4rem);
-        /* desktop doesn't have the mobile header */
         overflow: hidden;
         padding: 1.5rem;
         gap: 1.5rem;
@@ -35,7 +37,9 @@
 .mobileInputsTop {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+    padding: 0 0.25rem;
 }
 
 .desktopInputsArea {
@@ -67,22 +71,56 @@
 .comandaInputsCol {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.75rem;
 }
 
 .inputField {
     background-color: #1a1a1a;
     border: 1px solid #333;
-    border-radius: 8px;
+    border-radius: 10px;
     color: #f5f5f5;
-    padding: 0.75rem 1rem;
-    font-size: 0.875rem;
+    padding: 0.875rem 1rem;
+    font-size: 0.9375rem;
     width: 100%;
+    box-sizing: border-box;
 }
 
 .inputField:focus {
     outline: none;
     border-color: #f97316;
+    background-color: #222;
+}
+
+.suggestionsList {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 0 0 12px 12px;
+    margin-top: -4px;
+    padding: 0;
+    list-style: none;
+    max-height: 240px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.8);
+}
+
+.suggestionItem {
+    padding: 0.875rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #2a2a2a;
+    transition: background-color 0.15s ease;
+}
+
+.suggestionItem:last-child {
+    border-bottom: none;
+}
+
+.suggestionItem:hover {
+    background-color: #2a2a2a;
 }
 
 /* ------------------- MENU COLUMN ------------------- */
@@ -112,27 +150,35 @@
 /* Tabs */
 .tabsContainer {
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
     overflow-x: auto;
-    border-bottom: 1px solid #333;
-    padding-bottom: 2px;
+    border-bottom: 1px solid #222;
+    padding-bottom: 4px;
+    padding-left: 0.25rem;
+    -webkit-overflow-scrolling: touch;
 }
 
 .tabsContainer::-webkit-scrollbar {
-    display: none;
+    height: 4px;
+}
+
+.tabsContainer::-webkit-scrollbar-thumb {
+    background-color: #333;
+    border-radius: 10px;
 }
 
 .tabBtn {
     background: none;
     border: none;
-    color: #a3a3a3;
+    color: #737373;
     font-size: 0.875rem;
-    font-weight: 500;
-    padding: 0.5rem 0.25rem;
+    font-weight: 600;
+    padding: 0.625rem 0.5rem;
     white-space: nowrap;
     cursor: pointer;
     border-bottom: 2px solid transparent;
     transition: all 0.2s;
+    text-transform: capitalize;
 }
 
 .tabBtn:hover {
@@ -149,11 +195,12 @@
     position: relative;
     display: flex;
     align-items: center;
+    padding: 0 0.25rem;
 }
 
 .searchIcon {
     position: absolute;
-    left: 1rem;
+    left: 1.125rem;
     color: #737373;
 }
 
@@ -161,23 +208,45 @@
     width: 100%;
     background-color: #1a1a1a;
     border: 1px solid #333;
-    border-radius: 8px;
+    border-radius: 10px;
     color: #fff;
-    padding: 0.75rem 1rem 0.75rem 2.5rem;
-    font-size: 0.875rem;
+    padding: 0.875rem 1rem 0.875rem 2.75rem;
+    font-size: 0.9375rem;
+    box-sizing: border-box;
 }
 
 .searchInput:focus {
     outline: none;
     border-color: #f97316;
+    background-color: #222;
 }
 
 /* Products Grid */
 .productsGrid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.4rem;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.625rem;
     width: 100%;
+    padding: 0 0.25rem;
+}
+
+@media (min-width: 440px) {
+    .productsGrid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 0.75rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .productsGrid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+}
+
+@media (min-width: 1280px) {
+    .productsGrid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    }
 }
 
 @media (min-width: 1280px) {
@@ -461,4 +530,82 @@
 
 .submitBtn:hover:not(:disabled) {
     opacity: 0.9;
+}
+
+/* ------------------- MOBILE PAYMENT AREA ------------------- */
+.paymentAreaMobile {
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.paymentPillsContainer {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap; /* Permite quebrar linha se não couber */
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.splitPaymentBox {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    background-color: #1a1a1a;
+    border-radius: 12px;
+    border: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.splitLabel {
+    font-size: 0.7rem;
+    color: #a3a3a3;
+    margin-bottom: 0.25rem;
+}
+
+.splitInputRow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+}
+
+.splitInputLabel {
+    font-size: 0.75rem;
+    color: #e5e5e5;
+    width: 80px;
+    flex-shrink: 0;
+}
+
+.splitInputField {
+    flex: 1;
+    background-color: #0f0f0f;
+    border: 1px solid #333;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    color: #fff;
+    font-size: 0.875rem;
+    outline: none;
+    min-width: 0;
+}
+
+.splitInputField:focus {
+    border-color: #f97316;
+}
+
+.splitStatus {
+    font-size: 0.7rem;
+    margin-top: 0.25rem;
+}
+
+.creditIndicatorMobile {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    border: 1px solid transparent;
 }

@@ -165,7 +165,7 @@ export default function MesasPage() {
         if (mesa.status === 'ocupada') return {
             icon: 'bg-red-100 text-red-600',
             badge: 'bg-red-100 text-red-700',
-            label: 'Ocupada'
+            label: 'Conta Fechada'
         }
         return {
             icon: 'bg-green-100 text-green-600',
@@ -217,7 +217,7 @@ export default function MesasPage() {
                                         onChange={(e) => setFormData({ ...formData, status: e.target.value as 'livre' | 'ocupada' })}
                                     >
                                         <option value="livre">Livre</option>
-                                        <option value="ocupada">Ocupada</option>
+                                        <option value="ocupada">Conta Fechada</option>
                                     </select>
                                 </div>
                             </div>

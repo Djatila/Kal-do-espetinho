@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { Clock, Phone, MapPin, Package, CheckCircle, XCircle, AlertCircle, Truck, Trash2, ShoppingBag, CreditCard, Banknote, Printer, Wallet, Pencil, Save, X, Plus } from 'lucide-react'
@@ -24,7 +24,10 @@ interface Pedido {
     cliente_telefone: string
     cliente_endereco: string | null
     tipo_entrega: 'retirada' | 'delivery'
-    metodo_pagamento?: 'pix' | 'cartao' | 'dinheiro' | 'pagamento_posterior'
+    metodo_pagamento?: string | null
+    pagamento_principal_valor?: number | null
+    pagamento_secundario_metodo?: string | null
+    pagamento_secundario_valor?: number | null
     precisa_troco?: boolean
     valor_para_troco?: number
     itens: ItemPedido[]
@@ -503,6 +506,43 @@ export default function PedidosPage() {
         cancelado: pedidos.filter(p => p.status === 'cancelado').length
     }
 
+    const statsFinanceiros = useMemo(() => {
+        const agorinha = new Date()
+        const dozeHorasAtras = new Date(agorinha.getTime() - 12 * 60 * 60 * 1000)
+
+        const resumo = {
+            cotaArtistica: { total: 0, pedidos: [] as number[] },
+            gorjetasPorGarcom: {} as Record<string, { total: number, pedidos: number[] }>
+        }
+
+        pedidos.forEach(p => {
+            const dataPedido = new Date(p.created_at)
+            if (dataPedido < dozeHorasAtras) return
+
+            const itensArray = Array.isArray(p.itens) ? p.itens : []
+            
+            itensArray.forEach((item: any) => {
+                if (item.nome === 'Cota Artística') {
+                    resumo.cotaArtistica.total += item.preco * (item.quantidade || 1)
+                    if (!resumo.cotaArtistica.pedidos.includes(p.numero_pedido)) {
+                        resumo.cotaArtistica.pedidos.push(p.numero_pedido)
+                    }
+                } else if (item.nome === 'Gorjeta') {
+                    const nomeGarcom = p.garcom_nome || 'Caixa/Balcão'
+                    if (!resumo.gorjetasPorGarcom[nomeGarcom]) {
+                        resumo.gorjetasPorGarcom[nomeGarcom] = { total: 0, pedidos: [] }
+                    }
+                    resumo.gorjetasPorGarcom[nomeGarcom].total += item.preco * (item.quantidade || 1)
+                    if (!resumo.gorjetasPorGarcom[nomeGarcom].pedidos.includes(p.numero_pedido)) {
+                        resumo.gorjetasPorGarcom[nomeGarcom].pedidos.push(p.numero_pedido)
+                    }
+                }
+            })
+        })
+
+        return resumo
+    }, [pedidos])
+
     function formatarData(data: string) {
         const date = new Date(data)
         return date.toLocaleString('pt-BR', {
@@ -528,6 +568,9 @@ export default function PedidosPage() {
             ? pedido.valor_para_troco - pedido.total
             : 0
 
+        const logoUrl = configuracao?.comprovante_logo_url || configuracao?.logo_url || '';
+        const msgRodape = configuracao?.comprovante_mensagem || 'Obrigado pela preferência!';
+
         const html = `
             <!DOCTYPE html>
             <html>
@@ -542,169 +585,246 @@ export default function PedidosPage() {
                     }
                     body {
                         font-family: Arial, sans-serif;
-                        padding: 20px;
+                        padding: 10px;
                         max-width: 400px;
                         margin: 0 auto;
+                        color: #000;
                     }
-                    .header {
+                    .receiptHeader {
                         text-align: center;
-                        margin-bottom: 30px;
-                        border-bottom: 2px solid #000;
-                        padding-bottom: 20px;
-                    }
-                    .header h1 {
-                        font-size: 28px;
                         margin-bottom: 10px;
-                        color: #ff6b35;
                     }
-                    .pedido-numero {
-                        font-size: 24px;
+                    .logoImage {
+                        width: 70px;
+                        height: 70px;
+                        object-fit: cover;
+                        border-radius: 50%;
+                        margin: 0 auto 10px auto;
+                        border: 2px solid #000;
+                        display: block;
+                    }
+                    .storeName {
+                        font-size: 1.1rem;
                         font-weight: bold;
-                        margin: 20px 0;
+                        margin-bottom: 5px;
                     }
-                    .status {
+                    .orderNumber {
+                        font-size: 1.3rem;
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                    }
+                    .statusPill {
                         display: inline-block;
-                        padding: 8px 16px;
+                        padding: 2px 10px;
                         border-radius: 20px;
+                        border: 2px solid #f59e0b;
+                        color: #f59e0b;
+                        background-color: #fef3c7;
                         font-weight: bold;
-                        margin: 10px 0;
-                        background-color: ${(STATUS_CONFIG[pedido.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente).color}20;
-                        color: ${(STATUS_CONFIG[pedido.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente).color};
-                        border: 2px solid ${(STATUS_CONFIG[pedido.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente).color};
+                        font-size: 0.8rem;
                     }
-                    .secao {
-                        margin: 25px 0;
-                        padding: 15px;
-                        border: 1px solid #ddd;
-                        border-radius: 8px;
-                    }
-                    .secao h2 {
-                        font-size: 18px;
-                        margin-bottom: 15px;
-                        color: #333;
-                        border-bottom: 1px solid #eee;
-                        padding-bottom: 8px;
-                    }
-                    .info-linha {
+                    .dateTime {
+                        text-align: center;
                         margin: 8px 0;
-                        display: flex;
-                        justify-content: space-between;
+                        font-size: 0.85rem;
+                        color: #333;
                     }
-                    .info-linha strong {
-                        color: #555;
+                    .greeting {
+                        text-align: center;
+                        margin-bottom: 10px;
+                        font-size: 0.9rem;
+                        font-weight: bold;
                     }
-                    .item {
+                    .section {
+                        border: 1px solid #ddd;
+                        border-radius: 6px;
+                        padding: 8px;
+                        margin-bottom: 10px;
+                        background-color: #fafafa;
+                    }
+                    .sectionTitle {
+                        font-size: 0.95rem;
+                        font-weight: bold;
+                        margin-bottom: 6px;
                         display: flex;
-                        justify-content: space-between;
-                        padding: 10px;
+                        align-items: center;
+                        gap: 8px;
                         border-bottom: 1px solid #eee;
+                        padding-bottom: 5px;
                     }
-                    .item:last-child {
+                    .infoRow {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 4px;
+                        font-size: 0.8rem;
+                    }
+                    .infoRow:last-child {
+                        margin-bottom: 0;
+                    }
+                    .infoItem {
+                        display: flex;
+                        justify-content: space-between;
+                        padding: 6px 0;
+                        border-bottom: 1px dashed #eee;
+                        font-size: 0.8rem;
+                    }
+                    .infoItem:last-child {
                         border-bottom: none;
                     }
-                    .resumo {
-                        margin-top: 20px;
-                        padding: 15px;
-                        background-color: #f9f9f9;
-                        border-radius: 8px;
-                    }
-                    .resumo-linha {
-                        display: flex;
-                        justify-content: space-between;
-                        margin: 8px 0;
-                        font-size: 16px;
-                    }
-                    .resumo-total {
-                        font-size: 20px;
-                        font-weight: bold;
-                        margin-top: 15px;
-                        padding-top: 15px;
-                        border-top: 2px solid #333;
-                    }
-                    .troco-destaque {
-                        color: #22c55e;
-                        font-weight: bold;
-                        background-color: #22c55e20;
-                        padding: 10px;
-                        border-radius: 5px;
-                        margin: 10px 0;
-                    }
-                    .footer {
-                        margin-top: 40px;
+                    .dashedSeparator {
+                        border-top: 2px dashed #000;
+                        margin: 20px 0;
+                        position: relative;
                         text-align: center;
-                        font-size: 12px;
-                        color: #666;
-                        border-top: 1px solid #ddd;
-                        padding-top: 20px;
+                    }
+                    .cutInstruction {
+                        background: #fff;
+                        padding: 0 10px;
+                        font-size: 0.8rem;
+                        position: relative;
+                        top: -9px;
+                        color: #000;
+                        font-weight: bold;
+                    }
+                    .secondPart {
+                        margin-top: 5px;
+                    }
+                    .secondPartHeader {
+                        text-align: center;
+                        margin-bottom: 10px;
+                    }
+                    .secondPartTitle {
+                        font-weight: bold;
+                        font-size: 1.1rem;
+                        margin: 5px 0;
+                    }
+                    .secondPartInfo {
+                        font-size: 0.85rem;
+                        margin-bottom: 3px;
                     }
                     @media print {
                         body {
                             padding: 0;
+                            max-width: 100%;
                         }
                     }
                 </style>
             </head>
             <body>
-                <div class="header">
-                    <h1>${configuracao?.nome_restaurante || 'Kal do Espetinho'}</h1>
-                    <div class="pedido-numero">Pedido #${pedido.numero_pedido}</div>
-                    <div class="status">${(STATUS_CONFIG[pedido.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente).label}</div>
-                </div>
-
-                <div class="secao">
-                    <h2>Informações do Cliente</h2>
-                    <div class="info-linha"><strong>Nome:</strong> <span>${pedido.cliente_nome}</span></div>
-                    <div class="info-linha"><strong>Telefone:</strong> <span>${pedido.cliente_telefone}</span></div>
-                    <div class="info-linha"><strong>Tipo:</strong> <span>${pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada no Local'}</span></div>
-                    ${pedido.metodo_pagamento ? `<div class="info-linha"><strong>Pagamento:</strong> <span>${PAGAMENTO_CONFIG[pedido.metodo_pagamento].label}</span></div>` : ''}
-                    ${pedido.cliente_endereco ? `<div class="info-linha"><strong>Endereço:</strong> <span>${pedido.cliente_endereco}</span></div>` : ''}
-                    <div class="info-linha"><strong>Data/Hora:</strong> <span>${formatarData(pedido.created_at)}</span></div>
-                </div>
-
-                ${pedido.metodo_pagamento === 'dinheiro' && pedido.precisa_troco && pedido.valor_para_troco ? `
-                    <div class="troco-destaque">
-                        <div class="info-linha"><strong>Cliente vai pagar com:</strong> <span>R$ ${pedido.valor_para_troco.toFixed(2)}</span></div>
-                        <div class="info-linha"><strong>Troco a devolver:</strong> <span>R$ ${troco.toFixed(2)}</span></div>
+                <!-- Via Cliente -->
+                <div class="receiptHeader">
+                    ${logoUrl ? `<img src="${logoUrl}" alt="Logo" class="logoImage" />` : ''}
+                    <div class="orderNumber">Pedido #${pedido.numero_pedido}</div>
+                    <span class="statusPill">${(STATUS_CONFIG[pedido.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente).label}</span>
+                    
+                    <div class="dateTime">
+                        ${formatarData(pedido.created_at).replace(',', ' —')}
                     </div>
-                ` : ''}
+                    <div class="greeting">
+                        ${msgRodape}<br/>${configuracao?.nome_restaurante || 'Kal do Espetinho'}
+                    </div>
+                </div>
 
-                <div class="secao">
-                    <h2>Itens do Pedido</h2>
+                <div class="section">
+                    <div class="sectionTitle">
+                        👤 Dados do Cliente
+                    </div>
+                    <div class="infoRow">
+                        <strong>Nome:</strong> <span>${pedido.cliente_nome}</span>
+                    </div>
+                    <div class="infoRow">
+                        <strong>Telefone:</strong> <span>${pedido.cliente_telefone}</span>
+                    </div>
+                    <div class="infoRow">
+                        <strong>Tipo:</strong> <span>${pedido.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada no Local'}</span>
+                    </div>
+                    
+                    ${(() => {
+                        const temSecundario = !!pedido.pagamento_secundario_metodo;
+                        const labelPrincipal = pedido.metodo_pagamento ? (PAGAMENTO_CONFIG[pedido.metodo_pagamento]?.label || pedido.metodo_pagamento) : '';
+                        
+                        let htmlPagamento = '<div style="height: 10px"></div>';
+                        if (temSecundario) {
+                            const labelSecundario = pedido.pagamento_secundario_metodo ? (PAGAMENTO_CONFIG[pedido.pagamento_secundario_metodo]?.label || pedido.pagamento_secundario_metodo) : '';
+                            htmlPagamento += `
+                                <div class="infoRow"><strong>Pagamento 1:</strong> <span>${labelPrincipal} (R$ ${pedido.pagamento_principal_valor?.toFixed(2)})</span></div>
+                                <div class="infoRow"><strong>Pagamento 2:</strong> <span>${labelSecundario} (R$ ${pedido.pagamento_secundario_valor?.toFixed(2)})</span></div>
+                            `;
+                        } else if (pedido.metodo_pagamento) {
+                            htmlPagamento += `<div class="infoRow"><strong>Pagamento:</strong> <span>${labelPrincipal}</span></div>`;
+                        }
+                        
+                        // Troco display if applicable
+                        if (pedido.metodo_pagamento === 'dinheiro' && pedido.precisa_troco && pedido.valor_para_troco) {
+                             htmlPagamento += `
+                                <div style="height: 10px"></div>
+                                <div class="infoRow"><strong>Para Pagar:</strong> <span>R$ ${pedido.valor_para_troco.toFixed(2)}</span></div>
+                                <div class="infoRow"><strong>Troco:</strong> <span>R$ ${troco.toFixed(2)}</span></div>
+                            `;
+                        }
+                        
+                        return htmlPagamento;
+                    })()}
+                </div>
+
+                <div class="section">
+                    <div class="sectionTitle">
+                        📦 Itens do Pedido
+                    </div>
                     ${pedido.itens.map(item => `
-                        <div class="item">
+                        <div class="infoItem">
                             <span>${item.quantidade}x ${item.nome}</span>
                             <span>R$ ${item.subtotal.toFixed(2)}</span>
                         </div>
                     `).join('')}
-                </div>
-
-                ${pedido.observacoes ? `
-                    <div class="secao">
-                        <h2>Observações</h2>
-                        <p>${pedido.observacoes}</p>
-                    </div>
-                ` : ''}
-
-                <div class="resumo">
-                    <div class="resumo-linha">
-                        <span>Subtotal:</span>
-                        <span>R$ ${pedido.subtotal.toFixed(2)}</span>
-                    </div>
+                    
                     ${pedido.taxa_entrega > 0 ? `
-                        <div class="resumo-linha">
-                            <span>Taxa de Entrega:</span>
+                         <div class="infoItem" style="font-weight: bold;">
+                            <span>Taxa de Entrega</span>
                             <span>R$ ${pedido.taxa_entrega.toFixed(2)}</span>
                         </div>
                     ` : ''}
-                    <div class="resumo-linha resumo-total">
-                        <span>Total:</span>
-                        <span>R$ ${pedido.total.toFixed(2)}</span>
-                    </div>
                 </div>
 
-                <div class="footer">
-                    <p>Obrigado pela preferência!</p>
-                    <p>${configuracao?.nome_restaurante || 'Kal do Espetinho'}</p>
+                <div class="section">
+                    <div class="sectionTitle">
+                        📝 Observações
+                        <span style="margin-left: auto; font-weight: bold; font-size: 1.1rem">R$ ${pedido.total.toFixed(2)}</span>
+                    </div>
+                    ${pedido.observacoes ? `<p style="font-size: 0.85rem; padding-top: 5px;">${pedido.observacoes}</p>` : '<p style="font-size: 0.85rem; padding-top: 5px; color: #888;">Sem observações.</p>'}
+                </div>
+
+                <div class="dashedSeparator">
+                    <span class="cutInstruction">Destacar e entregar ao entregador:</span>
+                </div>
+
+                <!-- Via Entregador / Cozinha -->
+                <div class="secondPart">
+                    <div class="secondPartHeader">
+                        <div class="orderNumber" style="font-size: 1.1rem">Pedido #${pedido.numero_pedido}</div>
+                    </div>
+                    
+                    <div class="section">
+                        <div style="display: flex; gap: 15px; align-items: center;">
+                            ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 1px solid #000" />` : ''}
+                            <div style="flex: 1">
+                                <div class="secondPartTitle">Pedido #${pedido.numero_pedido}</div>
+                                <div class="secondPartInfo">Cliente: <strong>${pedido.cliente_nome}</strong></div>
+                                <div class="secondPartInfo">Telefone: ${pedido.cliente_telefone}</div>
+                                ${pedido.cliente_endereco ? `<div class="secondPartInfo">Endereço: <strong>${pedido.cliente_endereco}</strong></div>` : ''}
+                                <div class="secondPartInfo" style="margin-top: 10px;"><strong>Itens:</strong><br/>
+                                   ${pedido.itens.map(item => `${item.quantidade}x ${item.nome}<br/>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px">
+                            <div style="font-size: 0.85rem;">${formatarData(pedido.created_at).replace(',', ' —')}</div>
+                            <strong style="font-size: 1.1rem">R$ ${pedido.total.toFixed(2)}</strong>
+                        </div>
+                    </div>
+                    <div class="greeting" style="margin-top: 15px;">
+                        ${msgRodape}
+                    </div>
                 </div>
 
                 <script>
@@ -748,6 +868,26 @@ export default function PedidosPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Resumo Financeiro (Gorjetas e Cota nas últimas 12h) */}
+            {(Object.keys(statsFinanceiros.gorjetasPorGarcom).length > 0 || statsFinanceiros.cotaArtistica.total > 0) && (
+                <div style={{ padding: '0 2rem 1.5rem 2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                    {Object.entries(statsFinanceiros.gorjetasPorGarcom).map(([garcom, data]) => data.total > 0 && (
+                        <div key={garcom} style={{ backgroundColor: 'rgba(249, 115, 22, 0.1)', border: '1px solid rgba(249,115,22,0.3)', borderRadius: '12px', padding: '1rem' }}>
+                            <div style={{ color: '#fdba74', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '4px' }}>⭐ Gorjeta - {garcom}</div>
+                            <div style={{ color: '#f97316', fontWeight: 900, fontSize: '1.5rem', marginBottom: '4px' }}>R$ {data.total.toFixed(2)}</div>
+                            <div style={{ color: '#fb923c', fontSize: '0.75rem', opacity: 0.8 }}>Pedidos: {data.pedidos.map((p: number) => `#${p}`).join(', ')}</div>
+                        </div>
+                    ))}
+                    {statsFinanceiros.cotaArtistica.total > 0 && (
+                        <div style={{ backgroundColor: 'rgba(168, 85, 247, 0.1)', border: '1px solid rgba(168,85,247,0.3)', borderRadius: '12px', padding: '1rem' }}>
+                            <div style={{ color: '#d8b4fe', fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '4px' }}>🎵 Cota Artística</div>
+                            <div style={{ color: '#a855f7', fontWeight: 900, fontSize: '1.5rem', marginBottom: '4px' }}>R$ {statsFinanceiros.cotaArtistica.total.toFixed(2)}</div>
+                            <div style={{ color: '#c084fc', fontSize: '0.75rem', opacity: 0.8 }}>Pedidos: {statsFinanceiros.cotaArtistica.pedidos.map((p: number) => `#${p}`).join(', ')}</div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Filtros */}
             <div className={styles.filtros}>
@@ -796,8 +936,18 @@ export default function PedidosPage() {
                                 onClick={() => setPedidoSelecionado(pedido)}
                             >
                                 <div className={styles.pedidoHeader}>
-                                    <div className={styles.pedidoNumero}>
-                                        Pedido #{pedido.numero_pedido}
+                                    <div className={styles.pedidoNumero} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                        <span>Pedido #{pedido.numero_pedido}</span>
+                                        {Array.isArray(pedido.itens) && pedido.itens.some((item: any) => item.nome === 'Gorjeta') && (
+                                            <span style={{ backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#fdba74', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '12px', border: '1px solid rgba(249,115,22,0.3)', display: 'flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                                ⭐ Gorjeta
+                                            </span>
+                                        )}
+                                        {Array.isArray(pedido.itens) && pedido.itens.some((item: any) => item.nome === 'Cota Artística') && (
+                                            <span style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#d8b4fe', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '12px', border: '1px solid rgba(168,85,247,0.3)', display: 'flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                                🎵 Cota Artística
+                                            </span>
+                                        )}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         {!(pedido.status === 'cancelado' && pedido.observacoes === 'Cancelado pelo cliente') && (
@@ -858,27 +1008,50 @@ export default function PedidosPage() {
                                             </div>
                                         );
                                     })()}
-                                    {pedido.metodo_pagamento && (() => {
-                                        const PagamentoConfig = PAGAMENTO_CONFIG[pedido.metodo_pagamento] || {
-                                            label: pedido.metodo_pagamento,
-                                            color: '#6b7280',
-                                            icon: CreditCard
-                                        };
-                                        const PagamentoIcon = PagamentoConfig.icon;
-                                        return (
-                                            <div className={styles.infoItem} style={{ color: PagamentoConfig.color, fontWeight: 500 }}>
-                                                {typeof PagamentoIcon === 'string' ? (
-                                                    PagamentoIcon.startsWith('/') ? (
-                                                        <img src={PagamentoIcon} alt="Pix" style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
+                                    {/* Exibição de Pagamento (Suporta Split) */}
+                                    {(() => {
+                                        const temSecundario = !!pedido.pagamento_secundario_metodo;
+                                        
+                                        const renderMetodo = (metodo: string | null | undefined, valor?: number | null) => {
+                                            if (!metodo) return null;
+                                            const config = PAGAMENTO_CONFIG[metodo] || {
+                                                label: metodo.replace('_', ' '),
+                                                color: '#6b7280',
+                                                icon: CreditCard
+                                            };
+                                            const Icon = config.icon;
+                                            
+                                            return (
+                                                <div className={styles.infoItem} style={{ color: config.color, fontWeight: 500 }}>
+                                                    {typeof Icon === 'string' ? (
+                                                        Icon.startsWith('/') ? (
+                                                            <img src={Icon} alt={config.label} style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
+                                                        ) : (
+                                                            <span style={{ fontSize: '16px' }}>{Icon}</span>
+                                                        )
                                                     ) : (
-                                                        <span style={{ fontSize: '16px' }}>{PagamentoIcon}</span>
-                                                    )
-                                                ) : (
-                                                    <PagamentoIcon size={16} />
-                                                )}
-                                                <span>{PagamentoConfig.label}</span>
-                                            </div>
-                                        );
+                                                        <Icon size={16} />
+                                                    )}
+                                                    <span>
+                                                        {config.label} 
+                                                        {temSecundario && valor !== undefined && valor !== null && (
+                                                            <span style={{ marginLeft: '4px', opacity: 0.8 }}>(R$ {valor.toFixed(2)})</span>
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            );
+                                        };
+
+                                        if (temSecundario) {
+                                            return (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    {renderMetodo(pedido.metodo_pagamento, pedido.pagamento_principal_valor)}
+                                                    {renderMetodo(pedido.pagamento_secundario_metodo, pedido.pagamento_secundario_valor)}
+                                                </div>
+                                            );
+                                        }
+
+                                        return renderMetodo(pedido.metodo_pagamento);
                                     })()}
                                     {pedido.metodo_pagamento === 'dinheiro' && pedido.precisa_troco && pedido.valor_para_troco && (
                                         <div className={styles.infoItem} style={{ color: '#22c55e', fontWeight: 500, fontSize: '0.9rem' }}>
@@ -1229,23 +1402,50 @@ export default function PedidosPage() {
                                 ) : (
                                     <>
                                         <p><strong>Tipo:</strong> {pedidoSelecionado.tipo_entrega === 'delivery' ? 'Delivery' : 'Retirada'}</p>
-                                        {pedidoSelecionado.metodo_pagamento && PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento] && (
-                                            <p style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <strong>Pagamento:</strong>
-                                                {(() => {
-                                                    const config = PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento as string];
-                                                    const Icon = config.icon;
-                                                    if (typeof Icon === 'string') {
-                                                        if (Icon.startsWith('/')) {
-                                                            return <img src={Icon} alt="Pix" style={{ width: '18px', height: '18px', objectFit: 'contain' }} />;
-                                                        }
-                                                        return <span style={{ fontSize: '18px' }}>{Icon}</span>;
-                                                    }
-                                                    return <Icon size={18} />;
-                                                })()}
-                                                {PAGAMENTO_CONFIG[pedidoSelecionado.metodo_pagamento].label}
-                                            </p>
-                                        )}
+                                        {/* Modal Pagamento (Suporta Split) */}
+                                        {(() => {
+                                            const temSecundario = !!pedidoSelecionado.pagamento_secundario_metodo;
+                                            
+                                            const renderMetodoModal = (metodo: string | null | undefined, valor?: number | null, label?: string) => {
+                                                if (!metodo) return null;
+                                                const config = PAGAMENTO_CONFIG[metodo] || {
+                                                    label: metodo.replace('_', ' '),
+                                                    color: '#6b7280',
+                                                    icon: CreditCard
+                                                };
+                                                const Icon = config.icon;
+                                                
+                                                return (
+                                                    <p style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+                                                        <strong>{label || 'Pagamento'}:</strong>
+                                                        {(() => {
+                                                            if (typeof Icon === 'string') {
+                                                                if (Icon.startsWith('/')) {
+                                                                    return <img src={Icon} alt={config.label} style={{ width: '18px', height: '18px', objectFit: 'contain' }} />;
+                                                                }
+                                                                return <span style={{ fontSize: '18px' }}>{Icon}</span>;
+                                                            }
+                                                            return <Icon size={18} />;
+                                                        })()}
+                                                        {config.label}
+                                                        {temSecundario && valor !== undefined && valor !== null && (
+                                                            <span style={{ marginLeft: '4px', opacity: 0.8 }}>(R$ {valor.toFixed(2)})</span>
+                                                        )}
+                                                    </p>
+                                                );
+                                            };
+
+                                            if (temSecundario) {
+                                                return (
+                                                    <div style={{ marginTop: '8px' }}>
+                                                        {renderMetodoModal(pedidoSelecionado.metodo_pagamento, pedidoSelecionado.pagamento_principal_valor, 'Pagamento 1')}
+                                                        {renderMetodoModal(pedidoSelecionado.pagamento_secundario_metodo, pedidoSelecionado.pagamento_secundario_valor, 'Pagamento 2')}
+                                                    </div>
+                                                );
+                                            }
+
+                                            return renderMetodoModal(pedidoSelecionado.metodo_pagamento);
+                                        })()}
                                         {pedidoSelecionado.metodo_pagamento === 'dinheiro' && pedidoSelecionado.precisa_troco && pedidoSelecionado.valor_para_troco && (
                                             <p style={{ color: '#22c55e', fontWeight: 500 }}>
                                                 <strong>Troco:</strong> Cliente vai pagar com R$ {pedidoSelecionado.valor_para_troco.toFixed(2)}<br />

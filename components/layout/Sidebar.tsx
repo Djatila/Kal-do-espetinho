@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutDashboard, TrendingUp, TrendingDown, Wallet, FileText, LogOut, User, UtensilsCrossed, Users, Settings, Package, ShoppingBag, Sun, Moon, MonitorSmartphone, ArrowLeft, Menu, X, UsersRound, Square } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, TrendingDown, Wallet, FileText, LogOut, User, UtensilsCrossed, Users, Settings, Package, ShoppingBag, Sun, Moon, MonitorSmartphone, ArrowLeft, Menu, X, UsersRound, Square, Printer } from 'lucide-react'
 import { createClient } from '@/utils/supabase/client'
 import styles from './Sidebar.module.css'
 import { clsx } from 'clsx'
@@ -22,6 +22,7 @@ const menuItems = [
     { icon: FileText, label: 'Relatórios', href: '/dashboard/relatorios' },
     { icon: UsersRound, label: 'Equipe', href: '/dashboard/equipe' },
     { icon: Settings, label: 'Configurações', href: '/dashboard/configuracoes' },
+    { icon: Printer, label: 'Comprovante', href: '/dashboard/comprovante' },
 ]
 
 export function Sidebar() {
@@ -97,31 +98,17 @@ export function Sidebar() {
         router.refresh()
     }
 
-    const isPdvRoute = pathname === '/dashboard/pdv'
+    const isPdvRoute = pathname?.startsWith('/dashboard/pdv')
 
     // Fecha o menu ao trocar de rota no mobile
     useEffect(() => {
-        setIsMenuOpen(false)
+        if (isMenuOpen) setIsMenuOpen(false)
     }, [pathname])
 
     return (
         <>
-            {/* NO MOBILE: SE ESTIVER NO PDV, MOSTRA O CABEÇALHO VOLTAR. CASO CONTRÁRIO, MOSTRA HAMBURGER */}
-            {isPdvRoute ? (
-                <div className={clsx(styles.mobilePdvHeader, styles.showMobilePdvHeader)}>
-                    <button 
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            window.location.href = '/dashboard';
-                        }} 
-                        className={styles.backButton}
-                        style={{ padding: '1rem', background: '#f97316' }} // Forçando cor laranja e tamanho maior para teste
-                    >
-                        <ArrowLeft size={24} />
-                    </button>
-                </div>
-            ) : (
+            {/* Só mostra o hamburger quando não está no PDV */}
+            {!isPdvRoute && (
                 <button
                     className={styles.mobileMenuToggle}
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -137,7 +124,7 @@ export function Sidebar() {
 
             <aside className={clsx(
                 styles.sidebar,
-                isPdvRoute && !isAtendente ? styles.hideOnMobilePdv : '', // se for atendente não temos porquê esconder sidebar no mobile se for o único fluxo, porém ele só fica lá
+                isPdvRoute ? styles.hideOnMobilePdv : '',
                 !isPdvRoute && isMenuOpen ? styles.sidebarOpen : ''
             )}>
                 <div className={styles.header}>

@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, X } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
 import { Upload, ImageIcon } from 'lucide-react'
@@ -28,6 +28,9 @@ export default function EditarProdutoPage() {
         imagem_url: ''
     })
     const [uploading, setUploading] = useState(false)
+    const [categoriasExistentes, setCategoriasExistentes] = useState<string[]>(['marmitex', 'bebida', 'sobremesa', 'adicional'])
+    const [criandoNova, setCriandoNova] = useState(false)
+    const [novaCategoria, setNovaCategoria] = useState('')
 
     useEffect(() => {
         loadProduto()
@@ -54,6 +57,14 @@ export default function EditarProdutoPage() {
                 imagem_url: data.imagem_url || ''
             })
         }
+        
+        // Carrega categorias existentes para o dropdown
+        const { data: catData } = await supabase.from('produtos').select('categoria')
+        if (catData) {
+            const uniqueCats = Array.from(new Set(catData.map(p => p.categoria).filter(Boolean))) as string[]
+            setCategoriasExistentes(prev => Array.from(new Set([...prev, ...uniqueCats])))
+        }
+        
         setLoadingData(false)
     }
 
@@ -67,7 +78,7 @@ export default function EditarProdutoPage() {
                 nome: formData.nome,
                 descricao: formData.descricao || null,
                 preco: Number(formData.preco),
-                categoria: formData.categoria,
+                categoria: criandoNova ? novaCategoria.trim() : formData.categoria,
                 ativo: formData.ativo,
                 imagem_url: formData.imagem_url || null
             })
@@ -165,19 +176,48 @@ export default function EditarProdutoPage() {
                                 required
                             />
 
-                            <div className="flex flex-col gap-2">
+                             <div className="flex flex-col gap-2">
                                 <label className="text-sm font-medium">Categoria</label>
-                                <select
-                                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                    value={formData.categoria}
-                                    onChange={(e) => setFormData({ ...formData, categoria: e.target.value })}
-                                >
-                                    <option value="marmitex">Marmitex</option>
-                                    <option value="bebida">Bebida</option>
-                                    <option value="sobremesa">Sobremesa</option>
-                                    <option value="adicional">Adicional</option>
-                                    <option value="outro">Outro</option>
-                                </select>
+                                {!criandoNova ? (
+                                    <div className="flex gap-2">
+                                        <select
+                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                                            value={formData.categoria}
+                                            onChange={(e) => {
+                                                if (e.target.value === 'novo') {
+                                                    setCriandoNova(true)
+                                                } else {
+                                                    setFormData({ ...formData, categoria: e.target.value })
+                                                }
+                                            }}
+                                        >
+                                            {categoriasExistentes.map(cat => (
+                                                <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
+                                            ))}
+                                            <option value="novo" className="font-bold text-orange-500 font-bold">+ Nova Categoria...</option>
+                                        </select>
+                                    </div>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                            <Input
+                                                placeholder="Nome da categoria..."
+                                                value={novaCategoria}
+                                                onChange={(e) => setNovaCategoria(e.target.value)}
+                                                autoFocus
+                                            />
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            onClick={() => setCriandoNova(false)}
+                                            className="!h-10 !w-10 !p-0"
+                                            title="Voltar para lista"
+                                        >
+                                            <X size={16} />
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

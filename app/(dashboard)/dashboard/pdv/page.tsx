@@ -29,6 +29,15 @@ interface Mesa {
     garcom_atual_id?: string | null
 }
 
+interface ClienteSugerido {
+    id: string
+    nome: string
+    telefone: string
+    limite_ilimitado?: boolean
+    limite_credito?: number
+    credito_utilizado?: number
+}
+
 export default function PDVPage() {
     const supabase = createClient()
     const { showToast } = useToast()
@@ -45,9 +54,20 @@ export default function PDVPage() {
     const [nomeCliente, setNomeCliente] = useState('')
     const [telefone, setTelefone] = useState('')
     const [observacoes, setObservacoes] = useState('')
-    const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao' | 'dinheiro' | null>('pix')
+
+    // Estados de Sugestões de Clientes (Autocomplete)
+    const [sugestoesClientes, setSugestoesClientes] = useState<ClienteSugerido[]>([])
+    const [mostrarSugestoes, setMostrarSugestoes] = useState(false)
+    const [clientePermiteFiado, setClientePermiteFiado] = useState(false)
+    const [clienteCreditoDisponivel, setClienteCreditoDisponivel] = useState<number | null>(null)
+    const [clienteLimiteTotal, setClienteLimiteTotal] = useState<number | null>(null)
+    const [metodoPagamento, setMetodoPagamento] = useState<'pix' | 'cartao' | 'dinheiro' | 'pagamento_posterior' | null>('pix')
     const [precisaTroco, setPrecisaTroco] = useState(false)
     const [trocoPara, setTrocoPara] = useState('')
+    // Split Payment: pagamento secundário quando o crédito não cobre tudo
+    const [splitMetodo, setSplitMetodo] = useState<'pix' | 'cartao' | 'dinheiro' | 'pagamento_posterior' | null>(null)
+    const [valorPrimarioInput, setValorPrimarioInput] = useState<string>('')
+    const [valorSecundarioInput, setValorSecundarioInput] = useState<string>('')
 
     const [showSuccessPopup, setShowSuccessPopup] = useState(false)
     const handleCloseSuccess = () => {
@@ -63,6 +83,181 @@ export default function PDVPage() {
     // Estado do Garçom logado
     const [garcomId, setGarcomId] = useState<string>('')
     const [garcomNome, setGarcomNome] = useState<string>('')
+
+    // Estado para Gorjeta / Cota
+    const [tipoExtra, setTipoExtra] = useState<'Gorjeta' | 'Cota Artística' | null>(null);
+    const [extraValorInput, setExtraValorInput] = useState('');
+
+    const renderBotoesExtra = () => (
+        <div className="flex flex-col gap-2 my-2 w-full">
+            {!tipoExtra ? (
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => setTipoExtra('Gorjeta')}
+                        className="flex-1 py-1.5 bg-zinc-800/80 text-orange-400 border border-orange-500/30 rounded-lg text-xs font-semibold hover:bg-zinc-700 transition"
+                    >
+                        + Gorjeta
+                    </button>
+                    <button 
+                        onClick={() => setTipoExtra('Cota Artística')}
+                        className="flex-1 py-1.5 bg-zinc-800/80 text-purple-400 border border-purple-500/30 rounded-lg text-xs font-semibold hover:bg-zinc-700 transition"
+                    >
+                        + Cota Artística
+                    </button>
+                </div>
+            ) : (
+                <div className="flex flex-col gap-2 p-2 bg-black/40 border border-white/10 rounded-lg">
+                    <span className="text-xs text-zinc-400 font-bold">Valor para {tipoExtra}:</span>
+                    <div className="flex gap-2 h-9">
+                        <input 
+                            type="number" 
+                            inputMode="decimal"
+                            step="0.01" 
+                            placeholder="R$ 0,00" 
+                            value={extraValorInput}
+                            onChange={(e) => setExtraValorInput(e.target.value)}
+                            className="flex-1 bg-zinc-900 border border-white/10 rounded-lg px-3 text-sm text-white outline-none focus:border-orange-500"
+                        />
+                        <button 
+                            onClick={() => {
+                                const val = parseFloat(extraValorInput.replace(',', '.'));
+                                if (!val || val <= 0) {
+                                    showToast('error', 'Atenção', 'Digite um valor válido');
+                                    return;
+                                }
+                                setComanda(prev => [...prev, {
+                                    id: `extra-${Date.now()}-${Math.random()}`,
+                                    nome: tipoExtra,
+                                    descricao: '',
+                                    preco: val,
+                                    categoria: 'Adicional',
+                                    ativo: true,
+                                    quantidade: 1
+                                }]);
+                                setTipoExtra(null);
+                                setExtraValorInput('');
+                            }}
+                            className="px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-lg flex items-center justify-center font-bold transition"
+                        >
+                            <Check size={16} />
+                        </button>
+                        <button 
+                            onClick={() => { setTipoExtra(null); setExtraValorInput(''); }}
+                            className="px-3 bg-zinc-700 hover:bg-zinc-600 text-white rounded-lg flex items-center justify-center font-bold text-xs transition"
+                        >
+                            X
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+
+    useEffect(() => {
+        let timeoutId: NodeJS.Timeout
+        if (nomeCliente.length >= 2) {
+            timeoutId = setTimeout(async () => {
+                const { data, error } = await supabase
+                    .from('clientes')
+                    .select('id, nome, telefone, limite_credito, credito_utilizado, limite_ilimitado')
+                    .ilike('nome', `%${nomeCliente}%`)
+                    .limit(5)
+                
+                if (!error && data) {
+                    setSugestoesClientes(data as ClienteSugerido[])
+                    setMostrarSugestoes(true)
+                }
+            }, 400)
+        } else {
+            setSugestoesClientes([])
+            setMostrarSugestoes(false)
+            setClientePermiteFiado(false)
+            setClienteCreditoDisponivel(null)
+            setClienteLimiteTotal(null)
+            setSplitMetodo(null)
+            setValorPrimarioInput('')
+            setValorSecundarioInput('')
+            setMetodoPagamento(prev => prev === 'pagamento_posterior' ? 'pix' : prev)
+        }
+        return () => clearTimeout(timeoutId)
+    }, [nomeCliente])
+
+    const selecionarClienteSugestao = (cliente: ClienteSugerido) => {
+        setNomeCliente(cliente.nome)
+        setTelefone(cliente.telefone)
+        
+        let podeFiado = false;
+        let creditoDisp: number | null = null;
+        let limiteTotal: number | null = null;
+
+        if (cliente.limite_ilimitado) {
+            podeFiado = true
+            creditoDisp = Infinity
+            limiteTotal = Infinity
+        } else if (cliente.limite_credito !== undefined && cliente.credito_utilizado !== undefined) {
+            const restante = cliente.limite_credito - cliente.credito_utilizado
+            if (restante > 0) podeFiado = true
+            creditoDisp = restante
+            limiteTotal = cliente.limite_credito
+        }
+        setClientePermiteFiado(podeFiado)
+        setClienteCreditoDisponivel(creditoDisp)
+        setClienteLimiteTotal(limiteTotal)
+        setSplitMetodo(null)
+        setValorPrimarioInput('')
+        setValorSecundarioInput('')
+        setMostrarSugestoes(false)
+    }
+
+
+    // Lida com seleção/deselecão de modalidades de pagamento (multi-select de até 2)
+    const toggleMetodo = (metodo: 'pix' | 'cartao' | 'dinheiro' | 'pagamento_posterior') => {
+        if (metodo === 'pagamento_posterior' && !clientePermiteFiado) return
+        
+        if (metodoPagamento === metodo) {
+            // Desseleciona primário: se há secundário, promove-o
+            if (splitMetodo) {
+                setMetodoPagamento(splitMetodo as typeof metodoPagamento)
+                setSplitMetodo(null)
+                setValorPrimarioInput('')
+                setValorSecundarioInput('')
+            } else {
+                setMetodoPagamento(null)
+            }
+        } else if (splitMetodo === metodo) {
+            // Desseleciona secundário
+            setSplitMetodo(null)
+            setValorPrimarioInput('')
+            setValorSecundarioInput('')
+        } else if (!metodoPagamento) {
+            // Sem primário: define este como primário
+            setMetodoPagamento(metodo)
+            setValorPrimarioInput('')
+            setValorSecundarioInput('')
+        } else {
+            // Já tem primário → define como secundário e pré-divide os valores
+            setSplitMetodo(metodo)
+            // Preencher com base no crédito (se fiado envolvido) ou 50/50
+            const isPrFiado = metodoPagamento === 'pagamento_posterior'
+            const isSecFiado = metodo === 'pagamento_posterior'
+            const temCredito = clienteCreditoDisponivel !== null && clienteCreditoDisponivel !== Infinity
+            
+            if ((isPrFiado || isSecFiado) && temCredito && clienteCreditoDisponivel! < total) {
+                const credito = clienteCreditoDisponivel!
+                if (isPrFiado) {
+                    setValorPrimarioInput(credito.toFixed(2))
+                    setValorSecundarioInput((total - credito).toFixed(2))
+                } else {
+                    setValorSecundarioInput(credito.toFixed(2))
+                    setValorPrimarioInput((total - credito).toFixed(2))
+                }
+            } else {
+                const metade = (total / 2).toFixed(2)
+                setValorPrimarioInput(metade)
+                setValorSecundarioInput((total - parseFloat(metade)).toFixed(2))
+            }
+        }
+    }
 
     useEffect(() => {
         loadProdutos()
@@ -147,7 +342,7 @@ export default function PDVPage() {
         if (mesa.id !== 'balcao') {
             const mesaFull = mesa as Mesa
             if (mesaFull.status === 'ocupada') {
-                showToast('error', '🔴 Mesa Ocupada', `A Mesa ${mesaFull.numero_mesa} já foi atendida e está aguardando entrega.`)
+                showToast('error', '🔴 Conta Fechada', `A Mesa ${mesaFull.numero_mesa} já foi atendida e está aguardando entrega.`)
                 return
             }
             if (mesaFull.status === 'em_atendimento') {
@@ -270,6 +465,34 @@ export default function PDVPage() {
             return
         }
 
+        // Validar e preparar split de pagamento
+        const splitAtivo = splitMetodo !== null
+        if (splitAtivo) {
+            const vp = parseFloat(valorPrimarioInput.replace(',', '.')) || 0
+            const vs = parseFloat(valorSecundarioInput.replace(',', '.')) || 0
+            const soma = parseFloat((vp + vs).toFixed(2))
+            if (Math.abs(soma - total) > 0.01) {
+                showToast('error', 'Atenção', `A soma dos pagamentos (R$ ${soma.toFixed(2)}) deve ser igual ao total (R$ ${total.toFixed(2)})`)
+                return
+            }
+
+            // Validar: se Fiado está no split, o valor alocado para ele NÃO pode ultrapassar o crédito disponível
+            if (clienteCreditoDisponivel !== null && clienteCreditoDisponivel !== Infinity) {
+                const valorFiado = metodoPagamento === 'pagamento_posterior' ? vp : splitMetodo === 'pagamento_posterior' ? vs : 0
+                if (valorFiado > clienteCreditoDisponivel + 0.01) {
+                    showToast('error', 'Limite de Crédito Excedido',
+                        `O valor no Fiado (R$ ${valorFiado.toFixed(2)}) ultrapassa o crédito disponível do cliente (R$ ${clienteCreditoDisponivel.toFixed(2)}). Reduza o valor do Fiado.`)
+                    return
+                }
+            }
+        } else if (metodoPagamento === 'pagamento_posterior'
+            && clienteCreditoDisponivel !== null
+            && clienteCreditoDisponivel !== Infinity
+            && clienteCreditoDisponivel < total) {
+            showToast('error', 'Atenção', 'Selecione como pagar o restante além do crédito disponível')
+            return
+        }
+
         setEnviando(true)
 
         if (metodoPagamento === 'dinheiro' && precisaTroco) {
@@ -294,6 +517,21 @@ export default function PDVPage() {
 
         const valorTrocoNumero = (metodoPagamento === 'dinheiro' && precisaTroco) ? parseFloat(trocoPara.replace(/[^\d.,]/g, '').replace(',', '.')) : null;
 
+        // Calcular divisão de pagamento (suporta qualquer combinação de 2 métodos)
+        let valorPrincipal: number | null = null
+        let valorSecundario: number | null = null
+        let metodoSecundario: string | null = null
+        
+        if (splitMetodo) {
+            // Split livre entre dois métodos
+            valorPrincipal = parseFloat(valorPrimarioInput.replace(',', '.')) || total
+            valorSecundario = parseFloat(valorSecundarioInput.replace(',', '.')) || 0
+            metodoSecundario = splitMetodo
+        } else if (metodoPagamento === 'pagamento_posterior' && clienteCreditoDisponivel !== null) {
+            // Fiado sem split: registra o valor integral no pagamento principal
+            valorPrincipal = clienteCreditoDisponivel === Infinity ? total : Math.min(clienteCreditoDisponivel, total)
+        }
+
         const { data, error } = await supabase
             .from('pedidos_online')
             .insert({
@@ -311,7 +549,10 @@ export default function PDVPage() {
                 valor_para_troco: valorTrocoNumero,
                 mesa_id: mesaEscolhida && mesaEscolhida.id !== 'balcao' ? mesaEscolhida.id : null,
                 garcom_id: garcomId || null,
-                garcom_nome: garcomNome || null
+                garcom_nome: garcomNome || null,
+                pagamento_principal_valor: valorPrincipal,
+                pagamento_secundario_metodo: metodoSecundario,
+                pagamento_secundario_valor: valorSecundario
             })
             .select()
 
@@ -337,6 +578,10 @@ export default function PDVPage() {
             setMetodoPagamento('pix')
             setPrecisaTroco(false)
             setTrocoPara('')
+            setClientePermiteFiado(false)
+            setClienteCreditoDisponivel(null)
+            setClienteLimiteTotal(null)
+            setSplitMetodo(null)
 
             // Disparar Webhook para Novo Pedido via PDV
             supabase
@@ -358,10 +603,19 @@ export default function PDVPage() {
 
     if (!mesaEscolhida) {
         return (
-            <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-5xl mx-auto h-full p-2 sm:p-4 overflow-y-auto overflow-x-hidden">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1 sm:mb-2">Acessar PDV</h1>
-                    <p className="text-white/70 text-sm sm:text-base">Selecione onde o cliente será atendido antes de abrir o cardápio.</p>
+            <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-5xl mx-auto h-full pt-4 px-3 pb-4 sm:p-4 overflow-y-auto overflow-x-hidden">
+                <div className="flex items-center gap-3 mb-2">
+                    <button 
+                        onClick={() => window.location.href = '/dashboard'} 
+                        className="p-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg transition-colors flex items-center justify-center lg:hidden"
+                        title="Voltar para Dashboard"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div>
+                        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-0.5 sm:mb-1">Acessar PDV</h1>
+                        <p className="text-white/70 text-xs sm:text-base">Selecione onde o cliente será atendido antes de abrir o cardápio.</p>
+                    </div>
                 </div>
                 
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
@@ -388,7 +642,7 @@ export default function PDVPage() {
                         const badgeClass = isEmAtendimento
                             ? 'bg-orange-500/20 text-orange-400'
                             : isOcupada ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
-                        const statusLabel = isEmAtendimento ? `Em Atend.` : isOcupada ? 'Ocupada' : 'Livre'
+                        const statusLabel = isEmAtendimento ? `Em Atend.` : isOcupada ? 'Conta Fechada' : 'Livre'
                         return (
                             <button
                                 key={m.id}
@@ -429,21 +683,26 @@ export default function PDVPage() {
 
     return (
         <div className={styles.pdvContainer}>
-            {/* Header de Atendimento */}
-            <div className="flex items-center justify-between bg-zinc-900 border-b border-white/10 p-3 mb-0 text-white shrink-0">
-                <div className="flex items-center gap-3">
-                    <button 
-                        onClick={voltarDaMesa} 
-                        className="p-2 hover:bg-white/10 rounded-lg transition"
-                        title="Voltar para seleção de mesas"
-                    >
-                        <ArrowLeft size={20} />
-                    </button>
-                    <div className="font-bold text-lg">
-                        Atendimento: <span className="text-primary">{mesaEscolhida.numero_mesa}</span>
+            {/* Header de Atendimento - fixo no topo no mobile */}
+            <div className="fixed top-0 left-0 right-0 z-[100] flex items-center gap-3 bg-black/90 backdrop-blur-md border-b border-white/10 px-4 py-3 text-white lg:hidden shadow-xl">
+                <button 
+                    onClick={voltarDaMesa} 
+                    className="p-2.5 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white rounded-xl transition-all flex items-center justify-center shrink-0 shadow-md"
+                    title="Voltar para seleção de mesas"
+                >
+                    <ArrowLeft size={20} />
+                </button>
+                <div className="flex flex-col min-width-0">
+                    <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider leading-none mb-0.5">Em Atendimento</span>
+                    <div className="font-extrabold text-lg leading-tight truncate">
+                        Mesa {mesaEscolhida.numero_mesa}
                     </div>
                 </div>
             </div>
+            
+            {/* Spacer para compensar o header fixo no mobile */}
+            <div className="h-[68px] lg:hidden shrink-0" />
+
 
             {/* MOBILE ONLY: Inputs at the top */}
             <div className={styles.mobileInputsTop}>
@@ -456,13 +715,27 @@ export default function PDVPage() {
                         value={numeroMesa}
                         onChange={(e) => setNumeroMesa(e.target.value)}
                     />
-                    <input
-                        type="text"
-                        className={styles.inputField}
-                        placeholder="Nome do Cliente"
-                        value={nomeCliente}
-                        onChange={(e) => setNomeCliente(e.target.value)}
-                    />
+                    <div className="relative w-full">
+                        <input
+                            type="text"
+                            className={styles.inputField}
+                            placeholder="Nome do Cliente"
+                            value={nomeCliente}
+                            onChange={(e) => setNomeCliente(e.target.value)}
+                            onFocus={() => nomeCliente.length >= 2 && setMostrarSugestoes(true)}
+                            onBlur={() => setTimeout(() => setMostrarSugestoes(false), 200)}
+                        />
+                        {mostrarSugestoes && sugestoesClientes.length > 0 && (
+                            <ul className={styles.suggestionsList}>
+                                {sugestoesClientes.map(c => (
+                                    <li key={c.id} onMouseDown={() => selecionarClienteSugestao(c)} className={styles.suggestionItem}>
+                                        <div className="font-semibold text-white truncate leading-tight">{c.nome}</div>
+                                        <div className="text-[10px] sm:text-xs text-zinc-400 truncate mt-0.5">{c.telefone}</div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
                     <input
                         type="text"
                         className={styles.inputField}
@@ -478,7 +751,6 @@ export default function PDVPage() {
                         onChange={(e) => setObservacoes(e.target.value)}
                     />
                 </div>
-
                 {/* Mobile: lista de itens + total + finalizar */}
                 {comanda.length > 0 && (
                     <div className="flex flex-col gap-1 bg-zinc-800/80 rounded-xl px-3 py-2 border border-white/10 lg:hidden">
@@ -486,21 +758,145 @@ export default function PDVPage() {
                             <div key={item.id} className="flex items-center justify-between text-sm">
                                 <span className="text-zinc-400 w-6 shrink-0">{item.quantidade}x</span>
                                 <span className="text-white flex-1 truncate">
-                                    {item.nome} 
+                                    {item.nome}
                                     <span className="text-zinc-500 text-[10px] ml-1">(R$ {item.preco.toFixed(0)})</span>
                                 </span>
                                 <span className="text-white font-semibold ml-2 shrink-0">R$ {(item.preco * item.quantidade).toFixed(0)}</span>
                             </div>
                         ))}
-                        <div className="flex items-center justify-between pt-1 mt-1 border-t border-white/10">
-                            <span className="text-orange-400 font-bold text-base">Total: R$ {total.toFixed(0)}</span>
+
+                        {renderBotoesExtra()}
+
+                        {/* Total + Botão Finalizar */}
+                        <div className="flex items-center justify-between gap-3 pt-2 mt-1 border-t border-white/10 flex-wrap">
+                            <div className="flex flex-col">
+                                <span className="text-[10px] text-zinc-500 uppercase font-bold leading-tight">Total</span>
+                                <span className="text-orange-500 font-black text-lg leading-tight">R$ {total.toFixed(2)}</span>
+                            </div>
                             <button
                                 onClick={finalizarPedido}
                                 disabled={enviando}
-                                className="bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-sm px-4 py-1.5 rounded-lg transition active:scale-95"
+                                className="bg-orange-600 hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm px-6 py-2.5 rounded-xl transition shadow-lg active:scale-95 shrink-0"
                             >
-                                {enviando ? 'Enviando...' : 'Finalizar ✓'}
+                                {enviando ? '...' : 'FINALIZAR ✓'}
                             </button>
+                        </div>
+
+                        {/* Mobile Payment Area (Nova Versão Responsiva) */}
+                        <div className={styles.paymentAreaMobile}>
+
+                            {/* Indicador de crédito */}
+                            {clientePermiteFiado && clienteCreditoDisponivel !== null && (
+                                <div className={`${styles.creditIndicatorMobile}`} style={{
+                                    backgroundColor: clienteCreditoDisponivel === Infinity || clienteCreditoDisponivel >= total ? '#052e16' : '#2d1010',
+                                    borderColor: clienteCreditoDisponivel === Infinity || clienteCreditoDisponivel >= total ? '#166534' : '#7f1d1d'
+                                }}>
+                                    <span className="text-zinc-400">💳 Crédito:</span>
+                                    <span style={{ fontWeight: 600, color: clienteCreditoDisponivel === Infinity || clienteCreditoDisponivel >= total ? '#4ade80' : '#f87171' }}>
+                                        {clienteCreditoDisponivel === Infinity ? 'Ilimitado ✓'
+                                            : clienteCreditoDisponivel >= total ? `R$ ${clienteCreditoDisponivel.toFixed(2)} ✓`
+                                            : `R$ ${clienteCreditoDisponivel.toFixed(2)} — faltam R$ ${(total - clienteCreditoDisponivel).toFixed(2)}`}
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Pílulas multi-select (até 2 métodos) */}
+                            <p className={styles.splitLabel}>Toque para selecionar até 2 formas de pagamento:</p>
+                            <div className={styles.paymentPillsContainer}>
+                                {(['pix', 'cartao', 'dinheiro'] as const).map(m => {
+                                    const isPrimary = metodoPagamento === m
+                                    const isSplit = splitMetodo === m
+                                    const isActive = isPrimary || isSplit
+                                    return (
+                                        <button key={m} onClick={() => toggleMetodo(m)}
+                                            className={`px-3 py-1.5 text-xs rounded-full font-semibold transition-all flex-1 min-w-[30%] flex items-center justify-center gap-1 ${isActive ? 'bg-orange-600 text-white ring-1 ring-orange-400' : 'bg-zinc-800 text-zinc-400 border border-white/5'}`}>
+                                            {m === 'pix' ? '⚡ Pix' : m === 'cartao' ? '💳 Cartão' : '💵 Dinheiro'}
+                                            {isSplit && <span className="opacity-70">(2º)</span>}
+                                        </button>
+                                    )
+                                })}
+                                {clientePermiteFiado && (
+                                    <button onClick={() => toggleMetodo('pagamento_posterior')}
+                                        className={`px-3 py-1.5 text-xs rounded-full font-bold transition-all flex-1 min-w-[30%] flex items-center justify-center gap-1 ${metodoPagamento === 'pagamento_posterior' || splitMetodo === 'pagamento_posterior' ? 'bg-emerald-600 text-white ring-1 ring-emerald-400' : 'bg-zinc-800 text-emerald-500 border border-white/5'}`}>
+                                        Fiado
+                                        {splitMetodo === 'pagamento_posterior' && <span className="opacity-70">(2º)</span>}
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Inputs de valor quando 2 métodos selecionados */}
+                            {splitMetodo && metodoPagamento && (
+                                <div className={styles.splitPaymentBox}>
+                                    <p className={styles.splitLabel}>
+                                        Defina o valor de cada forma <span className="text-orange-500 font-bold ml-1">(Total: R$ {total.toFixed(2)})</span>
+                                    </p>
+                                    <div className="flex flex-col gap-2">
+                                        <div className={styles.splitInputRow}>
+                                            <span className={styles.splitInputLabel}>
+                                                {metodoPagamento === 'pix' ? '⚡ Pix' : metodoPagamento === 'cartao' ? '💳 Cartão' : metodoPagamento === 'dinheiro' ? '💵 Dinheiro' : '🤝 Fiado'}:
+                                            </span>
+                                            <input
+                                                type="number" inputMode="decimal" placeholder="R$ 0,00"
+                                                className={styles.splitInputField}
+                                                value={valorPrimarioInput}
+                                                onChange={(e) => {
+                                                    const v = e.target.value
+                                                    setValorPrimarioInput(v)
+                                                    const parsed = parseFloat(v.replace(',', '.')) || 0
+                                                    setValorSecundarioInput(Math.max(0, total - parsed).toFixed(2))
+                                                }}
+                                            />
+                                        </div>
+                                        <div className={styles.splitInputRow}>
+                                            <span className={styles.splitInputLabel}>
+                                                {splitMetodo === 'pix' ? '⚡ Pix' : splitMetodo === 'cartao' ? '💳 Cartão' : splitMetodo === 'dinheiro' ? '💵 Dinheiro' : '🤝 Fiado'}:
+                                            </span>
+                                            <input
+                                                type="number" inputMode="decimal" placeholder="R$ 0,00"
+                                                className={styles.splitInputField}
+                                                value={valorSecundarioInput}
+                                                onChange={(e) => {
+                                                    const v = e.target.value
+                                                    setValorSecundarioInput(v)
+                                                    const parsed = parseFloat(v.replace(',', '.')) || 0
+                                                    setValorPrimarioInput(Math.max(0, total - parsed).toFixed(2))
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                    {/* Indicador de soma */}
+                                    {(() => {
+                                        const soma = (parseFloat(valorPrimarioInput || '0') + parseFloat(valorSecundarioInput || '0'))
+                                        const diff = parseFloat((total - soma).toFixed(2))
+                                        if (Math.abs(diff) < 0.01) return (
+                                            <p className={`${styles.splitStatus} text-green-400`}>✓ Soma correta: R$ {soma.toFixed(2)}</p>
+                                        )
+                                        return (
+                                            <p className={`${styles.splitStatus} ${diff > 0 ? 'text-orange-400' : 'text-red-400'}`}>
+                                                {diff > 0 ? `Faltam R$ ${diff.toFixed(2)}` : `Excede R$ ${Math.abs(diff).toFixed(2)}`}
+                                            </p>
+                                        )
+                                    })()}
+                                </div>
+                            )}
+
+                            {(metodoPagamento === 'dinheiro' || splitMetodo === 'dinheiro') && (
+                                <div className="mt-3 bg-black/20 p-2 rounded-lg border border-white/5">
+                                    <label className="flex items-center gap-2 text-xs text-white/80 cursor-pointer">
+                                        <input type="checkbox" checked={precisaTroco} onChange={(e) => setPrecisaTroco(e.target.checked)} className="accent-orange-500 w-4 h-4" />
+                                        Precisa de troco?
+                                    </label>
+                                    {precisaTroco && (
+                                        <input 
+                                            type="text" 
+                                            placeholder="Troco para... " 
+                                            value={trocoPara} 
+                                            onChange={(e) => setTrocoPara(e.target.value)} 
+                                            className="w-full mt-2 bg-zinc-900 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-orange-500 outline-none" 
+                                        />
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -515,6 +911,7 @@ export default function PDVPage() {
                         </button>
                     </div>
                 )}
+
             </div>
 
             {/* LEFT COLUMN: Menu, Search, Tabs */}
@@ -605,13 +1002,27 @@ export default function PDVPage() {
                             value={numeroMesa}
                             onChange={(e) => setNumeroMesa(e.target.value)}
                         />
-                        <input
-                            type="text"
-                            className={styles.inputField}
-                            placeholder="Nome do Cliente"
-                            value={nomeCliente}
-                            onChange={(e) => setNomeCliente(e.target.value)}
-                        />
+                        <div className="relative w-full">
+                            <input
+                                type="text"
+                                className={styles.inputField}
+                                placeholder="Nome do Cliente"
+                                value={nomeCliente}
+                                onChange={(e) => setNomeCliente(e.target.value)}
+                                onFocus={() => nomeCliente.length >= 2 && setMostrarSugestoes(true)}
+                                onBlur={() => setTimeout(() => setMostrarSugestoes(false), 200)}
+                            />
+                            {mostrarSugestoes && sugestoesClientes.length > 0 && (
+                                <ul className={styles.suggestionsList}>
+                                    {sugestoesClientes.map(c => (
+                                        <li key={c.id} onMouseDown={() => selecionarClienteSugestao(c)} className={styles.suggestionItem}>
+                                            <div className="font-semibold text-white truncate leading-tight">{c.nome}</div>
+                                            <div className="text-[10px] sm:text-xs text-zinc-400 truncate mt-0.5">{c.telefone}</div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
                         <input
                             type="text"
                             className={styles.inputField}
@@ -661,10 +1072,39 @@ export default function PDVPage() {
                         ))}
                     </div>
 
+                    <div className="px-4">
+                        {renderBotoesExtra()}
+                    </div>
+
                     <div className={styles.paymentSection}>
                         <h3 className={styles.paymentTitle}>
                             Tipo de Pagamento <ChevronDown size={14} className={styles.chevronIcon} />
                         </h3>
+
+                        {/* Indicador sutil de crédito do cliente */}
+                        {clientePermiteFiado && clienteCreditoDisponivel !== null && (
+                            <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '6px 12px', marginBottom: '8px',
+                                backgroundColor: clienteCreditoDisponivel === Infinity ? '#052e16' : clienteCreditoDisponivel >= total ? '#052e16' : '#2d1010',
+                                borderRadius: '8px', border: `1px solid ${clienteCreditoDisponivel === Infinity || clienteCreditoDisponivel >= total ? '#166534' : '#7f1d1d'}`,
+                                fontSize: '0.75rem'
+                            }}>
+                                <span style={{ color: '#a1a1aa' }}>💳 Crédito do cliente:</span>
+                                <span style={{
+                                    fontWeight: 600,
+                                    color: clienteCreditoDisponivel === Infinity ? '#4ade80'
+                                        : clienteCreditoDisponivel >= total ? '#4ade80' : '#f87171'
+                                }}>
+                                    {clienteCreditoDisponivel === Infinity ? 'Ilimitado'
+                                        : clienteCreditoDisponivel >= total
+                                        ? `R$ ${clienteCreditoDisponivel.toFixed(2)} disponível ✓`
+                                        : `R$ ${clienteCreditoDisponivel.toFixed(2)} de R$ ${clienteLimiteTotal?.toFixed(2)} — faltam R$ ${(total - clienteCreditoDisponivel).toFixed(2)}`
+                                    }
+                                </span>
+                            </div>
+                        )}
+
                         <div className={styles.paymentOptions}>
                             <button
                                 className={`${styles.paymentBtn} ${metodoPagamento === 'pix' ? styles.paymentSelected : ''}`}
@@ -688,6 +1128,15 @@ export default function PDVPage() {
                             >
                                 {metodoPagamento === 'dinheiro' && <span className={styles.radioDot} />} Dinheiro
                             </button>
+                            {clientePermiteFiado && (
+                                <button
+                                    className={`${styles.paymentBtn} ${metodoPagamento === 'pagamento_posterior' ? styles.paymentSelected : ''}`}
+                                    onClick={() => { setMetodoPagamento('pagamento_posterior'); setSplitMetodo(null) }}
+                                    style={{ borderColor: metodoPagamento === 'pagamento_posterior' ? '#10b981' : '#333', color: metodoPagamento === 'pagamento_posterior' ? '#10b981' : '#a3a3a3' }}
+                                >
+                                    {metodoPagamento === 'pagamento_posterior' && <span className={styles.radioDot} style={{ backgroundColor: '#10b981' }} />} Pagar Depois (Fiado)
+                                </button>
+                            )}
                             {metodoPagamento === 'dinheiro' && (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.5rem 1rem', backgroundColor: '#1a1a1a', borderRadius: '8px', border: '1px solid #333' }}>
                                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', cursor: 'pointer', color: '#e5e5e5' }}>
@@ -711,6 +1160,42 @@ export default function PDVPage() {
                                 </div>
                             )}
                         </div>
+
+                        {/* Split Payment: aparece se crédito < total */}
+                        {metodoPagamento === 'pagamento_posterior'
+                            && clienteCreditoDisponivel !== null
+                            && clienteCreditoDisponivel !== Infinity
+                            && clienteCreditoDisponivel < total && (
+                            <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#131313', borderRadius: '10px', border: '1px solid #3f3f46' }}>
+                                <p style={{ fontSize: '0.72rem', color: '#a1a1aa', marginBottom: '8px' }}>
+                                    💡 O crédito cobre <strong style={{color:'#4ade80'}}>R$ {clienteCreditoDisponivel.toFixed(2)}</strong>.
+                                    Pague os outros <strong style={{color:'#f97316'}}>R$ {(total - clienteCreditoDisponivel).toFixed(2)}</strong> com:
+                                </p>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                    {(['pix', 'cartao', 'dinheiro'] as const).map(m => (
+                                        <button
+                                            key={m}
+                                            onClick={() => setSplitMetodo(m)}
+                                            style={{
+                                                padding: '6px 14px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                                                border: splitMetodo === m ? '1px solid #f97316' : '1px solid #3f3f46',
+                                                backgroundColor: splitMetodo === m ? '#431407' : '#1a1a1a',
+                                                color: splitMetodo === m ? '#fb923c' : '#a1a1aa',
+                                                transition: 'all 0.15s'
+                                            }}
+                                        >
+                                            {m === 'pix' ? '⚡ Pix' : m === 'cartao' ? '💳 Cartão' : '💵 Dinheiro'}
+                                        </button>
+                                    ))}
+                                </div>
+                                {splitMetodo && (
+                                    <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#71717a' }}>
+                                        <span>🟢 Fiado: R$ {clienteCreditoDisponivel.toFixed(2)}</span>
+                                        <span>🟠 {splitMetodo === 'pix' ? 'Pix' : splitMetodo === 'cartao' ? 'Cartão' : 'Dinheiro'}: R$ {(total - clienteCreditoDisponivel).toFixed(2)}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className={styles.totalRow}>

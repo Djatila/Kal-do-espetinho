@@ -1222,6 +1222,9 @@ export default function CardapioPublicoPage() {
                     </p>
                     <p className="text-neutral-400 text-[10px] uppercase tracking-[0.18em] -mt-[2px]">Arataca - BA</p>
                     <p className="text-neutral-600 text-xs mt-4">© 2026 Todos os direitos reservados.</p>
+                    <p style={{ color: '#ff7000', fontSize: '13px', marginTop: '6px', fontWeight: 'bold', textShadow: '0 0 10px rgba(255, 112, 0, 0.5)' }}>
+                        Desenvolvido por Atila Azevedo.
+                    </p>
                 </footer>
             </div>
 
