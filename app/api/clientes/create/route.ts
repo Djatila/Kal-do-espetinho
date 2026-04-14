@@ -1,8 +1,16 @@
 import { createAdminClient } from '@/utils/supabase/admin'
+import { createClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
     try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user || user.user_metadata?.role === 'cliente') {
+            return NextResponse.json({ error: 'Acesso negado: Requer privilégios de administrador ou atendente.' }, { status: 401 })
+        }
+
         const body = await request.json()
         const { nome, telefone, senha, endereco, observacoes, tipo_cliente, limite_credito, limite_ilimitado } = body
 

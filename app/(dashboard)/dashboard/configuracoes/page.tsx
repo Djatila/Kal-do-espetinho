@@ -17,6 +17,7 @@ export default function ConfiguracoesPage() {
     const [uploadingBanner, setUploadingBanner] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const bannerFileInputRef = useRef<HTMLInputElement>(null)
+    const [allProducts, setAllProducts] = useState<any[]>([])
 
     // Estados para Configurações do Restaurante
     const [configId, setConfigId] = useState<string | null>(null)
@@ -34,7 +35,9 @@ export default function ConfiguracoesPage() {
         webhook_n8n: '',
         banner_url: '',
         banner_titulo: 'SABOR PREMIUM',
-        banner_subtitulo: 'O melhor espetinho da cidade em um ambiente exclusivo.'
+        banner_subtitulo: 'O melhor espetinho da cidade em um ambiente exclusivo.',
+        produtos_destaque_bolha: [] as string[],
+        gemini_api_key: ''
     })
 
     // Estados para Perfil do Usuário
@@ -71,6 +74,16 @@ export default function ConfiguracoesPage() {
             .select('*')
             .single()
 
+        // Carregar Produtos Ativos
+        const { data: produtosData } = await supabase
+            .from('produtos')
+            .select('id, nome, imagem_url')
+            .eq('ativo', true)
+            .order('nome', { ascending: true })
+        if (produtosData) {
+            setAllProducts(produtosData)
+        }
+
         if (configError) {
             console.error('Erro ao carregar configurações:', configError)
             // Se o erro for que não encontrou linhas, vamos tentar criar
@@ -101,7 +114,9 @@ export default function ConfiguracoesPage() {
                         webhook_n8n: '',
                         banner_url: '',
                         banner_titulo: 'SABOR PREMIUM',
-                        banner_subtitulo: 'O melhor espetinho da cidade em um ambiente exclusivo.'
+                        banner_subtitulo: 'O melhor espetinho da cidade em um ambiente exclusivo.',
+                        produtos_destaque_bolha: [],
+                        gemini_api_key: ''
                     })
                 }
             }
@@ -121,7 +136,9 @@ export default function ConfiguracoesPage() {
                 webhook_n8n: config.webhook_n8n || '',
                 banner_url: config.banner_url || '',
                 banner_titulo: config.banner_titulo || 'SABOR PREMIUM',
-                banner_subtitulo: config.banner_subtitulo || 'O melhor espetinho da cidade em um ambiente exclusivo.'
+                banner_subtitulo: config.banner_subtitulo || 'O melhor espetinho da cidade em um ambiente exclusivo.',
+                produtos_destaque_bolha: config.produtos_destaque_bolha || [],
+                gemini_api_key: config.gemini_api_key || ''
             })
         }
 
@@ -409,7 +426,7 @@ export default function ConfiguracoesPage() {
 
                         <div className="space-y-2 mt-4">
                             <label className="text-sm font-medium text-foreground">Layout do Cardápio</label>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-3 gap-3">
                                 <button
                                     className="p-4 border rounded-xl flex flex-col items-center justify-center gap-2 transition-all cursor-pointer"
                                     style={{
@@ -438,6 +455,73 @@ export default function ConfiguracoesPage() {
                                     <div className="w-8 h-8 rounded bg-current opacity-80" />
                                     <span className="font-bold text-sm text-center">Minimalista<br />(Pequeno)</span>
                                 </button>
+                                <button
+                                    className="p-4 border rounded-xl flex flex-col items-center justify-center gap-2 transition-all cursor-pointer"
+                                    style={{
+                                        backgroundColor: restaurante.layout_cardapio === 'lista' ? 'var(--primary)' : 'var(--muted)',
+                                        color: restaurante.layout_cardapio === 'lista' ? 'var(--primary-foreground)' : 'var(--foreground)',
+                                        borderColor: restaurante.layout_cardapio === 'lista' ? 'var(--primary)' : 'var(--border)',
+                                        boxShadow: restaurante.layout_cardapio === 'lista' ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' : 'none',
+                                        opacity: restaurante.layout_cardapio === 'lista' ? 1 : 0.7
+                                    }}
+                                    onClick={() => setRestaurante({ ...restaurante, layout_cardapio: 'lista' })}
+                                >
+                                    {/* Preview: linhas horizontais */}
+                                    <div className="flex flex-col gap-1 w-10">
+                                        <div className="h-2 rounded-sm bg-current opacity-80 w-full" />
+                                        <div className="h-2 rounded-sm bg-current opacity-80 w-full" />
+                                        <div className="h-2 rounded-sm bg-current opacity-80 w-full" />
+                                    </div>
+                                    <span className="font-bold text-sm text-center">Lista<br />(Horizontal)</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Nova Seção: Destaques (Bolinhas) */}
+                        <div className="space-y-3 mt-8 p-4 border border-orange-500/20 rounded-xl bg-orange-500/5">
+                            <div>
+                                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                                    ✨ Destaques Especiais (Bolinhas do Menu)
+                                </h3>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Selecione os produtos que aparecerão como círculos na parte superior do cardápio online.
+                                </p>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-60 overflow-y-auto p-2 border rounded-lg bg-background">
+                                {allProducts.map(prod => {
+                                    const selecionado = restaurante.produtos_destaque_bolha.includes(prod.id);
+                                    return (
+                                        <div 
+                                            key={prod.id}
+                                            onClick={() => {
+                                                const current = restaurante.produtos_destaque_bolha || [];
+                                                setRestaurante({
+                                                    ...restaurante,
+                                                    produtos_destaque_bolha: selecionado 
+                                                        ? current.filter(id => id !== prod.id)
+                                                        : [...current, prod.id]
+                                                });
+                                            }}
+                                            className={`flex items-center gap-2 cursor-pointer border rounded p-2 transition-colors ${selecionado ? 'border-orange-500 bg-orange-500/10' : 'hover:bg-muted'}`}
+                                        >
+                                            <input 
+                                                type="checkbox" 
+                                                checked={selecionado}
+                                                readOnly
+                                                className="h-4 w-4 rounded border-gray-300 accent-orange-500"
+                                            />
+                                            <div className="w-8 h-8 rounded-full bg-neutral-800 overflow-hidden flex-shrink-0">
+                                                {prod.imagem_url ? (
+                                                    <img src={prod.imagem_url} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-[10px] text-muted-foreground">FOTO</div>
+                                                )}
+                                            </div>
+                                            <span className="text-xs font-medium truncate">{prod.nome}</span>
+                                        </div>
+                                    )
+                                })}
                             </div>
                         </div>
 
@@ -448,12 +532,31 @@ export default function ConfiguracoesPage() {
                             onChange={(e) => setRestaurante({ ...restaurante, taxa_entrega_padrao: Number(e.target.value) })}
                         />
 
-                        <Input
-                            label="Webhook n8n (Integração)"
-                            value={restaurante.webhook_n8n}
-                            onChange={(e) => setRestaurante({ ...restaurante, webhook_n8n: e.target.value })}
-                            placeholder="https://seu-n8n.com/webhook/..."
-                        />
+                        <div className="space-y-4 pt-4 mt-6 border-t border-border">
+                            <h3 className="text-lg font-bold text-foreground">Integrações</h3>
+                            <Input
+                                label="Webhook URL (n8n/WhatsApp)"
+                                value={restaurante.webhook_n8n}
+                                onChange={(e) => setRestaurante({ ...restaurante, webhook_n8n: e.target.value })}
+                                placeholder="https://seu-n8n.com/webhook/..."
+                            />
+                            
+                            <div className="space-y-1 p-4 border border-blue-500/30 rounded-xl bg-blue-500/5">
+                                <h4 className="flex items-center gap-2 font-bold mb-2">
+                                    <span className="text-blue-500">✨</span> Assistente Virtual (Kal AI)
+                                </h4>
+                                <p className="text-xs text-muted-foreground mb-3">
+                                    Para ativar nosso garçom virtual e permitir que ele atenda seus clientes sobre o cardápio, informe a chave da API do Google Gemini. Sem a chave o sistema ficará "Em Manutenção".
+                                </p>
+                                <Input
+                                    label="Chave API (Google Gemini)"
+                                    type="password"
+                                    value={restaurante.gemini_api_key}
+                                    onChange={(e) => setRestaurante({ ...restaurante, gemini_api_key: e.target.value })}
+                                    placeholder="AIzaSyA..."
+                                />
+                            </div>
+                        </div>
 
                         <Button className="w-full" onClick={handleSaveRestaurante}>
                             <Save size={16} className="mr-2" />

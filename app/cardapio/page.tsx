@@ -101,9 +101,11 @@ export default function CardapioPublicoPage() {
         chave_pix: '',
         whatsapp_loja: '',
         layout_cardapio: 'padrao',
+        webhook_n8n: '',
         banner_url: '',
-        banner_titulo: 'SABOR PREMIUM',
-        banner_subtitulo: 'O melhor espetinho da cidade em um ambiente exclusivo.'
+        banner_titulo: '',
+        banner_subtitulo: '',
+        produtos_destaque_bolha: [] as string[]
     })
 
     const [dadosCliente, setDadosCliente] = useState<DadosCliente>({
@@ -294,46 +296,63 @@ export default function CardapioPublicoPage() {
             .order('nome', { ascending: true })
 
         if (data) {
-            setProdutos(data)
+            const today = new Date().getDay();
+            let dayString = 'seg-sex';
+            if (today === 0) dayString = 'domingo';
+            else if (today === 6) dayString = 'sabado';
+
+            const filteredData = data.filter((p: any) => {
+                const dias = p.dias_semana || [];
+                if (dias.length === 0) return true; // Mostra a semana toda
+                return dias.includes(dayString);
+            });
+            
+            setProdutos(filteredData)
         }
         setLoading(false)
     }
 
     async function loadConfiguracao() {
-        const { data } = await supabase
+        const { data: configData } = await supabase
             .from('configuracoes')
             .select('*')
             .maybeSingle()
 
-        if (data) {
+        if (configData) {
             setConfiguracao({
-                nome_restaurante: data.nome_restaurante || 'Cardápio Online',
-                logo_url: data.logo_url || '',
-                taxa_entrega_padrao: data.taxa_entrega_padrao || 0,
-                chave_pix: data.chave_pix || '',
-                whatsapp_loja: data.whatsapp_loja || '',
-                layout_cardapio: data.layout_cardapio || 'padrao',
-                banner_url: data.banner_url || '',
-                banner_titulo: data.banner_titulo || 'SABOR PREMIUM',
-                banner_subtitulo: data.banner_subtitulo || 'O melhor espetinho da cidade em um ambiente exclusivo.'
+                nome_restaurante: configData.nome_restaurante || 'Cardápio Online',
+                logo_url: configData.logo_url || '',
+                taxa_entrega_padrao: configData.taxa_entrega_padrao || 0,
+                chave_pix: configData.chave_pix || '',
+                whatsapp_loja: configData.whatsapp_loja || '',
+                layout_cardapio: configData.layout_cardapio || 'padrao',
+                webhook_n8n: configData.webhook_n8n || '',
+                banner_url: configData.banner_url || '',
+                banner_titulo: configData.banner_titulo || 'SABOR PREMIUM',
+                banner_subtitulo: configData.banner_subtitulo || 'O melhor espetinho da cidade em um ambiente exclusivo.',
+                produtos_destaque_bolha: configData.produtos_destaque_bolha || []
             })
-            setTaxaEntrega(data.taxa_entrega_padrao || 0)
+            setTaxaEntrega(configData.taxa_entrega_padrao || 0)
 
             // Atualizar Promoção
-            if (data.promo_ativa) {
+            if (configData.promo_ativa) {
                 setPromoSettings({
-                    isActive: data.promo_ativa,
-                    title: data.promo_titulo || '',
-                    productName: data.promo_produto_nome || '',
-                    description: data.promo_descricao || '',
-                    price: Number(data.promo_preco) || 0,
-                    image: data.promo_imagem_url || '',
-                    badgeText: data.promo_badge_texto || ''
+                    isActive: configData.promo_ativa,
+                    title: configData.promo_titulo || '',
+                    productName: configData.promo_produto_nome || '',
+                    description: configData.promo_descricao || '',
+                    price: Number(configData.promo_preco) || 0,
+                    image: configData.promo_imagem_url || '',
+                    badgeText: configData.promo_badge_texto || ''
                 })
+            } else {
+                setPromoSettings(prev => ({ ...prev, isActive: false }))
+            }
 
+            if (configData.promo_ativa) {
                 // Tentar abrir após carregar, respeitando a sessão dinâmica
                 setTimeout(() => {
-                    const sessionKey = `kalPromoSeen_${data.promo_titulo || 'default'}`
+                    const sessionKey = `kalPromoSeen_${configData.promo_titulo || 'default'}`
                     const hasSeenPromo = sessionStorage.getItem(sessionKey)
                     if (!hasSeenPromo) {
                         setIsPromoOpen(true)
@@ -522,15 +541,17 @@ export default function CardapioPublicoPage() {
 
             if (data.status === 'pendente' || data.status === 'confirmado') {
                 setStatusCancelamento('cancelando')
-                const { error: updateError } = await supabase
-                    .from('pedidos_online')
-                    .update({
-                        status: 'cancelado',
-                        observacoes: 'Cancelado pelo cliente'
-                    })
-                    .eq('numero_pedido', numero)
-
-                if (updateError) throw updateError
+                
+                const res = await fetch('/api/pedidos/cancelar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ numero_pedido: numero, cliente_id: clienteId })
+                })
+                
+                if (!res.ok) {
+                    const errorData = await res.json()
+                    throw new Error(errorData.error || 'Erro interno ao cancelar.')
+                }
 
                 // Disparar Webhook para Cancelamento pelo Cliente
                 supabase
@@ -704,7 +725,7 @@ export default function CardapioPublicoPage() {
                 )}
 
                 {/* Botão Cancelar Pedido e Voltar ao Início */}
-                {!modoComplemento && (
+                {!modoComplemento && !['pronto', 'saiu_para_entrega', 'entregue'].includes(orderStatus || '') && (
                     <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         <button
                             className={styles.botaoCancelarDireto}
@@ -1011,14 +1032,15 @@ export default function CardapioPublicoPage() {
         price: p.preco,
         category: p.categoria as any,
         image: p.imagem_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
-        popular: false
+        popular: (p as any).destaque || false,
+        titulo_destaque: (p as any).titulo_destaque || 'Recomendação da Chefa ⭐'
     }))
 
     const filteredItems = categoriaFiltro === 'todas'
         ? kalMenuItems
         : kalMenuItems.filter(item => item.category === categoriaFiltro);
 
-    const highlights = kalMenuItems.filter(item => item.popular);
+    const highlights = kalMenuItems.filter(item => configuracao.produtos_destaque_bolha?.includes(item.id));
     const cartCount = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
 
     const handleAddToCartAnim = (item: any, event?: React.MouseEvent) => {
@@ -1146,9 +1168,9 @@ export default function CardapioPublicoPage() {
                         <img 
                             src={configuracao.banner_url || "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2574&auto=format&fit=crop"} 
                             alt="Hero" 
-                            className="w-full h-full object-cover opacity-40" 
+                            className="w-full h-full object-cover opacity-60" 
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
                     </div>
                     <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
                         <h2 className="text-4xl sm:text-5xl md:text-7xl font-display font-bold text-white mb-4 drop-shadow-2xl">
@@ -1183,13 +1205,67 @@ export default function CardapioPublicoPage() {
                 <main id="menu" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                     {highlights.length > 0 && (
                         <div className="mb-6">
-                            <h2 className="text-xl font-display font-bold text-white mb-3 text-center sm:text-left border-l-4 border-red-600 pl-3">✨ Destaques</h2>
+                            <h2 className="text-xl font-display font-bold text-white mb-3 text-left border-l-4 border-orange-500 pl-3">✨ Destaques</h2>
                             <div className="flex overflow-x-auto pb-2 gap-4 sm:gap-6 snap-x scrollbar-hide">
                                 {highlights.map(item => <HighlightCard key={item.id} item={item} onAdd={handleAddToCartAnim} />)}
                             </div>
                             <hr className="border-neutral-800 mt-2" />
                         </div>
                     )}
+                    {/* Seção Promoções/Recomendações — só exibe no layout lista quando há destaques */}
+                    {configuracao.layout_cardapio === 'lista' && filteredItems.some(i => i.popular) && (
+                        <div className="mb-8">
+                            <h2 className="text-xl font-display font-bold text-white mb-4 border-l-4 border-orange-500 pl-3">
+                                🌟 Promoções/Recomendações
+                            </h2>
+                            <div className="flex flex-col gap-3">
+                                {filteredItems.filter(i => i.popular).map(item => (
+                                    <div
+                                        key={item.id}
+                                        className="group relative flex items-center gap-4 rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 border border-orange-500/40 hover:border-orange-500/80"
+                                        style={{ background: 'rgba(249, 115, 22, 0.08)', borderLeft: '5px solid #f97316' }}
+                                    >
+                                        {/* Imagem maior */}
+                                        <div className="relative flex-shrink-0 overflow-hidden" style={{ minWidth: '110px', width: '110px', height: '110px', borderRadius: '0 14px 14px 0' }}>
+                                            <img
+                                                src={item.image}
+                                                alt={item.name}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                            />
+                                        </div>
+
+                                        {/* Conteúdo */}
+                                        <div className="flex-1 py-3 pr-4 min-w-0">
+                                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-1" style={{ background: 'rgba(249,115,22,0.2)', color: '#fb923c' }}>
+                                                {item.titulo_destaque}
+                                            </span>
+                                            <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors pr-2">
+                                                {item.name}
+                                            </h3>
+                                            <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed mb-2 pr-12">
+                                                {item.description}
+                                            </p>
+                                            <div className="pr-12">
+                                                <span className="text-base font-extrabold text-orange-400">
+                                                    R$ {item.price.toFixed(2).replace('.', ',')}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Botão + canto inferior direito */}
+                                        <button
+                                            onClick={(e) => handleAddToCartAnim(item, e)}
+                                            className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg active:scale-95 transition-all"
+                                            aria-label={`Adicionar ${item.name}`}
+                                        >
+                                            <Plus size={22} strokeWidth={3} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex items-center justify-between mb-8">
                         <h2 className="text-2xl sm:text-3xl font-display font-bold text-white border-l-4 border-orange-500 pl-4">
                             {categoriaFiltro === 'todas' ? 'Nosso Cardápio' : categoriaFiltro.charAt(0).toUpperCase() + categoriaFiltro.slice(1)}
@@ -1201,13 +1277,23 @@ export default function CardapioPublicoPage() {
                     ) : filteredItems.length === 0 ? (
                         <p className="text-center text-neutral-500 py-10">Nenhum produto disponível nesta categoria.</p>
                     ) : (
-                        <div className={`grid animate-fade-in-up ${configuracao.layout_cardapio === 'minimalista' ? 'grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 sm:gap-6' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'}`}>
+                        <div className={`animate-fade-in-up ${
+                            configuracao.layout_cardapio === 'minimalista'
+                                ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 sm:gap-6'
+                                : configuracao.layout_cardapio === 'lista'
+                                    ? 'flex flex-col gap-3'
+                                    : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+                        }`}>
                             {filteredItems.map(item => (
                                 <MenuCard
                                     key={item.id}
                                     item={item}
                                     onAdd={handleAddToCartAnim}
-                                    variant={configuracao.layout_cardapio === 'minimalista' ? 'minimal' : 'standard'}
+                                    variant={
+                                        configuracao.layout_cardapio === 'minimalista' ? 'minimal'
+                                        : configuracao.layout_cardapio === 'lista' ? 'lista'
+                                        : 'standard'
+                                    }
                                 />
                             ))}
                         </div>
@@ -1399,7 +1485,16 @@ export default function CardapioPublicoPage() {
                             setupOrderStatusListener(data.numero_pedido)
 
                             if (clienteId && tipoCliente === 'credito') {
-                                await loadClienteData(clienteId)
+                                if (paymentMapped === 'pagamento_posterior') {
+                                    // Atualização visual instantânea do limite
+                                    setDadosCliente(prev => ({
+                                        ...prev,
+                                        credito_utilizado: (prev.credito_utilizado || 0) + (subtotal + taxaAplicada)
+                                    }))
+                                } else {
+                                    // Apenas recarrega se não for a prazo (para manter sincronia)
+                                    await loadClienteData(clienteId)
+                                }
                             }
 
                             // Garantir que tipo_entrega esteja correto para a mensagem
@@ -1451,7 +1546,16 @@ export default function CardapioPublicoPage() {
                 }}
             />
 
-            <GeminiAssistant systemInstruction={"Você é um assistente da Nita Quentinhas."} menuItems={kalMenuItems} />
+            <GeminiAssistant 
+                systemInstruction={`Você é o Garçom Virtual consultivo e inteligente do "Kal do Espetinho".
+Seu objetivo é EXCLUSIVAMENTE dar dicas sobre o cardápio, ajudar o cliente a descobrir novos sabores e fazer recomendações geniais.
+REGRAS FUNDAMENTAIS:
+1. NUNCA tire pedidos. Você não anota pedidos, não processa o carrinho, não pergunta se é entrega ou retirada, e não finaliza a compra. O próprio cliente adiciona no carrinho pela tela clicando nos produtos.
+2. Foque na experiência e no ticket médio (upsell): Tente sempre entender o gosto do cliente e sugira itens mais rentáveis ou porções completas, ao invés do básico. Se ele buscar carne, destaque também a picanha ou combos grandes se houver. Ofereça combinações (ex: se ele escolheu um espeto, que tal um refri ou cerveja trincando para acompanhar?).
+3. Use a lista do cardápio enviada para verificar o que temos.
+4. Responda de forma acolhedora, moderna, com emojis discretos, e em poucas linhas.`} 
+                menuItems={kalMenuItems} 
+            />
         </div>
     )
 }

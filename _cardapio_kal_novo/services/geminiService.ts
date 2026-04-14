@@ -5,12 +5,25 @@ export const getGeminiResponse = async (
     systemInstruction: string,
     menuItems: MenuItem[]
 ): Promise<string> => {
-    // Simulando uma requisição à API para evitar erros e manter o design funcionando
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve(
-                "Este assistente virtual está atualmente em manutenção para trazer ainda mais novidades da Nita Quentinhas! Em breve poderei ajudar você com nosso cardápio completo."
-            );
-        }, 1500);
-    });
+    try {
+        const menuList = menuItems.map(item => 
+          `- ${item.name} (${item.category}): R$ ${item.price.toFixed(2)} | ${item.description}`
+        ).join('\n');
+
+        const res = await fetch('/api/bot', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                userMessage: prompt,
+                systemInstruction,
+                currentMenuString: menuList
+            })
+        });
+
+        const data = await res.json();
+        return data.text || "Ops! Algo deu errado ao tentar me comunicar com a cozinha.";
+    } catch (error) {
+        console.error("Erro no serviço frontend Gemini:", error);
+        return "Tive um pequeno problema técnico ao consultar o cardápio. Tente novamente! 🍢";
+    }
 };

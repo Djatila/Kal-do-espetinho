@@ -23,7 +23,10 @@ export default function NovoProdutoPage() {
         preco: '',
         categoria: 'marmitex',
         ativo: true,
-        imagem_url: ''
+        imagem_url: '',
+        dias_semana: [] as string[],
+        destaque: false,
+        titulo_destaque: ''
     })
     const [uploading, setUploading] = useState(false)
     const [categoriasExistentes, setCategoriasExistentes] = useState<string[]>(['marmitex', 'bebida', 'sobremesa', 'adicional'])
@@ -39,27 +42,54 @@ export default function NovoProdutoPage() {
             }
         }
         loadCats()
+        
+        const lastCat = localStorage.getItem('ultimaCategoria')
+        if (lastCat) {
+            setFormData(prev => ({ ...prev, categoria: lastCat }))
+        }
     }, [])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
 
+        const categoriaFinal = criandoNova ? novaCategoria.trim() : formData.categoria
+
         const { error } = await supabase.from('produtos').insert({
             nome: formData.nome,
             descricao: formData.descricao || null,
             preco: Number(formData.preco),
-            categoria: criandoNova ? novaCategoria.trim() : formData.categoria,
+            categoria: categoriaFinal,
             ativo: formData.ativo,
-            imagem_url: formData.imagem_url || null
+            imagem_url: formData.imagem_url || null,
+            dias_semana: formData.dias_semana.length === 3 ? [] : formData.dias_semana,
+            destaque: formData.destaque,
+            titulo_destaque: formData.destaque ? formData.titulo_destaque.trim() : null
         })
 
         if (error) {
             showToast('error', 'Erro ao salvar', error.message)
             setLoading(false)
         } else {
-            showToast('success', 'Produto cadastrado!', 'O produto foi criado com sucesso.')
-            router.push('/dashboard/produtos')
+            localStorage.setItem('ultimaCategoria', categoriaFinal)
+            showToast('success', 'Produto cadastrado!', 'O produto foi criado com sucesso. Você pode cadastrar o próximo.')
+            
+            // Limpa o formulário mantendo a categoria salva
+            setFormData({
+                nome: '',
+                descricao: '',
+                preco: '',
+                categoria: categoriaFinal,
+                ativo: true,
+                imagem_url: '',
+                dias_semana: [],
+                destaque: false,
+                titulo_destaque: ''
+            })
+            setCriandoNova(false)
+            setNovaCategoria('')
+            setLoading(false)
+            // router.push('/dashboard/produtos') // Removido o redirecionamento
             router.refresh()
         }
     }
@@ -183,6 +213,39 @@ export default function NovoProdutoPage() {
                             </div>
                         </div>
 
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium">Visibilidade na Semana</label>
+                            <p className="text-xs text-muted-foreground mb-1">
+                                Quais dias o produto aparece? (Se marcar todos ou nenhum, ele aparecerá sempre).
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                {['seg-sex', 'sabado', 'domingo'].map(dia => {
+                                    const labels: Record<string, string> = {
+                                        'seg-sex': 'Seg à Sex',
+                                        'sabado': 'Sábado',
+                                        'domingo': 'Domingo'
+                                    };
+                                    return (
+                                        <label key={dia} className="flex items-center gap-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.dias_semana.includes(dia)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setFormData(prev => ({ ...prev, dias_semana: [...prev.dias_semana, dia] }));
+                                                    } else {
+                                                        setFormData(prev => ({ ...prev, dias_semana: prev.dias_semana.filter(d => d !== dia) }));
+                                                    }
+                                                }}
+                                                className="h-4 w-4 rounded border-gray-300 accent-orange-500"
+                                            />
+                                            <span className="text-sm">{labels[dia]}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
                         <div className="flex items-center gap-2">
                             <input
                                 type="checkbox"
@@ -194,6 +257,35 @@ export default function NovoProdutoPage() {
                             <label htmlFor="ativo" className="text-sm font-medium">
                                 Produto ativo (disponível para venda)
                             </label>
+                        </div>
+
+                        <div className="flex flex-col gap-2 p-3 rounded-lg border border-orange-500/30 bg-orange-500/5">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="destaque"
+                                    checked={formData.destaque}
+                                    onChange={(e) => setFormData({ ...formData, destaque: e.target.checked })}
+                                    className="h-4 w-4 rounded border-gray-300 accent-orange-500"
+                                />
+                                <label htmlFor="destaque" className="text-sm font-medium">
+                                    ⭐ Destaque / Recomendação — aparece na seção especial do cardápio
+                                </label>
+                            </div>
+                            
+                            {formData.destaque && (
+                                <div className="mt-2 ml-6">
+                                    <label className="text-xs text-neutral-400 mb-1 block">
+                                        Título do Selo de Destaque (ex: Recomendação da Chefa)
+                                    </label>
+                                    <Input
+                                        value={formData.titulo_destaque}
+                                        onChange={(e) => setFormData({ ...formData, titulo_destaque: e.target.value })}
+                                        placeholder="Rec. da Chefa"
+                                        className="h-8 text-sm"
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-2">

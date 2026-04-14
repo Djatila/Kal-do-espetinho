@@ -173,11 +173,21 @@ export default function ProdutosPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredProdutos.map((produto) => (
-                                    <tr key={produto.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                                        <td className="p-4">
-                                            <div>
-                                                <div className="font-medium">{produto.nome}</div>
+                                {(() => {
+                                    const counters: Record<string, number> = {};
+                                    return filteredProdutos.map((produto) => {
+                                        const cat = produto.categoria || 'Sem categoria';
+                                        if (!counters[cat]) counters[cat] = 0;
+                                        counters[cat] += 1;
+                                        
+                                        return (
+                                            <tr key={produto.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                                <td className="p-4">
+                                                    <div>
+                                                        <div className="font-medium whitespace-nowrap">
+                                                            <span className="text-muted-foreground mr-1">#{counters[cat]}</span>
+                                                            {produto.nome}
+                                                        </div>
                                                 {produto.descricao && (
                                                     <div className="text-sm text-muted-foreground">{produto.descricao}</div>
                                                 )}
@@ -235,7 +245,9 @@ export default function ProdutosPage() {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                        );
+                                    });
+                                })()}
                                 {filteredProdutos.length === 0 && (
                                     <tr>
                                         <td colSpan={5} className="p-8 text-center text-muted-foreground">

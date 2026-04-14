@@ -5,10 +5,53 @@ import { Plus, ShoppingCart, Star } from 'lucide-react';
 interface MenuCardProps {
   item: MenuItem;
   onAdd: (item: MenuItem, event: React.MouseEvent) => void;
-  variant?: 'standard' | 'minimal';
+  variant?: 'standard' | 'minimal' | 'lista';
 }
 
 const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }) => {
+
+  // === ESTILO LISTA (HORIZONTAL - COR LARANJA NEON KAL) ===
+  if (variant === 'lista') {
+    return (
+      <div
+        className="group relative flex items-center gap-3 bg-neutral-900 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border border-orange-500/20 hover:border-orange-500/60"
+        style={{ borderLeft: '4px solid #f97316' }}
+      >
+        {/* Imagem quadrada à esquerda */}
+        <div className="relative flex-shrink-0 overflow-hidden" style={{ minWidth: '96px', width: '96px', height: '96px', borderRadius: '0 12px 12px 0' }}>
+          <img
+            src={item.image || '/placeholder-food.jpg'}
+            alt={item.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        </div>
+
+        {/* Conteúdo central */}
+        <div className="flex-1 py-3 pr-4 min-w-0">
+          <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors pr-2">
+            {item.name}
+          </h3>
+          <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed mb-2 pr-10">
+            {item.description}
+          </p>
+          <div className="pr-10">
+            <span className="text-base font-extrabold text-orange-400">
+              R$ {item.price.toFixed(2).replace('.', ',')}
+            </span>
+          </div>
+        </div>
+
+        {/* Botão + canto inferior direito */}
+        <button
+          onClick={(e) => onAdd(item, e)}
+          className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg active:scale-95 transition-all"
+          aria-label={`Adicionar ${item.name}`}
+        >
+          <Plus size={20} strokeWidth={3} />
+        </button>
+      </div>
+    );
+  }
 
   // === ESTILO MINIMALISTA (BASEADO NO PRINT) ===
   if (variant === 'minimal') {

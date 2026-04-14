@@ -95,7 +95,7 @@ export default function PedidosPage() {
         loadProdutos()
 
         // Criar elemento de áudio para notificação
-        audioRef.current = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBSuBzvLZiTYIGWi77eafTRAMUKfj8LZjHAY4ktfzzHksBSR3x/DdkEAKFF606+uoVRQKRp/g8r5sIQUrgs7y2Iz2CBlou+3mn00QDFA=')
+        audioRef.current = new Audio('/login-sound.mp3')
 
         const cleanup = setupRealtimeSubscription()
         const cleanupSol = setupSolicitacoesSubscription()

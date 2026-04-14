@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/utils/supabase/admin'
+import { createClient } from '@/utils/supabase/server'
 
 export async function GET() {
     try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user || user.user_metadata?.role === 'cliente') {
+            return NextResponse.json({ error: 'Acesso negado' }, { status: 401 })
+        }
+
         const supabaseAdmin = createAdminClient()
         const { data, error } = await supabaseAdmin.auth.admin.listUsers()
 
@@ -26,6 +33,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user || user.user_metadata?.role === 'cliente') {
+            return NextResponse.json({ error: 'Acesso negado' }, { status: 401 })
+        }
+
         const body = await request.json()
         const { nome, telefone, senha } = body
 
@@ -74,6 +87,12 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
     try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user || user.user_metadata?.role === 'cliente') {
+            return NextResponse.json({ error: 'Acesso negado' }, { status: 401 })
+        }
+
         const body = await request.json()
         const { id, nome, telefone, senha } = body
 
@@ -117,6 +136,12 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
     try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user || user.user_metadata?.role === 'cliente') {
+            return NextResponse.json({ error: 'Acesso negado' }, { status: 401 })
+        }
+
         const url = new URL(request.url)
         const id = url.searchParams.get('id')
 

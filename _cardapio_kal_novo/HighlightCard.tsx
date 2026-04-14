@@ -15,24 +15,15 @@ const HighlightCard: React.FC<HighlightCardProps> = ({ item, onAdd }) => {
       {/* Circular Image Container - Half size (w-16/20 instead of w-32/40) */}
       <div className="relative w-16 h-16 sm:w-20 sm:h-20">
         {/* Glow / Border Effect - Thinner border (2px) */}
-        <div className="absolute inset-0 rounded-full border-2 border-red-600 shadow-[0_0_10px_rgba(220,38,38,0.6)] z-10 transition-transform group-hover:scale-105" />
+        <div className="absolute inset-0 rounded-full border-2 border-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.6)] z-10 transition-transform group-hover:scale-105" />
 
         {/* The Image */}
         <div className="w-full h-full rounded-full overflow-hidden border-2 border-black relative">
           <img
             src={item.image}
             alt={item.name}
-            className="w-full h-full object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
-          {/* Overlay text - Proportional reduction */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 group-hover:bg-black/10 transition-colors p-1 text-center">
-            <div className="text-[5px] sm:text-[6px] font-display font-bold text-white tracking-widest leading-none uppercase">
-              Kal do
-            </div>
-            <div className="text-[7px] sm:text-[9px] font-display font-black text-white leading-none scale-y-125 mb-0.5">
-              ESPETINHO
-            </div>
-          </div>
         </div>
       </div>
 
@@ -41,7 +32,7 @@ const HighlightCard: React.FC<HighlightCardProps> = ({ item, onAdd }) => {
         <h4 className="text-white font-bold text-[10px] sm:text-[11px] font-sans group-hover:text-orange-500 transition-colors line-clamp-1">
           {item.name}
         </h4>
-        <div className="text-red-600 font-display font-bold text-xs sm:text-sm">
+        <div className="text-orange-500 font-display font-bold text-xs sm:text-sm">
           R$ {item.price.toFixed(2).replace('.', ',')}
         </div>
       </div>
