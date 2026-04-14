@@ -1058,7 +1058,7 @@ export default function CardapioPublicoPage() {
     if (!isMounted) return null;
 
     return (
-        <div className="kal-bg min-h-screen text-neutral-200 font-sans pb-20 overflow-x-hidden relative">
+        <div className="kal-bg min-h-screen text-neutral-200 font-sans overflow-x-hidden relative">
             {confirmacaoScreen}
 
             <div style={{ display: (pedidoConfirmado && !confirmacoMinimizada) ? 'none' : 'block' }}>
@@ -1212,8 +1212,8 @@ export default function CardapioPublicoPage() {
                             <hr className="border-neutral-800 mt-2" />
                         </div>
                     )}
-                    {/* Seção Promoções/Recomendações — só exibe no layout lista quando há destaques */}
-                    {configuracao.layout_cardapio === 'lista' && filteredItems.some(i => i.popular) && (
+                    {/* Seção Promoções/Recomendações — só exibe quando há destaques */}
+                    {filteredItems.some(i => i.popular) && (
                         <div className="mb-8">
                             <h2 className="text-xl font-display font-bold text-white mb-4 border-l-4 border-orange-500 pl-3">
                                 🌟 Promoções/Recomendações
@@ -1235,8 +1235,8 @@ export default function CardapioPublicoPage() {
                                         </div>
 
                                         {/* Conteúdo */}
-                                        <div className="flex-1 py-3 pr-4 min-w-0">
-                                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mb-1" style={{ background: 'rgba(249,115,22,0.2)', color: '#fb923c' }}>
+                                        <div className="flex-1 pt-1.5 pb-3 pr-4 min-w-0">
+                                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full -mt-2.5 mb-2" style={{ background: 'rgba(249,115,22,0.2)', color: '#fb923c' }}>
                                                 {item.titulo_destaque}
                                             </span>
                                             <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors pr-2">
@@ -1301,16 +1301,29 @@ export default function CardapioPublicoPage() {
                 </main>
 
                 {/* Footer */}
-                <footer className="bg-neutral-950 border-t border-neutral-800 mt-12 py-8 text-center">
-                    <p className="text-white font-display font-bold text-xl tracking-wider flex items-center justify-center gap-2">
-                        <div className="bg-orange-600 p-1 rounded shadow-neon mr-1"><Flame className="text-white" size={16} fill="currentColor" /></div>
-                        KAL DO <span className="text-orange-500">ESPETINHO</span>
-                    </p>
-                    <p className="text-neutral-400 text-[10px] uppercase tracking-[0.18em] -mt-[2px]">Arataca - BA</p>
-                    <p className="text-neutral-600 text-xs mt-4">© 2026 Todos os direitos reservados.</p>
-                    <p style={{ color: '#ff7000', fontSize: '13px', marginTop: '6px', fontWeight: 'bold', textShadow: '0 0 10px rgba(255, 112, 0, 0.5)' }}>
-                        Desenvolvido por Atila Azevedo.
-                    </p>
+                <footer className="mt-12 text-center bg-neutral-950">
+                    <div className="py-8">
+                        <p className="text-white font-display font-bold text-xl tracking-wider flex items-center justify-center gap-2">
+                            <div className="bg-orange-600 p-1 rounded shadow-neon mr-1"><Flame className="text-white" size={16} fill="currentColor" /></div>
+                            KAL DO <span className="text-orange-500">ESPETINHO</span>
+                        </p>
+                        <p className="text-neutral-400 text-[10px] uppercase tracking-[0.18em] mt-1">Arataca - BA</p>
+                    </div>
+
+                    {/* Faixa Inferior Laranja */}
+                    <div className="bg-orange-600 py-6 shadow-neon-strong">
+                        <p className="text-white text-sm font-medium drop-shadow-sm">© 2026 Kal do Espetinho. Todos os direitos reservados.</p>
+                        
+                        <div className="flex justify-center items-center gap-2 mt-3 text-xs text-white font-medium mb-3">
+                            <a href="/privacidade" className="hover:underline hover:text-black transition-colors">Política de Privacidade</a>
+                            <span className="opacity-60">•</span>
+                            <a href="/termos" className="hover:underline hover:text-black transition-colors">Termos de Uso</a>
+                        </div>
+
+                        <p className="text-orange-950 text-sm font-black drop-shadow mt-4 tracking-wide">
+                            Desenvolvido por Atila Azevedo.
+                        </p>
+                    </div>
                 </footer>
             </div>
 

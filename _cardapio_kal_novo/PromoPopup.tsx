@@ -68,8 +68,8 @@ const PromoPopup: React.FC<PromoPopupProps> = ({ isOpen, onClose, settings, onAd
           />
           <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-transparent" />
 
-          <div className="absolute top-4 left-4">
-            <span className="bg-orange-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg flex items-center gap-1">
+          <div className="absolute top-2 left-1.5">
+            <span className="bg-orange-600 text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg flex items-center gap-1">
               <Star size={10} fill="currentColor" /> {settings.badgeText || 'Destaque'}
             </span>
           </div>
