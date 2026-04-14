@@ -28,6 +28,11 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
 
         {/* Conteúdo central */}
         <div className="flex-1 py-3 pr-4 min-w-0">
+          {item.isTopSeller && (
+            <span className="inline-block bg-gradient-to-r from-red-600 to-orange-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider mb-1 shadow-sm">
+              O Mais Vendido 🔥
+            </span>
+          )}
           <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors pr-2">
             {item.name}
           </h3>
@@ -64,12 +69,16 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
             alt={item.name}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
-          {/* Tag "Popular" no canto superior esquerdo (Estilo Print) */}
-          {item.popular && (
+          {/* Tag Top Seller ou Popular */}
+          {item.isTopSeller ? (
+            <span className="absolute top-2 left-2 bg-gradient-to-r from-red-600 to-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm">
+              Mais Vendido 🔥
+            </span>
+          ) : item.popular ? (
             <span className="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow-sm">
               Popular
             </span>
-          )}
+          ) : null}
 
           {/* Botão de Carrinho Flutuante (Laranja Neon) */}
           <button
@@ -95,8 +104,8 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
               R$ {item.price.toFixed(2).replace('.', ',')}
             </span>
             <div className="flex items-center gap-1 text-xs text-neutral-400 font-bold">
-              <Star size={12} className="text-yellow-400" fill="currentColor" />
-              4.8
+              <Star size={12} className={item.isTopSeller ? "text-orange-500" : "text-yellow-400"} fill="currentColor" />
+              {item.rating || '4.5'}
             </div>
           </div>
         </div>
@@ -114,18 +123,27 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
           className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 to-transparent opacity-80" />
-        {item.popular && (
+        
+        {item.isTopSeller ? (
+          <span className="absolute top-2 right-2 bg-gradient-to-r from-red-600 to-orange-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
+            🔥 O Mais Vendido
+          </span>
+        ) : item.popular ? (
           <span className="absolute top-2 right-2 bg-orange-600 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg">
             ⭐ Popular
           </span>
-        )}
+        ) : null}
       </div>
 
       <div className="p-4 relative">
         <div className="flex justify-between items-start mb-2">
-          <h3 className="text-lg font-display font-bold text-white leading-tight group-hover:text-orange-500 transition-colors">
+          <h3 className="text-lg font-display font-bold text-white leading-tight group-hover:text-orange-500 transition-colors pr-8">
             {item.name}
           </h3>
+          <div className="flex items-center gap-1 text-sm font-bold text-neutral-400 absolute right-4 top-4">
+            <Star size={14} className={item.isTopSeller ? "text-orange-500" : "text-yellow-400"} fill="currentColor" />
+            {item.rating || '4.5'}
+          </div>
         </div>
 
         <p className="text-neutral-400 text-sm mb-4 line-clamp-2 min-h-[40px]">

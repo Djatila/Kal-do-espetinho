@@ -13,6 +13,9 @@ export interface MenuItem {
   category: Category;
   image: string;
   popular?: boolean;
+  isTopSeller?: boolean;
+  rating?: string;
+  vendas?: number;
 }
 
 export interface CartItem extends MenuItem {

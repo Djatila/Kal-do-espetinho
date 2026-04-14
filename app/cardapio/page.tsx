@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { ShoppingCart, Plus, Minus, X, Phone, MapPin, User, MessageSquare, CreditCard, Banknote, Clock, LogOut, ShoppingBag, Flame, Menu as MenuIcon, ShieldCheck, Check as CheckIcon } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, X, Phone, MapPin, User, MessageSquare, CreditCard, Banknote, Clock, LogOut, ShoppingBag, Flame, Menu as MenuIcon, ShieldCheck, Check as CheckIcon, Star } from 'lucide-react'
 import { ClienteIdentificationModal } from '@/components/cliente/ClienteIdentificationModal'
 import { useToast } from '@/components/ui/Toast'
 import styles from './page.module.css'
@@ -23,6 +23,7 @@ interface Produto {
     categoria: string
     ativo: boolean
     imagem_url?: string
+    vendas?: number
 }
 
 interface ItemCarrinho extends Produto {
@@ -1024,21 +1025,42 @@ export default function CardapioPublicoPage() {
         </div>
     ) : null;
 
-    // Data mapping
-    const kalMenuItems = produtos.map(p => ({
-        id: p.id,
-        name: p.nome,
-        description: p.descricao || '',
-        price: p.preco,
-        category: p.categoria as any,
-        image: p.imagem_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
-        popular: (p as any).destaque || false,
-        titulo_destaque: (p as any).titulo_destaque || 'Recomendação da Chefa ⭐'
-    }))
+    // Data mapping with Rating Math
+    const maxVendas = Math.max(...produtos.map(p => p.vendas || 0), 0);
+    // Para simplificar: topSellers recebe o ID de quem for igual ao máximo, DESDE que o máximo seja > 0.
+    const topSellers = produtos.filter(p => (p.vendas || 0) === maxVendas && maxVendas > 0).map(p => p.id);
 
-    const filteredItems = categoriaFiltro === 'todas'
+    const kalMenuItems = produtos.map(p => {
+        const vendas = p.vendas || 0;
+        let rate = 4.5;
+        if (maxVendas > 0) {
+           rate = 4.5 + (0.5 * (vendas / maxVendas));
+        }
+
+        return {
+            id: p.id,
+            name: p.nome,
+            description: p.descricao || '',
+            price: p.preco,
+            category: p.categoria as any,
+            image: p.imagem_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300',
+            popular: (p as any).destaque || false,
+            vendas: p.vendas,
+            rating: rate.toFixed(1),
+            isTopSeller: topSellers.includes(p.id),
+            titulo_destaque: (p as any).titulo_destaque || 'Recomendação da Chefa ⭐'
+        }
+    })
+
+    const filteredItems = (categoriaFiltro === 'todas'
         ? kalMenuItems
-        : kalMenuItems.filter(item => item.category === categoriaFiltro);
+        : kalMenuItems.filter(item => item.category === categoriaFiltro)
+    ).sort((a, b) => {
+        // Exibir TopSellers primeiro, seguidos por nota descrescente dentro do filtro da categoria.
+        if (a.isTopSeller && !b.isTopSeller) return -1;
+        if (!a.isTopSeller && b.isTopSeller) return 1;
+        return Number(b.rating) - Number(a.rating);
+    });
 
     const highlights = kalMenuItems.filter(item => configuracao.produtos_destaque_bolha?.includes(item.id));
     const cartCount = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
@@ -1235,13 +1257,27 @@ export default function CardapioPublicoPage() {
                                         </div>
 
                                         {/* Conteúdo */}
-                                        <div className="flex-1 pt-1.5 pb-3 pr-4 min-w-0">
-                                            <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full -mt-2.5 mb-2" style={{ background: 'rgba(249,115,22,0.2)', color: '#fb923c' }}>
-                                                {item.titulo_destaque}
-                                            </span>
-                                            <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors pr-2">
-                                                {item.name}
-                                            </h3>
+                                        <div className="flex-1 pt-1.5 pb-3 pr-4 min-w-0 relative">
+                                            {item.isTopSeller ? (
+                                                <span className="inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow-sm -mt-2.5 mb-2 bg-gradient-to-r from-red-600 to-orange-500 text-white">
+                                                    O Mais Vendido 🔥
+                                                </span>
+                                            ) : (
+                                                <span className="inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full -mt-2.5 mb-2" style={{ background: 'rgba(249,115,22,0.2)', color: '#fb923c' }}>
+                                                    {item.titulo_destaque}
+                                                </span>
+                                            )}
+                                            
+                                            <div className="flex justify-between items-start">
+                                                <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors pr-2">
+                                                    {item.name}
+                                                </h3>
+                                                <div className="flex items-center gap-1 text-xs font-bold text-neutral-400">
+                                                    <Star size={12} className={item.isTopSeller ? "text-orange-500" : "text-yellow-400"} fill="currentColor" />
+                                                    {item.rating || '4.5'}
+                                                </div>
+                                            </div>
+
                                             <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed mb-2 pr-12">
                                                 {item.description}
                                             </p>
