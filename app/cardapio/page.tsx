@@ -1337,28 +1337,24 @@ export default function CardapioPublicoPage() {
                 </main>
 
                 {/* Footer */}
-                <footer className="mt-12 text-center bg-neutral-950">
-                    <div className="py-8">
+                <footer className="mt-8 text-center bg-neutral-950">
+                    <div className="py-5">
                         <p className="text-white font-display font-bold text-xl tracking-wider flex items-center justify-center gap-2">
                             <div className="bg-orange-600 p-1 rounded shadow-neon mr-1"><Flame className="text-white" size={16} fill="currentColor" /></div>
                             KAL DO <span className="text-orange-500">ESPETINHO</span>
                         </p>
-                        <p className="text-neutral-400 text-[10px] uppercase tracking-[0.18em] mt-1">Arataca - BA</p>
+                        <p className="text-white text-xs font-bold uppercase tracking-wider mt-2">Desenvolvido por Atila Azevedo</p>
                     </div>
 
                     {/* Faixa Inferior Laranja */}
                     <div className="bg-orange-600 py-6 shadow-neon-strong">
-                        <p className="text-white text-sm font-medium drop-shadow-sm">© 2026 Kal do Espetinho. Todos os direitos reservados.</p>
+                        <p className="text-white text-sm font-medium drop-shadow-sm px-4">© 2026 Kal do Espetinho. Todos os direitos reservados.</p>
                         
-                        <div className="flex justify-center items-center gap-2 mt-3 text-xs text-white font-medium mb-3">
+                        <div className="flex flex-wrap justify-center items-center gap-2 mt-3 text-xs text-white font-medium px-4">
                             <a href="/privacidade" className="hover:underline hover:text-black transition-colors">Política de Privacidade</a>
-                            <span className="opacity-60">•</span>
+                            <span className="opacity-60 hidden sm:inline">•</span>
                             <a href="/termos" className="hover:underline hover:text-black transition-colors">Termos de Uso</a>
                         </div>
-
-                        <p className="text-orange-950 text-sm font-black drop-shadow mt-4 tracking-wide">
-                            Desenvolvido por Atila Azevedo.
-                        </p>
                     </div>
                 </footer>
             </div>

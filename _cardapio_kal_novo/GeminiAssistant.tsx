@@ -77,7 +77,7 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ systemInstruction, me
   };
 
   return (
-    <div className="fixed bottom-6 left-6 z-40 flex flex-col items-start">
+    <div className="fixed bottom-2 sm:bottom-6 left-1 sm:left-6 z-40 flex flex-col items-start">
       {/* Chat Window */}
       <div
         className={`origin-bottom-left transition-all duration-300 ease-in-out ${isOpen
