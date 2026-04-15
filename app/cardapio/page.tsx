@@ -307,7 +307,7 @@ export default function CardapioPublicoPage() {
                 if (dias.length === 0) return true; // Mostra a semana toda
                 return dias.includes(dayString);
             });
-            
+
             setProdutos(filteredData)
         }
         setLoading(false)
@@ -542,13 +542,13 @@ export default function CardapioPublicoPage() {
 
             if (data.status === 'pendente' || data.status === 'confirmado') {
                 setStatusCancelamento('cancelando')
-                
+
                 const res = await fetch('/api/pedidos/cancelar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ numero_pedido: numero, cliente_id: clienteId })
                 })
-                
+
                 if (!res.ok) {
                     const errorData = await res.json()
                     throw new Error(errorData.error || 'Erro interno ao cancelar.')
@@ -1034,7 +1034,7 @@ export default function CardapioPublicoPage() {
         const vendas = p.vendas || 0;
         let rate = 4.5;
         if (maxVendas > 0) {
-           rate = 4.5 + (0.5 * (vendas / maxVendas));
+            rate = 4.5 + (0.5 * (vendas / maxVendas));
         }
 
         return {
@@ -1187,10 +1187,10 @@ export default function CardapioPublicoPage() {
                 {/* Hero */}
                 <div className="relative mt-20 h-[40vh] sm:h-[50vh] w-full overflow-hidden flex items-center justify-center">
                     <div className="absolute inset-0">
-                        <img 
-                            src={configuracao.banner_url || "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2574&auto=format&fit=crop"} 
-                            alt="Hero" 
-                            className="w-full h-full object-cover opacity-60" 
+                        <img
+                            src={configuracao.banner_url || "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2574&auto=format&fit=crop"}
+                            alt="Hero"
+                            className="w-full h-full object-cover opacity-60"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
                     </div>
@@ -1267,7 +1267,7 @@ export default function CardapioPublicoPage() {
                                                     {item.titulo_destaque}
                                                 </span>
                                             )}
-                                            
+
                                             <div className="flex justify-between items-start">
                                                 <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors pr-2">
                                                     {item.name}
@@ -1313,13 +1313,12 @@ export default function CardapioPublicoPage() {
                     ) : filteredItems.length === 0 ? (
                         <p className="text-center text-neutral-500 py-10">Nenhum produto disponível nesta categoria.</p>
                     ) : (
-                        <div className={`animate-fade-in-up ${
-                            configuracao.layout_cardapio === 'minimalista'
-                                ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 sm:gap-6'
-                                : configuracao.layout_cardapio === 'lista'
-                                    ? 'flex flex-col gap-3'
-                                    : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
-                        }`}>
+                        <div className={`animate-fade-in-up ${configuracao.layout_cardapio === 'minimalista'
+                            ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 sm:gap-6'
+                            : configuracao.layout_cardapio === 'lista'
+                                ? 'flex flex-col gap-3'
+                                : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+                            }`}>
                             {filteredItems.map(item => (
                                 <MenuCard
                                     key={item.id}
@@ -1327,8 +1326,8 @@ export default function CardapioPublicoPage() {
                                     onAdd={handleAddToCartAnim}
                                     variant={
                                         configuracao.layout_cardapio === 'minimalista' ? 'minimal'
-                                        : configuracao.layout_cardapio === 'lista' ? 'lista'
-                                        : 'standard'
+                                            : configuracao.layout_cardapio === 'lista' ? 'lista'
+                                                : 'standard'
                                     }
                                 />
                             ))}
@@ -1347,14 +1346,15 @@ export default function CardapioPublicoPage() {
                     </div>
 
                     {/* Faixa Inferior Laranja */}
-                    <div className="bg-orange-600 py-6 shadow-neon-strong">
-                        <p className="text-white text-sm font-medium drop-shadow-sm px-4">© 2026 Kal do Espetinho. Todos os direitos reservados.</p>
-                        
-                        <div className="flex flex-wrap justify-center items-center gap-2 mt-3 text-xs text-white font-medium px-4">
+                    <div className="bg-orange-600 pt-4 pb-5 shadow-neon-strong overflow-hidden flex flex-col items-center">
+                        <p className="text-white text-sm font-medium drop-shadow-sm px-4 text-center mb-0">© 2026 Kal do Espetinho. Todos os direitos reservados.</p>
+
+                        <div className="flex flex-wrap justify-center items-center gap-2 mt-2 text-xs text-white font-medium px-4">
                             <a href="/privacidade" className="hover:underline hover:text-black transition-colors">Política de Privacidade</a>
                             <span className="opacity-60 hidden sm:inline">•</span>
                             <a href="/termos" className="hover:underline hover:text-black transition-colors">Termos de Uso</a>
                         </div>
+                        <div className="w-[52%] sm:w-[35%] max-w-xs h-[2px] bg-black/50 mt-3 mb-1.5 rounded-full"></div>
                     </div>
                 </footer>
             </div>
@@ -1591,15 +1591,15 @@ export default function CardapioPublicoPage() {
                 }}
             />
 
-            <GeminiAssistant 
+            <GeminiAssistant
                 systemInstruction={`Você é o Garçom Virtual consultivo e inteligente do "Kal do Espetinho".
 Seu objetivo é EXCLUSIVAMENTE dar dicas sobre o cardápio, ajudar o cliente a descobrir novos sabores e fazer recomendações geniais.
 REGRAS FUNDAMENTAIS:
 1. NUNCA tire pedidos. Você não anota pedidos, não processa o carrinho, não pergunta se é entrega ou retirada, e não finaliza a compra. O próprio cliente adiciona no carrinho pela tela clicando nos produtos.
 2. Foque na experiência e no ticket médio (upsell): Tente sempre entender o gosto do cliente e sugira itens mais rentáveis ou porções completas, ao invés do básico. Se ele buscar carne, destaque também a picanha ou combos grandes se houver. Ofereça combinações (ex: se ele escolheu um espeto, que tal um refri ou cerveja trincando para acompanhar?).
 3. Use a lista do cardápio enviada para verificar o que temos.
-4. Responda de forma acolhedora, moderna, com emojis discretos, e em poucas linhas.`} 
-                menuItems={kalMenuItems} 
+4. Responda de forma acolhedora, moderna, com emojis discretos, e em poucas linhas.`}
+                menuItems={kalMenuItems}
             />
         </div>
     )
