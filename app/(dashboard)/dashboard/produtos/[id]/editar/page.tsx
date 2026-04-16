@@ -32,7 +32,7 @@ export default function EditarProdutoPage() {
         tem_variacoes: false,
         variacoes_preco: [] as { id: string, nome: string, valor: string }[],
         tem_opcoes: false,
-        opcoes: [] as string[]
+        opcoes: [] as { id: string, nome: string, preco: string }[]
     })
     const [uploading, setUploading] = useState(false)
     const [categoriasExistentes, setCategoriasExistentes] = useState<string[]>([])
@@ -72,7 +72,13 @@ export default function EditarProdutoPage() {
                     valor: v.valor.toString()
                 })) : [],
                 tem_opcoes: data.tem_opcoes || false,
-                opcoes: data.opcoes || []
+                // Compat: aceita tanto string[] (antigo) quanto { nome, preco }[] (novo)
+                opcoes: data.opcoes
+                    ? data.opcoes.map((o: any) => (typeof o === 'string' 
+                        ? { id: Math.random().toString(36).substr(2, 9), nome: o, preco: '' }
+                        : { id: Math.random().toString(36).substr(2, 9), nome: o.nome || '', preco: o.preco != null ? String(o.preco) : '' }
+                    ))
+                    : []
             })
         }
         
@@ -135,7 +141,11 @@ export default function EditarProdutoPage() {
                     valor: Number(v.valor)
                 })) : [],
                 tem_opcoes: formData.tem_opcoes,
-                opcoes: formData.tem_opcoes ? formData.opcoes.filter(o => o.trim() !== '') : []
+                opcoes: formData.tem_opcoes 
+                    ? formData.opcoes
+                        .filter(o => o.nome.trim() !== '')
+                        .map(o => ({ nome: o.nome, preco: o.preco ? Number(o.preco) : undefined }))
+                    : []
             })
             .eq('id', params.id)
 
@@ -334,55 +344,60 @@ export default function EditarProdutoPage() {
 
                             {formData.tem_opcoes && (
                                 <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-3">
                                         <label className="text-xs font-bold text-purple-400 uppercase tracking-wider">Sabores / Opções Cadastradas</label>
-                                        <div className="flex flex-wrap gap-2 mb-2">
-                                            {formData.opcoes.map((opcao, idx) => (
-                                                <div key={idx} className="flex items-center gap-2 bg-purple-900/30 text-purple-200 px-3 py-1.5 rounded-full border border-purple-500/30 text-sm">
-                                                    <span>{opcao}</span>
-                                                    <button 
-                                                        type="button" 
-                                                        onClick={() => setFormData(prev => ({ ...prev, opcoes: prev.opcoes.filter((_, i) => i !== idx) }))}
-                                                        className="text-purple-400 hover:text-white transition-colors"
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
+                                        
+                                        {formData.opcoes.map((opcao, idx) => (
+                                            <div key={opcao.id} className="flex items-end gap-2 bg-purple-900/20 p-2 rounded-lg border border-purple-500/20">
+                                                <div className="flex-1">
+                                                    <Input
+                                                        label="Nome do Sabor"
+                                                        value={opcao.nome}
+                                                        onChange={(e) => setFormData(prev => ({ 
+                                                            ...prev, 
+                                                            opcoes: prev.opcoes.map((o, i) => i === idx ? { ...o, nome: e.target.value } : o)
+                                                        }))}
+                                                        placeholder="Ex: Manga"
+                                                        className="h-9 text-sm"
+                                                    />
                                                 </div>
-                                            ))}
-                                        </div>
-                                        <div className="flex gap-2">
-                                            <Input
-                                                placeholder="Digite o nome do sabor/opção..."
-                                                className="flex-1 h-10"
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter') {
-                                                        e.preventDefault();
-                                                        const val = (e.currentTarget as HTMLInputElement).value.trim();
-                                                        if (val && !formData.opcoes.includes(val)) {
-                                                            setFormData(p => ({ ...p, opcoes: [...p.opcoes, val] }));
-                                                            (e.currentTarget as HTMLInputElement).value = '';
-                                                        }
-                                                    }
-                                                }}
-                                            />
-                                            <Button 
-                                                type="button" 
-                                                variant="secondary" 
-                                                className="bg-purple-600 hover:bg-purple-500 text-white border-none"
-                                                onClick={() => {
-                                                    const input = document.querySelector('input[placeholder="Digite o nome do sabor/opção..."]') as HTMLInputElement;
-                                                    const val = input.value.trim();
-                                                    if (val && !formData.opcoes.includes(val)) {
-                                                        setFormData(p => ({ ...p, opcoes: [...p.opcoes, val] }));
-                                                        input.value = '';
-                                                    }
-                                                }}
-                                            >
-                                                <Plus size={18} />
-                                            </Button>
-                                        </div>
-                                        <p className="text-[10px] text-purple-400/50 italic mt-1">
-                                            Pressione Enter ou clique no + para adicionar cada sabor à lista.
+                                                <div className="w-28">
+                                                    <Input
+                                                        label="Preço (R$)"
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={opcao.preco}
+                                                        onChange={(e) => setFormData(prev => ({ 
+                                                            ...prev, 
+                                                            opcoes: prev.opcoes.map((o, i) => i === idx ? { ...o, preco: e.target.value } : o)
+                                                        }))}
+                                                        placeholder="Opcional"
+                                                        className="h-9 text-sm"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFormData(prev => ({ ...prev, opcoes: prev.opcoes.filter((_, i) => i !== idx) }))}
+                                                    className="mb-[2px] p-2 text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        ))}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(prev => ({ 
+                                                ...prev, 
+                                                opcoes: [...prev.opcoes, { id: Math.random().toString(36).substr(2, 9), nome: '', preco: '' }] 
+                                            }))}
+                                            className="w-full py-2 rounded-lg border-2 border-dashed border-purple-500/30 text-purple-400 hover:border-purple-500 hover:text-purple-300 transition-all text-sm font-bold flex items-center justify-center gap-2"
+                                        >
+                                            <Plus size={14} /> Adicionar Sabor
+                                        </button>
+
+                                        <p className="text-[10px] text-purple-400/50 italic bg-purple-500/5 p-2 rounded border border-purple-500/10">
+                                            DICA: O preço por sabor é opcional. Se informado, ele substituirá o preço base na seleção do cliente.
                                         </p>
                                     </div>
                                 </div>
