@@ -1229,9 +1229,24 @@ export default function CardapioPublicoPage() {
                             </div>
 
                             {/* Right icons */}
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3 sm:gap-4">
+                                {tipoCliente && dadosCliente.nome && (
+                                    <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-neutral-900 border border-neutral-800 shadow-sm animate-in fade-in slide-in-from-right-2 duration-300">
+                                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-orange-600/20 flex items-center justify-center">
+                                            <User size={10} className="text-orange-500 sm:size-[12px]" />
+                                        </div>
+                                        <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-neutral-300 truncate max-w-[50px] sm:max-w-[80px]">
+                                            {dadosCliente.nome.split(' ')[0]}
+                                        </span>
+                                    </div>
+                                )}
+
                                 {tipoCliente && (
-                                    <button className="text-neutral-400 hover:text-white" onClick={handleLogout} title="Sair / Trocar Usuário">
+                                    <button 
+                                        className="w-8 h-8 flex items-center justify-center rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-all" 
+                                        onClick={handleLogout} 
+                                        title="Sair / Trocar Usuário"
+                                    >
                                         <LogOut size={18} />
                                     </button>
                                 )}
