@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Kal do Espetinho",
     description: "Confira nosso cardápio completo e faça o seu pedido online!",
-    images: [{ url: "/og-image.jpg", width: 800, height: 800, alt: "Kal do Espetinho Logo" }],
+    images: [{ url: "/og-logo.png", width: 800, height: 800, alt: "Kal do Espetinho Logo" }],
     type: "website",
   },
 };
