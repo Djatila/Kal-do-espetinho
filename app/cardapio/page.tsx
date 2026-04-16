@@ -1203,7 +1203,7 @@ export default function CardapioPublicoPage() {
                         <div className="flex items-center justify-between h-16">
                             {/* Logo + Location */}
                             <div className="flex items-center gap-2 cursor-pointer flex-shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-                                <div className="bg-orange-600 p-1.5 rounded-md shadow-neon"><Flame className="text-white" size={20} fill="currentColor" /></div>
+                                <div className="bg-orange-600 p-1.5 rounded-md shadow-neon transform -translate-y-[6px]"><Flame className="text-white" size={20} fill="currentColor" /></div>
                                 <div className="flex flex-col justify-center leading-none">
                                     <h1 className="text-lg sm:text-xl font-display font-bold text-white tracking-widest uppercase">
                                         KAL DO <span className="text-orange-500">ESPETINHO</span>
