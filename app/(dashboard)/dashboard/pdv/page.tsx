@@ -17,6 +17,8 @@ interface Produto {
     ativo: boolean
     tem_variacoes?: boolean
     variacoes_preco?: { id: string, nome: string, valor: number }[]
+    tem_opcoes?: boolean
+    opcoes?: any
 }
 
 interface ItemComanda {
@@ -29,6 +31,7 @@ interface ItemComanda {
     quantidade: number
     variacao_id?: string
     variacao_nome?: string
+    opcao_selecionada?: string
 }
 
 interface Mesa {
@@ -99,6 +102,8 @@ export default function PDVPage() {
     const [extraValorInput, setExtraValorInput] = useState('');
 
     const [produtoParaVariacao, setProdutoParaVariacao] = useState<Produto | null>(null)
+    const [opcaoSelecionadaPDV, setOpcaoSelecionadaPDV] = useState<string | null>(null)
+    const [variacaoSelecionadaPDV, setVariacaoSelecionadaPDV] = useState<any | null>(null)
 
     const renderBotoesExtra = () => (
         <div className="flex flex-col gap-2 my-2 w-full">
@@ -462,7 +467,8 @@ export default function PDVPage() {
                     ativo: produto.ativo,
                     quantidade: 1,
                     variacao_id: variacao?.id,
-                    variacao_nome: variacao?.nome
+                    variacao_nome: variacao?.nome,
+                    opcao_selecionada: (produto as any).opcao_selecionada
                 }
                 return [...prev, novoItem]
             }
@@ -544,12 +550,13 @@ export default function PDVPage() {
 
         const itens = comanda.map(item => ({
             id: item.id,
-            nome: item.variacao_nome ? `${item.nome} (${item.variacao_nome})` : item.nome,
+            nome: `${item.nome}${item.opcao_selecionada ? ` - Sabor: ${item.opcao_selecionada}` : ''}${item.variacao_nome ? ` (${item.variacao_nome})` : ''}`,
             quantidade: item.quantidade,
             preco: item.preco,
             subtotal: item.preco * item.quantidade,
             variacao_id: item.variacao_id || null,
-            variacao_nome: item.variacao_nome || null
+            variacao_nome: item.variacao_nome || null,
+            opcao_selecionada: item.opcao_selecionada || null
         }))
 
         const notasPDV = numeroMesa ? `MESA: ${numeroMesa}` : 'PDV Balcão'
@@ -1294,46 +1301,147 @@ export default function PDVPage() {
                 </div>
             )}
 
-            {/* Modal de Variações */}
+            {/* Modal de Variações e Sabores */}
             {produtoParaVariacao && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
                     <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
                         <div className="flex justify-between items-center mb-6">
                             <div>
                                 <h3 className="text-xl font-black text-white leading-tight">{produtoParaVariacao.nome}</h3>
-                                <p className="text-zinc-500 text-sm">Escolha uma opção abaixo:</p>
+                                <p className="text-zinc-500 text-sm">Configure o item abaixo:</p>
                             </div>
                             <button 
-                                onClick={() => setProdutoParaVariacao(null)}
+                                onClick={() => {
+                                    setProdutoParaVariacao(null)
+                                    setOpcaoSelecionadaPDV(null)
+                                    setVariacaoSelecionadaPDV(null)
+                                }}
                                 className="p-2 hover:bg-white/5 rounded-full text-zinc-500 transition-colors"
                             >
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1">
-                            {produtoParaVariacao.variacoes_preco?.map(v => (
-                                <button
-                                    key={v.id}
-                                    onClick={() => {
-                                        adicionarAoItem(produtoParaVariacao, 1, v)
-                                        setProdutoParaVariacao(null)
-                                        showToast('success', 'Adicionado', `${produtoParaVariacao.nome} (${v.nome})`)
-                                    }}
-                                    className="flex items-center justify-between p-4 bg-white/5 hover:bg-orange-600/20 border border-white/5 hover:border-orange-500/50 rounded-xl transition-all group text-left"
-                                >
-                                    <span className="font-bold text-white group-hover:text-orange-400 transition-colors">{v.nome}</span>
-                                    <span className="text-orange-500 font-black">R$ {v.valor.toFixed(2)}</span>
-                                </button>
-                            ))}
+                        <div className="flex flex-col gap-6 max-h-[60vh] overflow-y-auto pr-1">
+                            {/* Sabores */}
+                            {produtoParaVariacao.tem_opcoes && produtoParaVariacao.opcoes?.opcoes && (
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">1. Escolha o Sabor</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {produtoParaVariacao.opcoes.opcoes.map((opt: any) => (
+                                            <button
+                                                key={opt.nome}
+                                                onClick={() => setOpcaoSelecionadaPDV(opt.nome)}
+                                                className={`p-3 rounded-xl border text-sm font-bold transition-all ${
+                                                    opcaoSelecionadaPDV === opt.nome 
+                                                        ? 'bg-purple-600/20 border-purple-500 text-white' 
+                                                        : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/20'
+                                                }`}
+                                            >
+                                                {opt.nome}
+                                                {opt.preco != null && (
+                                                    <div className="text-[9px] text-purple-400 mt-1">
+                                                        + R$ {Number(opt.preco).toFixed(2)}
+                                                    </div>
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Variações / Tamanhos (Só exibe se o sabor selecionado não tem preço fixo) */}
+                            {produtoParaVariacao.tem_variacoes && produtoParaVariacao.variacoes_preco && (
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                                        {produtoParaVariacao.tem_opcoes ? '2. Escolha o Tamanho' : 'Escolha a Opção'}
+                                    </p>
+                                    <div className="flex flex-col gap-2">
+                                        {produtoParaVariacao.variacoes_preco.map(v => (
+                                            <button
+                                                key={v.id}
+                                                onClick={() => setVariacaoSelecionadaPDV(v)}
+                                                className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                                                    variacaoSelecionadaPDV?.id === v.id 
+                                                        ? 'bg-orange-600/20 border-orange-500 text-white' 
+                                                        : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/20'
+                                                }`}
+                                            >
+                                                <span className="font-bold">{v.nome}</span>
+                                                <span className="text-orange-500 font-black">R$ {v.valor.toFixed(2)}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
-                        <button
-                            onClick={() => setProdutoParaVariacao(null)}
-                            className="w-full mt-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-colors"
-                        >
-                            Cancelar
-                        </button>
+                        <div className="mt-8 pt-4 border-t border-white/5 space-y-3">
+                            {/* Resumo de Preço */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-zinc-500 text-sm font-bold">Total do Item:</span>
+                                <span className="text-2xl font-black text-white">
+                                    R$ {(() => {
+                                        const opt = produtoParaVariacao.opcoes?.opcoes?.find((o:any) => o.nome === opcaoSelecionadaPDV);
+                                        if (opt?.preco != null) return Number(opt.preco).toFixed(2);
+                                        if (variacaoSelecionadaPDV) return variacaoSelecionadaPDV.valor.toFixed(2);
+                                        return produtoParaVariacao.preco.toFixed(2);
+                                    })()}
+                                </span>
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    const optObj = produtoParaVariacao.opcoes?.opcoes?.find((o:any) => o.nome === opcaoSelecionadaPDV);
+                                    const finalPrice = optObj?.preco != null ? Number(optObj.preco) 
+                                                     : variacaoSelecionadaPDV ? variacaoSelecionadaPDV.valor 
+                                                     : produtoParaVariacao.preco;
+
+                                    // Adicionar o item com os metadados corretos
+                                    const itemComanda: any = {
+                                        ...produtoParaVariacao,
+                                        preco: finalPrice,
+                                        opcao_selecionada: opcaoSelecionadaPDV || undefined,
+                                        variacao_id: variacaoSelecionadaPDV?.id,
+                                        variacao_nome: variacaoSelecionadaPDV?.nome
+                                    };
+
+                                    setComanda(prev => {
+                                        // Busca item identico (mesmo id, sabor e variação)
+                                        const idx = prev.findIndex(i => 
+                                            i.id === itemComanda.id && 
+                                            i.opcao_selecionada === itemComanda.opcao_selecionada && 
+                                            i.variacao_id === itemComanda.variacao_id
+                                        );
+
+                                        if (idx >= 0) {
+                                            return prev.map((i, n) => n === idx ? { ...i, quantidade: i.quantidade + 1 } : i);
+                                        }
+                                        return [...prev, { ...itemComanda, quantidade: 1 }];
+                                    });
+
+                                    setProdutoParaVariacao(null);
+                                    setOpcaoSelecionadaPDV(null);
+                                    setVariacaoSelecionadaPDV(null);
+                                    showToast('success', 'Adicionado!', `${produtoParaVariacao.nome}`);
+                                }}
+                                disabled={(produtoParaVariacao.tem_opcoes && !opcaoSelecionadaPDV) || (produtoParaVariacao.tem_variacoes && !variacaoSelecionadaPDV && !(produtoParaVariacao.opcoes?.opcoes?.find((o:any) => o.nome === opcaoSelecionadaPDV)?.preco != null))}
+                                className="w-full py-4 bg-orange-600 hover:bg-orange-700 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black rounded-xl transition-all shadow-lg shadow-orange-600/20 active:scale-95"
+                            >
+                                ADICIONAR À COMANDA
+                            </button>
+                            
+                            <button
+                                onClick={() => {
+                                    setProdutoParaVariacao(null)
+                                    setOpcaoSelecionadaPDV(null)
+                                    setVariacaoSelecionadaPDV(null)
+                                }}
+                                className="w-full py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 font-bold rounded-xl transition-colors"
+                            >
+                                Voltar
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

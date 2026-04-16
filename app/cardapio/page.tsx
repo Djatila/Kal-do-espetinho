@@ -1521,10 +1521,12 @@ export default function CardapioPublicoPage() {
 
                         const itensPedido = carrinho.map(item => ({
                             id: item.id,
-                            nome: item.nome,
+                            nome: `${item.nome}${item.opcao_selecionada ? ` - Sabor: ${item.opcao_selecionada}` : ''}${item.variacao_nome ? ` (${item.variacao_nome})` : ''}`,
                             quantidade: item.quantidade,
                             preco: item.preco,
-                            subtotal: item.preco * item.quantidade
+                            subtotal: item.preco * item.quantidade,
+                            variacao_id: item.variacao_id || null,
+                            opcao_selecionada: item.opcao_selecionada || null
                         }))
 
                         if (modoComplemento && pedidoComplementoNumero) {
