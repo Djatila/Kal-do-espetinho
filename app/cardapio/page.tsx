@@ -1727,7 +1727,7 @@ REGRAS FUNDAMENTAIS:
                                         setVariacaoInterna(null)
                                         setOpcaoInterna(null)
                                     }}
-                                    className="absolute top-3 right-3 bg-black/60 p-1.5 rounded-full text-white hover:bg-orange-600 transition-colors"
+                                    className="absolute top-3 right-3 bg-black/40 backdrop-blur-md p-1.5 rounded-full text-white border border-orange-500/50 shadow-[0_0_10px_rgba(249,115,22,0.3)] hover:bg-orange-600 transition-colors z-10"
                                 >
                                     <X size={18} />
                                 </button>
@@ -1852,7 +1852,7 @@ REGRAS FUNDAMENTAIS:
                                             opcaoInterna || undefined
                                         );
                                         
-                                        setProdutoParaVariacao(null);
+                                        // Não fecha o modal, apenas reseta a seleção
                                         setVariacaoInterna(null);
                                         setOpcaoInterna(null);
                                     }}
