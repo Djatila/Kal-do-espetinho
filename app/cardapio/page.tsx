@@ -1229,7 +1229,7 @@ export default function CardapioPublicoPage() {
                             </div>
 
                             {/* Right icons */}
-                            <div className="flex items-center gap-3 sm:gap-4 transform translate-y-[6px]">
+                            <div className="flex items-center gap-2 sm:gap-2 transform translate-y-[14px] -translate-x-4">
                                 {tipoCliente && dadosCliente.nome && (
                                     <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full bg-neutral-900 border border-neutral-800 shadow-sm animate-in fade-in slide-in-from-right-2 duration-300">
                                         <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-orange-600/20 flex items-center justify-center">

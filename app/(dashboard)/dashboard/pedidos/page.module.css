@@ -143,7 +143,7 @@
 .item {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.75rem;
     padding: 0.5rem 0;
     font-size: 0.875rem;
@@ -317,7 +317,9 @@
 .itemDetalhe {
     display: flex;
     justify-content: space-between;
-    padding: 0.75rem;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 12px;
     background: var(--muted);
     border-radius: 0.5rem;
     margin-bottom: 0.5rem;

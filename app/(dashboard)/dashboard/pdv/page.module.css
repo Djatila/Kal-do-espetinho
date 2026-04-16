@@ -409,8 +409,15 @@
 
 .resumoItem {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     font-size: 0.875rem;
+    padding: 0.5rem 0;
+    line-height: 1.5;
+}
+
+.resumoItemQty, .resumoItemName, .resumoItemPrice {
+    padding-top: 0px;
+    line-height: inherit;
 }
 
 .resumoItemQty {

@@ -1462,12 +1462,13 @@ export default function PedidosPage() {
                             <div className={styles.secao}>
                                 <h3>Itens do Pedido</h3>
                                 {(isEditing ? (editData.itens || []) : (pedidoSelecionado.itens || [])).map((item, idx) => (
-                                    <div key={idx} className={styles.itemDetalhe}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
-                                            <span>{item.quantidade}x {item.nome}</span>
+                                    <div key={idx} className={styles.itemDetalhe} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', padding: '10px 12px', background: '#1c1c1c', borderRadius: '8px', marginBottom: '4px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1, minWidth: 0 }}>
+                                            <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap', flexShrink: 0 }}>{item.quantidade}x</span>
+                                            <span style={{ fontWeight: 500, color: '#e2e8f0', lineHeight: '1.4', wordBreak: 'break-word' }}>{item.nome}</span>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            <span style={{ fontWeight: 600 }}>R$ {item.subtotal.toFixed(2)}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                            <span style={{ fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', fontSize: '0.95rem' }}>R$ {item.subtotal.toFixed(2)}</span>
                                             {isEditing ? (
                                                 <button
                                                     onClick={() => removerItemEdit(idx)}
@@ -1488,6 +1489,7 @@ export default function PedidosPage() {
                                             )}
                                         </div>
                                     </div>
+
                                 ))}
 
                                 {/* Adicionar Novo Item no Modo Edição */}
