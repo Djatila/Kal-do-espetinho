@@ -8,12 +8,13 @@ import Script from "next/script";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://kal-do-espetinho.vercel.app'),
   title: "Kal do Espetinho",
   description: "O melhor churrasco e petiscaria da região! Confira nosso cardápio online.",
   openGraph: {
     title: "Kal do Espetinho",
     description: "Confira nosso cardápio completo e faça o seu pedido online!",
-    images: [{ url: "/og-logo.png", width: 800, height: 800, alt: "Kal do Espetinho Logo" }],
+    images: [{ url: "https://kal-do-espetinho.vercel.app/og-logo.png?v=2", width: 800, height: 800, alt: "Kal do Espetinho Logo" }],
     type: "website",
   },
 };
