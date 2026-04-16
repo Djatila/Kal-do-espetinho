@@ -26,6 +26,8 @@ interface Produto {
     vendas?: number
     tem_variacoes?: boolean
     variacoes_preco?: { id: string, nome: string, valor: number }[]
+    tem_opcoes?: boolean
+    opcoes?: string[]
 }
 
 interface ItemCarrinho {
@@ -39,6 +41,7 @@ interface ItemCarrinho {
     quantidade: number
     variacao_id?: string
     variacao_nome?: string
+    opcao_selecionada?: string
 }
 
 interface DadosCliente {
@@ -102,6 +105,10 @@ export default function CardapioPublicoPage() {
         image: "",
         badgeText: ""
     })
+
+    // Estados para o Modal de Seleção
+    const [variacaoInterna, setVariacaoInterna] = useState<any>(null)
+    const [opcaoInterna, setOpcaoInterna] = useState<string | null>(null)
 
     useEffect(() => {
         setIsMounted(true)
@@ -381,19 +388,27 @@ export default function CardapioPublicoPage() {
         ? produtos
         : produtos.filter(p => p.categoria === categoriaFiltro)
 
-    function adicionarAoCarrinho(produto: Produto, variacao?: { id: string, nome: string, valor: number }) {
-        const uniqueId = variacao ? `${produto.id}-${variacao.id}` : produto.id
-        const itemExistente = carrinho.find(item => 
-            variacao ? (item.id === produto.id && item.variacao_id === variacao.id) : (item.id === produto.id && !item.variacao_id)
-        )
+    function adicionarAoCarrinho(produto: Produto, variacao?: { id: string, nome: string, valor: number }, opcao?: string) {
+        const uniqueId = variacao 
+            ? `${produto.id}-${variacao.id}${opcao ? `-${opcao}` : ''}` 
+            : `${produto.id}${opcao ? `-${opcao}` : ''}`
+        
+        const itemExistente = carrinho.find(item => {
+            const isSameProd = item.id === produto.id
+            const isSameVar = variacao ? item.variacao_id === variacao.id : !item.variacao_id
+            const isSameOpcao = opcao ? item.opcao_selecionada === opcao : !item.opcao_selecionada
+            return isSameProd && isSameVar && isSameOpcao
+        })
 
         if (itemExistente) {
             setCarrinho(carrinho.map(item => {
-                const isSame = variacao 
-                    ? (item.id === produto.id && item.variacao_id === variacao.id)
-                    : (item.id === produto.id && !item.variacao_id)
+                const isSameProd = item.id === produto.id
+                const isSameVar = variacao ? item.variacao_id === variacao.id : !item.variacao_id
+                const isSameOpcao = opcao ? item.opcao_selecionada === opcao : !item.opcao_selecionada
                 
-                return isSame ? { ...item, quantidade: item.quantidade + 1 } : item
+                return (isSameProd && isSameVar && isSameOpcao) 
+                    ? { ...item, quantidade: item.quantidade + 1 } 
+                    : item
             }))
         } else {
             const novoItem: ItemCarrinho = {
@@ -406,17 +421,19 @@ export default function CardapioPublicoPage() {
                 imagem_url: produto.imagem_url,
                 quantidade: 1,
                 variacao_id: variacao?.id,
-                variacao_nome: variacao?.nome
+                variacao_nome: variacao?.nome,
+                opcao_selecionada: opcao
             }
             setCarrinho([...carrinho, novoItem])
         }
-        showToast('success', 'Adicionado ao carrinho', `${produto.nome}${variacao ? ` (${variacao.nome})` : ''} foi adicionado!`)
+        
+        const feedbackNome = `${produto.nome}${variacao ? ` (${variacao.nome})` : ''}${opcao ? ` - ${opcao}` : ''}`
+        showToast('success', 'Adicionado ao carrinho', `${feedbackNome} foi adicionado!`)
     }
 
     function alterarQuantidade(itemUniqueKey: string, delta: number) {
-        // A chave única aqui é um pouco ambígua no modo atual, vamos usar o id + variacao_id se existir
         setCarrinho(carrinho.map(item => {
-            const key = item.variacao_id ? `${item.id}-${item.variacao_id}` : item.id
+            const key = `${item.id}${item.variacao_id ? `-${item.variacao_id}` : ''}${item.opcao_selecionada ? `-${item.opcao_selecionada}` : ''}`
             if (key === itemUniqueKey) {
                 const novaQuantidade = item.quantidade + delta
                 return novaQuantidade > 0 ? { ...item, quantidade: novaQuantidade } : item
@@ -427,7 +444,7 @@ export default function CardapioPublicoPage() {
 
     function removerDoCarrinho(itemUniqueKey: string) {
         setCarrinho(carrinho.filter(item => {
-             const key = item.variacao_id ? `${item.id}-${item.variacao_id}` : item.id
+             const key = `${item.id}${item.variacao_id ? `-${item.variacao_id}` : ''}${item.opcao_selecionada ? `-${item.opcao_selecionada}` : ''}`
              return key !== itemUniqueKey
         }))
     }
@@ -1084,7 +1101,9 @@ export default function CardapioPublicoPage() {
             isTopSeller: topSellers.includes(p.id),
             titulo_destaque: (p as any).titulo_destaque || 'Recomendação da Chefa ⭐',
             tem_variacoes: p.tem_variacoes,
-            variacoes_preco: p.variacoes_preco
+            variacoes_preco: p.variacoes_preco,
+            tem_opcoes: p.tem_opcoes,
+            opcoes: p.opcoes
         }
     })
 
@@ -1110,16 +1129,18 @@ export default function CardapioPublicoPage() {
     }
 
     const handleAddToCartAnim = (item: any, event?: React.MouseEvent) => {
-        if (event) {
-            const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-            triggerCartAnimation(item.image, rect.left + rect.width / 2, rect.top + rect.height / 2);
-        }
-
         const produtoOriginal = produtos.find(p => p.id === item.id);
+        
         if (produtoOriginal) {
             if (produtoOriginal.tem_variacoes && produtoOriginal.variacoes_preco && produtoOriginal.variacoes_preco.length > 0) {
+                // Se tem variações, apenas abre o modal (sem animação de voo ainda)
                 setProdutoParaVariacao(produtoOriginal);
             } else {
+                // Se NÃO tem variações, executa a animação e adiciona direto
+                if (event) {
+                    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+                    triggerCartAnimation(item.image, rect.left + rect.width / 2, rect.top + rect.height / 2);
+                }
                 adicionarAoCarrinho(produtoOriginal);
             }
         }
@@ -1412,8 +1433,8 @@ export default function CardapioPublicoPage() {
                 onClose={() => setMostrarCarrinho(false)}
                 cart={carrinho.map(item => ({
                     ...item,
-                    id: item.variacao_id ? `${item.id}-${item.variacao_id}` : item.id,
-                    name: item.variacao_nome ? `${item.nome} (${item.variacao_nome})` : item.nome,
+                    id: `${item.id}${item.variacao_id ? `-${item.variacao_id}` : ''}${item.opcao_selecionada ? `-${item.opcao_selecionada}` : ''}`,
+                    name: `${item.nome}${item.variacao_nome ? ` (${item.variacao_nome})` : ''}${item.opcao_selecionada ? ` - Sabor: ${item.opcao_selecionada}` : ''}`,
                     description: item.descricao || '',
                     price: item.preco,
                     category: item.categoria as any,
@@ -1651,57 +1672,133 @@ REGRAS FUNDAMENTAIS:
                 menuItems={kalMenuItems}
             />
 
-            {/* Modal de Seleção de Variação */}
+            {/* Modal de Seleção de Variação / Sabor */}
             {produtoParaVariacao && (
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-neutral-900 border border-orange-500/30 w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="relative h-40">
+                    <div className="bg-neutral-900 border border-orange-500/30 w-full max-w-sm rounded-[2.5rem] overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300 flex flex-col max-h-[90vh]">
+                        {/* Imagem do Cabeçalho */}
+                        <div className="relative h-40 flex-shrink-0">
                             <img 
                                 src={produtoParaVariacao.imagem_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300'} 
                                 alt={produtoParaVariacao.nome}
                                 className="w-full h-full object-cover"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
                             <button 
-                                onClick={() => setProdutoParaVariacao(null)}
+                                onClick={() => {
+                                    setProdutoParaVariacao(null)
+                                    setVariacaoInterna(null)
+                                    setOpcaoInterna(null)
+                                }}
                                 className="absolute top-4 right-4 bg-black/50 p-2 rounded-full text-white hover:bg-orange-600 transition-colors"
                             >
                                 <X size={20} />
                             </button>
+                            <div className="absolute bottom-4 left-6 right-6">
+                                <h3 className="text-xl font-bold text-white leading-tight">{produtoParaVariacao.nome}</h3>
+                                {produtoParaVariacao.descricao && (
+                                    <p className="text-xs text-neutral-400 line-clamp-1 italic mt-1">
+                                        {produtoParaVariacao.descricao}
+                                    </p>
+                                )}
+                            </div>
                         </div>
                         
-                        <div className="p-6">
-                            <h3 className="text-xl font-bold text-white mb-1">{produtoParaVariacao.nome}</h3>
-                            <p className="text-sm text-neutral-400 mb-6">Escolha a opção desejada:</p>
-                            
-                            <div className="space-y-3">
-                                {produtoParaVariacao.variacoes_preco?.map((v) => (
-                                    <button
-                                        key={v.id}
-                                        onClick={(e) => {
-                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                            triggerCartAnimation(produtoParaVariacao.imagem_url || '', rect.left + rect.width / 2, rect.top + rect.height/2);
-                                            adicionarAoCarrinho(produtoParaVariacao, v);
-                                            setProdutoParaVariacao(null);
-                                        }}
-                                        className="w-full flex items-center justify-between p-4 bg-neutral-800 hover:bg-orange-600/10 border border-neutral-700 hover:border-orange-500 transition-all rounded-2xl group active:scale-95 shadow-lg relative overflow-hidden"
-                                    >
-                                        <div className="absolute inset-0 bg-gradient-to-r from-orange-500/0 via-orange-500/5 to-orange-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <span className="font-bold text-neutral-200 group-hover:text-white relative z-10">{v.nome}</span>
-                                        <div className="flex flex-col items-end relative z-10">
-                                            <span className="text-lg font-black text-orange-500 group-hover:text-orange-400">R$ {Number(v.valor).toFixed(2).replace('.', ',')}</span>
-                                            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider group-hover:text-orange-500/60">Selecionar</span>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                            
+                        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+                            {/* Seção de Variações (Tamanhos/Unidades) */}
+                            {produtoParaVariacao.tem_variacoes && produtoParaVariacao.variacoes_preco && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-bold text-orange-500 uppercase tracking-widest">1. Escolha o Tamanho</p>
+                                        {!variacaoInterna && <span className="text-[10px] bg-orange-500/10 text-orange-500 px-2 py-0.5 rounded-full animate-pulse font-bold">Obrigatório</span>}
+                                    </div>
+                                    <div className="grid grid-cols-1 gap-2">
+                                        {produtoParaVariacao.variacoes_preco.map((v) => (
+                                            <button
+                                                key={v.id}
+                                                onClick={() => setVariacaoInterna(v)}
+                                                className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all active:scale-[0.98] ${
+                                                    variacaoInterna?.id === v.id 
+                                                        ? 'bg-orange-600/20 border-orange-500 ring-1 ring-orange-500' 
+                                                        : 'bg-neutral-800/40 border-neutral-700 hover:border-neutral-500'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${variacaoInterna?.id === v.id ? 'border-orange-500 bg-orange-500' : 'border-neutral-500'}`}>
+                                                        {variacaoInterna?.id === v.id && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                                    </div>
+                                                    <span className={`text-sm font-bold ${variacaoInterna?.id === v.id ? 'text-white' : 'text-neutral-300'}`}>{v.nome}</span>
+                                                </div>
+                                                <span className="text-sm font-black text-orange-500">R$ {Number(v.valor).toFixed(2).replace('.', ',')}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Seção de Sabores / Opções */}
+                            {produtoParaVariacao.tem_opcoes && produtoParaVariacao.opcoes && (
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-bold text-purple-400 uppercase tracking-widest">
+                                            {produtoParaVariacao.tem_variacoes ? '2. Escolha o Sabor' : '1. Escolha o Sabor'}
+                                        </p>
+                                        {!opcaoInterna && <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full animate-pulse font-bold">Obrigatório</span>}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {produtoParaVariacao.opcoes.map((opcao) => (
+                                            <button
+                                                key={opcao}
+                                                onClick={() => setOpcaoInterna(opcao)}
+                                                className={`px-4 py-2 rounded-xl border text-sm font-bold transition-all active:scale-95 ${
+                                                    opcaoInterna === opcao 
+                                                        ? 'bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-600/20' 
+                                                        : 'bg-neutral-800/60 border-neutral-700 text-neutral-400 hover:border-purple-500/50 hover:text-purple-300'
+                                                }`}
+                                            >
+                                                {opcao}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Botão de Finalização */}
+                        <div className="p-6 bg-neutral-900 border-t border-neutral-800 flex flex-col gap-3">
                             <button
-                                onClick={() => setProdutoParaVariacao(null)}
-                                className="mt-6 w-full py-3 text-neutral-500 font-bold hover:text-white transition-colors"
+                                disabled={
+                                    (produtoParaVariacao.tem_variacoes && !variacaoInterna) || 
+                                    (produtoParaVariacao.tem_opcoes && !opcaoInterna)
+                                }
+                                onClick={(e) => {
+                                    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                    triggerCartAnimation(produtoParaVariacao.imagem_url || '', rect.left + rect.width / 2, rect.top + rect.height/2);
+                                    
+                                    adicionarAoCarrinho(
+                                        produtoParaVariacao, 
+                                        variacaoInterna || undefined, 
+                                        opcaoInterna || undefined
+                                    );
+                                    
+                                    setProdutoParaVariacao(null);
+                                    setVariacaoInterna(null);
+                                    setOpcaoInterna(null);
+                                }}
+                                className={`w-full py-4 rounded-2xl font-black text-lg transition-all flex items-center justify-center gap-2 shadow-xl ${
+                                    ((produtoParaVariacao.tem_variacoes && !variacaoInterna) || (produtoParaVariacao.tem_opcoes && !opcaoInterna))
+                                        ? 'bg-neutral-800 text-neutral-600 grayscale cursor-not-allowed border border-neutral-700'
+                                        : 'bg-gradient-to-r from-orange-600 to-orange-500 text-white active:scale-[0.97] hover:shadow-orange-600/20'
+                                }`}
                             >
-                                Cancelar
+                                <Plus size={20} strokeWidth={3} />
+                                Adicionar ao Carrinho
                             </button>
+                            <p className="text-[10px] text-center text-neutral-600 uppercase font-bold tracking-tighter">
+                                {((produtoParaVariacao.tem_variacoes && !variacaoInterna) || (produtoParaVariacao.tem_opcoes && !opcaoInterna))
+                                    ? 'Aguardando seleção obrigatória'
+                                    : 'Tudo pronto para adicionar'}
+                            </p>
                         </div>
                     </div>
                 </div>

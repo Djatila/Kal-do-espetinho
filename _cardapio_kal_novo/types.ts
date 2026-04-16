@@ -24,12 +24,15 @@ export interface MenuItem {
   vendas?: number;
   tem_variacoes?: boolean;
   variacoes_preco?: PriceVariation[];
+  tem_opcoes?: boolean;
+  opcoes?: string[];
 }
 
 export interface CartItem extends MenuItem {
   quantity: number;
   variacao_id?: string;
   variacao_nome?: string;
+  opcao_selecionada?: string;
 }
 
 export interface ChatMessage {

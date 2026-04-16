@@ -30,7 +30,9 @@ export default function EditarProdutoPage() {
         destaque: false,
         titulo_destaque: '',
         tem_variacoes: false,
-        variacoes_preco: [] as { id: string, nome: string, valor: string }[]
+        variacoes_preco: [] as { id: string, nome: string, valor: string }[],
+        tem_opcoes: false,
+        opcoes: [] as string[]
     })
     const [uploading, setUploading] = useState(false)
     const [categoriasExistentes, setCategoriasExistentes] = useState<string[]>([])
@@ -68,7 +70,9 @@ export default function EditarProdutoPage() {
                     id: v.id || Math.random().toString(36).substr(2, 9),
                     nome: v.nome,
                     valor: v.valor.toString()
-                })) : []
+                })) : [],
+                tem_opcoes: data.tem_opcoes || false,
+                opcoes: data.opcoes || []
             })
         }
         
@@ -129,7 +133,9 @@ export default function EditarProdutoPage() {
                     id: v.id,
                     nome: v.nome,
                     valor: Number(v.valor)
-                })) : []
+                })) : [],
+                tem_opcoes: formData.tem_opcoes,
+                opcoes: formData.tem_opcoes ? formData.opcoes.filter(o => o.trim() !== '') : []
             })
             .eq('id', params.id)
 
@@ -302,6 +308,83 @@ export default function EditarProdutoPage() {
                                     <p className="text-[10px] text-blue-400/50 italic bg-blue-500/5 p-2 rounded border border-blue-500/10">
                                         DICA: Se ativado, o cliente deverá selecionar uma dessas opções no cardápio. O preço principal acima será ignorado.
                                     </p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Nova Seção de Sabores/Opções */}
+                        <div className="flex flex-col gap-2 p-4 rounded-xl border border-purple-500/20 bg-purple-500/5 transition-all">
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="tem_opcoes"
+                                    checked={formData.tem_opcoes}
+                                    onChange={(e) => setFormData({ ...formData, tem_opcoes: e.target.checked })}
+                                    className="h-5 w-5 rounded border-gray-300 accent-purple-600 cursor-pointer"
+                                />
+                                <div className="flex flex-col">
+                                    <label htmlFor="tem_opcoes" className="font-bold text-purple-400 cursor-pointer">
+                                        Habilitar Lista de Opções (Sabores/Tipos)
+                                    </label>
+                                    <span className="text-xs text-purple-400/60 font-medium">
+                                        Ative para permitir que o cliente escolha um sabor ou tipo (ex: Sabores de Suco).
+                                    </span>
+                                </div>
+                            </div>
+
+                            {formData.tem_opcoes && (
+                                <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-xs font-bold text-purple-400 uppercase tracking-wider">Sabores / Opções Cadastradas</label>
+                                        <div className="flex flex-wrap gap-2 mb-2">
+                                            {formData.opcoes.map((opcao, idx) => (
+                                                <div key={idx} className="flex items-center gap-2 bg-purple-900/30 text-purple-200 px-3 py-1.5 rounded-full border border-purple-500/30 text-sm">
+                                                    <span>{opcao}</span>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => setFormData(prev => ({ ...prev, opcoes: prev.opcoes.filter((_, i) => i !== idx) }))}
+                                                        className="text-purple-400 hover:text-white transition-colors"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                placeholder="Digite o nome do sabor/opção..."
+                                                className="flex-1 h-10"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        const val = (e.currentTarget as HTMLInputElement).value.trim();
+                                                        if (val && !formData.opcoes.includes(val)) {
+                                                            setFormData(p => ({ ...p, opcoes: [...p.opcoes, val] }));
+                                                            (e.currentTarget as HTMLInputElement).value = '';
+                                                        }
+                                                    }
+                                                }}
+                                            />
+                                            <Button 
+                                                type="button" 
+                                                variant="secondary" 
+                                                className="bg-purple-600 hover:bg-purple-500 text-white border-none"
+                                                onClick={() => {
+                                                    const input = document.querySelector('input[placeholder="Digite o nome do sabor/opção..."]') as HTMLInputElement;
+                                                    const val = input.value.trim();
+                                                    if (val && !formData.opcoes.includes(val)) {
+                                                        setFormData(p => ({ ...p, opcoes: [...p.opcoes, val] }));
+                                                        input.value = '';
+                                                    }
+                                                }}
+                                            >
+                                                <Plus size={18} />
+                                            </Button>
+                                        </div>
+                                        <p className="text-[10px] text-purple-400/50 italic mt-1">
+                                            Pressione Enter ou clique no + para adicionar cada sabor à lista.
+                                        </p>
+                                    </div>
                                 </div>
                             )}
                         </div>
