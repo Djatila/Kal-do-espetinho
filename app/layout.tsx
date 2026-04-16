@@ -9,7 +9,13 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Kal do Espetinho",
-  description: "Sistema Administrativo",
+  description: "O melhor churrasco e petiscaria da região! Confira nosso cardápio online.",
+  openGraph: {
+    title: "Kal do Espetinho",
+    description: "Confira nosso cardápio completo e faça o seu pedido online!",
+    images: [{ url: "/og-image.jpg", width: 800, height: 800, alt: "Kal do Espetinho Logo" }],
+    type: "website",
+  },
 };
 
 export default function RootLayout({
