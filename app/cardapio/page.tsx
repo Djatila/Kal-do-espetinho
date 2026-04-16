@@ -1265,12 +1265,14 @@ export default function CardapioPublicoPage() {
 
                 {/* Hero */}
                 <div className="relative mt-20 h-[40vh] sm:h-[50vh] w-full overflow-hidden flex items-center justify-center">
-                    <div className="absolute inset-0">
-                        <img
-                            src={configuracao.banner_url || "https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=2574&auto=format&fit=crop"}
-                            alt="Hero"
-                            className="w-full h-full object-cover opacity-60"
-                        />
+                    <div className="absolute inset-0 bg-neutral-900">
+                        {configuracao.banner_url && (
+                            <img
+                                src={configuracao.banner_url}
+                                alt="Hero"
+                                className="w-full h-full object-cover opacity-60 animate-in fade-in duration-700"
+                            />
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
                     </div>
                     <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
