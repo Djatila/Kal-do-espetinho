@@ -6,9 +6,10 @@ import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
-import { Upload, ImageIcon } from 'lucide-react'
+import { Upload, ImageIcon, Plus, Trash2 } from 'lucide-react'
+import { CategoriaSelector } from '@/components/ui/CategoriaSelector'
 
 export default function EditarProdutoPage() {
     const router = useRouter()
@@ -27,10 +28,12 @@ export default function EditarProdutoPage() {
         imagem_url: '',
         dias_semana: [] as string[],
         destaque: false,
-        titulo_destaque: ''
+        titulo_destaque: '',
+        tem_variacoes: false,
+        variacoes_preco: [] as { id: string, nome: string, valor: string }[]
     })
     const [uploading, setUploading] = useState(false)
-    const [categoriasExistentes, setCategoriasExistentes] = useState<string[]>(['marmitex', 'bebida', 'sobremesa', 'adicional'])
+    const [categoriasExistentes, setCategoriasExistentes] = useState<string[]>([])
     const [criandoNova, setCriandoNova] = useState(false)
     const [novaCategoria, setNovaCategoria] = useState('')
 
@@ -59,18 +62,50 @@ export default function EditarProdutoPage() {
                 imagem_url: data.imagem_url || '',
                 dias_semana: data.dias_semana || [],
                 destaque: data.destaque || false,
-                titulo_destaque: data.titulo_destaque || ''
+                titulo_destaque: data.titulo_destaque || '',
+                tem_variacoes: data.tem_variacoes || false,
+                variacoes_preco: data.variacoes_preco ? data.variacoes_preco.map((v: any) => ({
+                    id: v.id || Math.random().toString(36).substr(2, 9),
+                    nome: v.nome,
+                    valor: v.valor.toString()
+                })) : []
             })
         }
         
-        // Carrega categorias existentes para o dropdown
+        // Carrega categorias existentes para o dropdown, filtrando as deletadas
         const { data: catData } = await supabase.from('produtos').select('categoria')
+        const deletadas = (() => { try { return JSON.parse(localStorage.getItem('categorias_deletadas') || '[]') } catch { return [] } })()
+        const defaults = ['marmitex', 'bebida', 'sobremesa', 'adicional'].filter((c: string) => !deletadas.includes(c))
         if (catData) {
-            const uniqueCats = Array.from(new Set(catData.map(p => p.categoria).filter(Boolean))) as string[]
-            setCategoriasExistentes(prev => Array.from(new Set([...prev, ...uniqueCats])))
+            const uniqueCats = Array.from(new Set(catData.map((p: any) => p.categoria).filter(Boolean))) as string[]
+            const merged = Array.from(new Set([...defaults, ...uniqueCats])).filter((c: string) => !deletadas.includes(c))
+            setCategoriasExistentes(merged)
+        } else {
+            setCategoriasExistentes(defaults)
         }
         
         setLoadingData(false)
+    }
+
+    const addVariation = () => {
+        setFormData(prev => ({
+            ...prev,
+            variacoes_preco: [...prev.variacoes_preco, { id: Math.random().toString(36).substr(2, 9), nome: '', valor: '' }]
+        }))
+    }
+
+    const removeVariation = (id: string) => {
+        setFormData(prev => ({
+            ...prev,
+            variacoes_preco: prev.variacoes_preco.filter(v => v.id !== id)
+        }))
+    }
+
+    const updateVariation = (id: string, field: 'nome' | 'valor', value: string) => {
+        setFormData(prev => ({
+            ...prev,
+            variacoes_preco: prev.variacoes_preco.map(v => v.id === id ? { ...v, [field]: value } : v)
+        }))
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -82,13 +117,19 @@ export default function EditarProdutoPage() {
             .update({
                 nome: formData.nome,
                 descricao: formData.descricao || null,
-                preco: Number(formData.preco),
+                preco: formData.tem_variacoes ? (formData.variacoes_preco[0] ? Number(formData.variacoes_preco[0].valor) : 0) : Number(formData.preco),
                 categoria: criandoNova ? novaCategoria.trim() : formData.categoria,
                 ativo: formData.ativo,
                 imagem_url: formData.imagem_url || null,
                 dias_semana: formData.dias_semana.length === 3 ? [] : formData.dias_semana,
                 destaque: formData.destaque,
-                titulo_destaque: formData.destaque ? formData.titulo_destaque.trim() : null
+                titulo_destaque: formData.destaque ? formData.titulo_destaque.trim() : null,
+                tem_variacoes: formData.tem_variacoes,
+                variacoes_preco: formData.tem_variacoes ? formData.variacoes_preco.map(v => ({
+                    id: v.id,
+                    nome: v.nome,
+                    valor: Number(v.valor)
+                })) : []
             })
             .eq('id', params.id)
 
@@ -178,52 +219,91 @@ export default function EditarProdutoPage() {
                                 placeholder="0.00"
                                 value={formData.preco}
                                 onChange={(e) => setFormData({ ...formData, preco: e.target.value })}
-                                required
+                                required={!formData.tem_variacoes}
+                                disabled={formData.tem_variacoes}
                             />
 
-                             <div className="flex flex-col gap-2">
-                                <label className="text-sm font-medium">Categoria</label>
-                                {!criandoNova ? (
-                                    <div className="flex gap-2">
-                                        <select
-                                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                            value={formData.categoria}
-                                            onChange={(e) => {
-                                                if (e.target.value === 'novo') {
-                                                    setCriandoNova(true)
-                                                } else {
-                                                    setFormData({ ...formData, categoria: e.target.value })
-                                                }
-                                            }}
-                                        >
-                                            {categoriasExistentes.map(cat => (
-                                                <option key={cat} value={cat}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</option>
-                                            ))}
-                                            <option value="novo" className="font-bold text-orange-500 font-bold">+ Nova Categoria...</option>
-                                        </select>
-                                    </div>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <div className="relative flex-1">
-                                            <Input
-                                                placeholder="Nome da categoria..."
-                                                value={novaCategoria}
-                                                onChange={(e) => setNovaCategoria(e.target.value)}
-                                                autoFocus
-                                            />
-                                        </div>
+                             <CategoriaSelector
+                                value={formData.categoria}
+                                onChange={(cat) => setFormData({ ...formData, categoria: cat })}
+                                categorias={categoriasExistentes}
+                                onCategoriasChange={setCategoriasExistentes}
+                                criandoNova={criandoNova}
+                                onCriandoNovaChange={setCriandoNova}
+                                novaCategoria={novaCategoria}
+                                onNovaCategoriaChange={setNovaCategoria}
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-2 p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 transition-all">
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="tem_variacoes"
+                                    checked={formData.tem_variacoes}
+                                    onChange={(e) => setFormData({ ...formData, tem_variacoes: e.target.checked })}
+                                    className="h-5 w-5 rounded border-gray-300 accent-blue-600 cursor-pointer"
+                                />
+                                <div className="flex flex-col">
+                                    <label htmlFor="tem_variacoes" className="font-bold text-blue-400 cursor-pointer">
+                                        Variações de Preço por Unidade
+                                    </label>
+                                    <span className="text-xs text-blue-400/60 font-medium">
+                                        Ative para definir preços por quantidade (ex: 1un, 3 por...)
+                                    </span>
+                                </div>
+                            </div>
+
+                            {formData.tem_variacoes && (
+                                <div className="mt-4 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <div className="flex flex-col gap-2">
+                                        {formData.variacoes_preco.map((variation) => (
+                                            <div key={variation.id} className="flex items-end gap-2 bg-black/20 p-2 rounded-lg border border-blue-500/10">
+                                                <div className="flex-1">
+                                                    <Input
+                                                        label="Identificação (ex: 1un)"
+                                                        value={variation.nome}
+                                                        onChange={(e) => updateVariation(variation.id, 'nome', e.target.value)}
+                                                        placeholder="Ex: 3 unidades"
+                                                        className="h-9 text-sm"
+                                                    />
+                                                </div>
+                                                <div className="w-32">
+                                                    <Input
+                                                        label="Valor (R$)"
+                                                        type="number"
+                                                        step="0.01"
+                                                        value={variation.valor}
+                                                        onChange={(e) => updateVariation(variation.id, 'valor', e.target.value)}
+                                                        placeholder="0.00"
+                                                        className="h-9 text-sm"
+                                                    />
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    onClick={() => removeVariation(variation.id)}
+                                                    className="h-9 px-2 text-rose-500 hover:bg-rose-500/10"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </Button>
+                                            </div>
+                                        ))}
+
                                         <Button
                                             type="button"
-                                            variant="ghost"
-                                            onClick={() => setCriandoNova(false)}
-                                            className="!h-10 !w-10 !p-0"
-                                            title="Voltar para lista"
+                                            variant="secondary"
+                                            onClick={addVariation}
+                                            className="mt-2 w-full py-2 h-auto text-xs border-dashed border-2 hover:border-blue-500/50 flex items-center justify-center gap-2"
                                         >
-                                            <X size={16} />
+                                            <Plus size={14} /> Adicionar Nova Variação
                                         </Button>
                                     </div>
-                                )}
-                            </div>
+                                    <p className="text-[10px] text-blue-400/50 italic bg-blue-500/5 p-2 rounded border border-blue-500/10">
+                                        DICA: Se ativado, o cliente deverá selecionar uma dessas opções no cardápio. O preço principal acima será ignorado.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col gap-2">

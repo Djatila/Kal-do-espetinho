@@ -24,10 +24,21 @@ interface Produto {
     ativo: boolean
     imagem_url?: string
     vendas?: number
+    tem_variacoes?: boolean
+    variacoes_preco?: { id: string, nome: string, valor: number }[]
 }
 
-interface ItemCarrinho extends Produto {
+interface ItemCarrinho {
+    id: string
+    nome: string
+    descricao: string
+    preco: number
+    categoria: string
+    ativo: boolean
+    imagem_url?: string
     quantidade: number
+    variacao_id?: string
+    variacao_nome?: string
 }
 
 interface DadosCliente {
@@ -81,6 +92,7 @@ export default function CardapioPublicoPage() {
     const [animations, setAnimations] = useState<any[]>([])
     const cartIconRef = useRef<HTMLDivElement>(null)
     const [isMounted, setIsMounted] = useState(false)
+    const [produtoParaVariacao, setProdutoParaVariacao] = useState<Produto | null>(null)
     const [promoSettings, setPromoSettings] = useState({
         isActive: false,
         title: "",
@@ -369,24 +381,43 @@ export default function CardapioPublicoPage() {
         ? produtos
         : produtos.filter(p => p.categoria === categoriaFiltro)
 
-    function adicionarAoCarrinho(produto: Produto) {
-        const itemExistente = carrinho.find(item => item.id === produto.id)
+    function adicionarAoCarrinho(produto: Produto, variacao?: { id: string, nome: string, valor: number }) {
+        const uniqueId = variacao ? `${produto.id}-${variacao.id}` : produto.id
+        const itemExistente = carrinho.find(item => 
+            variacao ? (item.id === produto.id && item.variacao_id === variacao.id) : (item.id === produto.id && !item.variacao_id)
+        )
 
         if (itemExistente) {
-            setCarrinho(carrinho.map(item =>
-                item.id === produto.id
-                    ? { ...item, quantidade: item.quantidade + 1 }
-                    : item
-            ))
+            setCarrinho(carrinho.map(item => {
+                const isSame = variacao 
+                    ? (item.id === produto.id && item.variacao_id === variacao.id)
+                    : (item.id === produto.id && !item.variacao_id)
+                
+                return isSame ? { ...item, quantidade: item.quantidade + 1 } : item
+            }))
         } else {
-            setCarrinho([...carrinho, { ...produto, quantidade: 1 }])
+            const novoItem: ItemCarrinho = {
+                id: produto.id,
+                nome: produto.nome,
+                descricao: produto.descricao,
+                preco: variacao ? variacao.valor : produto.preco,
+                categoria: produto.categoria,
+                ativo: produto.ativo,
+                imagem_url: produto.imagem_url,
+                quantidade: 1,
+                variacao_id: variacao?.id,
+                variacao_nome: variacao?.nome
+            }
+            setCarrinho([...carrinho, novoItem])
         }
-        showToast('success', 'Adicionado ao carrinho', `${produto.nome} foi adicionado!`)
+        showToast('success', 'Adicionado ao carrinho', `${produto.nome}${variacao ? ` (${variacao.nome})` : ''} foi adicionado!`)
     }
 
-    function alterarQuantidade(produtoId: string, delta: number) {
+    function alterarQuantidade(itemUniqueKey: string, delta: number) {
+        // A chave única aqui é um pouco ambígua no modo atual, vamos usar o id + variacao_id se existir
         setCarrinho(carrinho.map(item => {
-            if (item.id === produtoId) {
+            const key = item.variacao_id ? `${item.id}-${item.variacao_id}` : item.id
+            if (key === itemUniqueKey) {
                 const novaQuantidade = item.quantidade + delta
                 return novaQuantidade > 0 ? { ...item, quantidade: novaQuantidade } : item
             }
@@ -394,8 +425,11 @@ export default function CardapioPublicoPage() {
         }).filter(item => item.quantidade > 0))
     }
 
-    function removerDoCarrinho(produtoId: string) {
-        setCarrinho(carrinho.filter(item => item.id !== produtoId))
+    function removerDoCarrinho(itemUniqueKey: string) {
+        setCarrinho(carrinho.filter(item => {
+             const key = item.variacao_id ? `${item.id}-${item.variacao_id}` : item.id
+             return key !== itemUniqueKey
+        }))
     }
 
     // Verifica o status do pedido antes de permitir adicionar itens
@@ -1048,7 +1082,9 @@ export default function CardapioPublicoPage() {
             vendas: p.vendas,
             rating: rate.toFixed(1),
             isTopSeller: topSellers.includes(p.id),
-            titulo_destaque: (p as any).titulo_destaque || 'Recomendação da Chefa ⭐'
+            titulo_destaque: (p as any).titulo_destaque || 'Recomendação da Chefa ⭐',
+            tem_variacoes: p.tem_variacoes,
+            variacoes_preco: p.variacoes_preco
         }
     })
 
@@ -1065,16 +1101,28 @@ export default function CardapioPublicoPage() {
     const highlights = kalMenuItems.filter(item => configuracao.produtos_destaque_bolha?.includes(item.id));
     const cartCount = carrinho.reduce((acc, item) => acc + item.quantidade, 0);
 
-    const handleAddToCartAnim = (item: any, event?: React.MouseEvent) => {
-        if (event && cartIconRef.current) {
-            const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-            const newAnim = { id: Date.now(), x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, image: item.image };
+    const triggerCartAnimation = (image: string, x: number, y: number) => {
+        if (cartIconRef.current) {
+            const newAnim = { id: Date.now(), x, y, image };
             setAnimations(prev => [...prev, newAnim]);
             setTimeout(() => setAnimations(prev => prev.filter(a => a.id !== newAnim.id)), 800);
         }
+    }
+
+    const handleAddToCartAnim = (item: any, event?: React.MouseEvent) => {
+        if (event) {
+            const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+            triggerCartAnimation(item.image, rect.left + rect.width / 2, rect.top + rect.height / 2);
+        }
 
         const produtoOriginal = produtos.find(p => p.id === item.id);
-        if (produtoOriginal) adicionarAoCarrinho(produtoOriginal);
+        if (produtoOriginal) {
+            if (produtoOriginal.tem_variacoes && produtoOriginal.variacoes_preco && produtoOriginal.variacoes_preco.length > 0) {
+                setProdutoParaVariacao(produtoOriginal);
+            } else {
+                adicionarAoCarrinho(produtoOriginal);
+            }
+        }
     }
 
     if (!isMounted) return null;
@@ -1364,7 +1412,8 @@ export default function CardapioPublicoPage() {
                 onClose={() => setMostrarCarrinho(false)}
                 cart={carrinho.map(item => ({
                     ...item,
-                    name: item.nome,
+                    id: item.variacao_id ? `${item.id}-${item.variacao_id}` : item.id,
+                    name: item.variacao_nome ? `${item.nome} (${item.variacao_nome})` : item.nome,
                     description: item.descricao || '',
                     price: item.preco,
                     category: item.categoria as any,
@@ -1601,6 +1650,62 @@ REGRAS FUNDAMENTAIS:
 4. Responda de forma acolhedora, moderna, com emojis discretos, e em poucas linhas.`}
                 menuItems={kalMenuItems}
             />
+
+            {/* Modal de Seleção de Variação */}
+            {produtoParaVariacao && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-neutral-900 border border-orange-500/30 w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="relative h-40">
+                            <img 
+                                src={produtoParaVariacao.imagem_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&h=300'} 
+                                alt={produtoParaVariacao.nome}
+                                className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-transparent to-transparent" />
+                            <button 
+                                onClick={() => setProdutoParaVariacao(null)}
+                                className="absolute top-4 right-4 bg-black/50 p-2 rounded-full text-white hover:bg-orange-600 transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6">
+                            <h3 className="text-xl font-bold text-white mb-1">{produtoParaVariacao.nome}</h3>
+                            <p className="text-sm text-neutral-400 mb-6">Escolha a opção desejada:</p>
+                            
+                            <div className="space-y-3">
+                                {produtoParaVariacao.variacoes_preco?.map((v) => (
+                                    <button
+                                        key={v.id}
+                                        onClick={(e) => {
+                                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                            triggerCartAnimation(produtoParaVariacao.imagem_url || '', rect.left + rect.width / 2, rect.top + rect.height/2);
+                                            adicionarAoCarrinho(produtoParaVariacao, v);
+                                            setProdutoParaVariacao(null);
+                                        }}
+                                        className="w-full flex items-center justify-between p-4 bg-neutral-800 hover:bg-orange-600/10 border border-neutral-700 hover:border-orange-500 transition-all rounded-2xl group active:scale-95 shadow-lg relative overflow-hidden"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-orange-500/0 via-orange-500/5 to-orange-500/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <span className="font-bold text-neutral-200 group-hover:text-white relative z-10">{v.nome}</span>
+                                        <div className="flex flex-col items-end relative z-10">
+                                            <span className="text-lg font-black text-orange-500 group-hover:text-orange-400">R$ {Number(v.valor).toFixed(2).replace('.', ',')}</span>
+                                            <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider group-hover:text-orange-500/60">Selecionar</span>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                            
+                            <button
+                                onClick={() => setProdutoParaVariacao(null)}
+                                className="mt-6 w-full py-3 text-neutral-500 font-bold hover:text-white transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

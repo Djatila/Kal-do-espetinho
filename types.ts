@@ -5,17 +5,25 @@ export enum Category {
   ACOMPANHAMENTOS = 'Acompanhamentos'
 }
 
+export interface PriceVariation {
+  id: string;
+  nome: string;
+  valor: number;
+}
+
 export interface MenuItem {
   id: string;
   name: string;
   description: string;
   price: number;
-  category: Category;
+  category: string; // Mudado de Category para string para maior flexibilidade
   image: string;
   popular?: boolean;
   vendas?: number;
   rating?: string;
   isTopSeller?: boolean;
+  tem_variacoes?: boolean;
+  variacoes_preco?: PriceVariation[];
 }
 
 export interface CartItem extends MenuItem {

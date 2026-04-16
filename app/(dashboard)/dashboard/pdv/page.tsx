@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
-import { Utensils, CupSoda, ShoppingBag, Plus, Minus, Search, ChevronDown, Check, Trash2, Store, Square, ArrowLeft } from 'lucide-react'
+import { Utensils, CupSoda, ShoppingBag, Plus, Minus, Search, ChevronDown, Check, Trash2, Store, Square, ArrowLeft, X } from 'lucide-react'
 import { useToast } from '@/components/ui/Toast'
 import styles from './page.module.css'
 import { sendOrderWebhook } from '@/utils/webhook'
@@ -15,10 +15,20 @@ interface Produto {
     preco: number
     categoria: string
     ativo: boolean
+    tem_variacoes?: boolean
+    variacoes_preco?: { id: string, nome: string, valor: number }[]
 }
 
-interface ItemComanda extends Produto {
+interface ItemComanda {
+    id: string
+    nome: string
+    descricao: string
+    preco: number
+    categoria: string
+    ativo: boolean
     quantidade: number
+    variacao_id?: string
+    variacao_nome?: string
 }
 
 interface Mesa {
@@ -87,6 +97,8 @@ export default function PDVPage() {
     // Estado para Gorjeta / Cota
     const [tipoExtra, setTipoExtra] = useState<'Gorjeta' | 'Cota Artística' | null>(null);
     const [extraValorInput, setExtraValorInput] = useState('');
+
+    const [produtoParaVariacao, setProdutoParaVariacao] = useState<Produto | null>(null)
 
     const renderBotoesExtra = () => (
         <div className="flex flex-col gap-2 my-2 w-full">
@@ -427,9 +439,11 @@ export default function PDVPage() {
         return <ShoppingBag size={24} className={styles.productIcon} />
     }
 
-    function alterarQuantidade(produto: Produto, delta: number) {
+    function adicionarAoItem(produto: Produto, delta: number, variacao?: { id: string, nome: string, valor: number }) {
         setComanda(prev => {
-            const itemExistenteIndex = prev.findIndex(item => item.id === produto.id)
+            const itemExistenteIndex = prev.findIndex(item => 
+                variacao ? (item.id === produto.id && item.variacao_id === variacao.id) : (item.id === produto.id && !item.variacao_id)
+            )
 
             if (itemExistenteIndex >= 0) {
                 const novaComanda = prev.map((item, idx) => 
@@ -439,9 +453,33 @@ export default function PDVPage() {
                 ).filter(item => item.quantidade > 0)
                 return novaComanda
             } else if (delta > 0) {
-                return [...prev, { ...produto, quantidade: 1 }]
+                const novoItem: ItemComanda = {
+                    id: produto.id,
+                    nome: produto.nome,
+                    descricao: produto.descricao,
+                    preco: variacao ? variacao.valor : produto.preco,
+                    categoria: produto.categoria,
+                    ativo: produto.ativo,
+                    quantidade: 1,
+                    variacao_id: variacao?.id,
+                    variacao_nome: variacao?.nome
+                }
+                return [...prev, novoItem]
             }
             return prev
+        })
+    }
+
+    function alterarQuantidade(item: ItemComanda, delta: number) {
+        setComanda(prev => {
+            return prev.map(i => {
+                const isSame = i.id === item.id && i.variacao_id === item.variacao_id
+                if (isSame) {
+                    const novaQuantidade = i.quantidade + delta
+                    return novaQuantidade > 0 ? { ...i, quantidade: novaQuantidade } : null
+                }
+                return i
+            }).filter((i): i is ItemComanda => i !== null)
         })
     }
 
@@ -506,10 +544,12 @@ export default function PDVPage() {
 
         const itens = comanda.map(item => ({
             id: item.id,
-            nome: item.nome,
+            nome: item.variacao_nome ? `${item.nome} (${item.variacao_nome})` : item.nome,
             quantidade: item.quantidade,
             preco: item.preco,
-            subtotal: item.preco * item.quantidade
+            subtotal: item.preco * item.quantidade,
+            variacao_id: item.variacao_id || null,
+            variacao_nome: item.variacao_nome || null
         }))
 
         const notasPDV = numeroMesa ? `MESA: ${numeroMesa}` : 'PDV Balcão'
@@ -755,10 +795,10 @@ export default function PDVPage() {
                 {comanda.length > 0 && (
                     <div className="flex flex-col gap-1 bg-zinc-800/80 rounded-xl px-3 py-2 border border-white/10 lg:hidden">
                         {comanda.map(item => (
-                            <div key={item.id} className="flex items-center justify-between text-sm">
+                            <div key={`${item.id}-${item.variacao_id || 'base'}`} className="flex items-center justify-between text-sm">
                                 <span className="text-zinc-400 w-6 shrink-0">{item.quantidade}x</span>
                                 <span className="text-white flex-1 truncate">
-                                    {item.nome}
+                                    {item.nome} {item.variacao_nome && `(${item.variacao_nome})`}
                                     <span className="text-zinc-500 text-[10px] ml-1">(R$ {item.preco.toFixed(0)})</span>
                                 </span>
                                 <span className="text-white font-semibold ml-2 shrink-0">R$ {(item.preco * item.quantidade).toFixed(0)}</span>
@@ -945,12 +985,20 @@ export default function PDVPage() {
 
                 <div className={styles.productsGrid}>
                     {filteredProdutos.map(produto => {
+                        const hasVariations = produto.tem_variacoes && produto.variacoes_preco && produto.variacoes_preco.length > 0
                         const qty = getQuantidade(produto.id)
+                        
                         return (
                             <div
                                 key={produto.id}
                                 className={`${styles.productCard} ${qty > 0 ? styles.selectedCard : ''}`}
-                                onClick={() => qty === 0 && alterarQuantidade(produto, 1)}
+                                onClick={() => {
+                                    if (hasVariations) {
+                                        setProdutoParaVariacao(produto)
+                                    } else {
+                                        adicionarAoItem(produto, 1)
+                                    }
+                                }}
                             >
                                 <div className={styles.productIconWrapper}>
                                     {getCategoryIcon(produto.categoria)}
@@ -958,24 +1006,33 @@ export default function PDVPage() {
                                 <div className={styles.productName}>{produto.nome}</div>
 
                                 <div className={styles.cardActionArea}>
-                                    <button
-                                        className={styles.qtyBtn}
-                                        onClick={(e) => { e.stopPropagation(); alterarQuantidade(produto, -1) }}
-                                        disabled={qty === 0}
-                                    >
-                                        <Minus size={14} />
-                                    </button>
+                                    {!hasVariations && (
+                                        <>
+                                            <button
+                                                className={styles.qtyBtn}
+                                                onClick={(e) => { e.stopPropagation(); adicionarAoItem(produto, -1) }}
+                                                disabled={qty === 0}
+                                            >
+                                                <Minus size={14} />
+                                            </button>
 
-                                    <div className={styles.priceDisplay}>
-                                        {qty === 0 ? `R$ ${produto.preco.toFixed(0)}` : qty}
-                                    </div>
+                                            <div className={styles.priceDisplay}>
+                                                {qty === 0 ? `R$ ${produto.preco.toFixed(0)}` : qty}
+                                            </div>
 
-                                    <button
-                                        className={styles.qtyBtn}
-                                        onClick={(e) => { e.stopPropagation(); alterarQuantidade(produto, 1) }}
-                                    >
-                                        <Plus size={14} />
-                                    </button>
+                                            <button
+                                                className={styles.qtyBtn}
+                                                onClick={(e) => { e.stopPropagation(); adicionarAoItem(produto, 1) }}
+                                            >
+                                                <Plus size={14} />
+                                            </button>
+                                        </>
+                                    )}
+                                    {hasVariations && (
+                                        <div className={styles.priceDisplay}>
+                                            Variável
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )
@@ -1051,15 +1108,20 @@ export default function PDVPage() {
                             <p className={styles.emptyCartText}>Nenhum item adicionado.</p>
                         )}
                         {comanda.map(item => (
-                            <div key={item.id} className={styles.resumoItem}>
+                            <div key={`${item.id}-${item.variacao_id || 'base'}`} className={styles.resumoItem}>
                                 <div className={styles.resumoItemQty}>{item.quantidade}x</div>
                                 <div className={styles.resumoItemName}>
-                                    {item.nome} <span className={styles.itemMuted}>(R$ {item.preco.toFixed(0)})</span>
+                                    {item.nome} {item.variacao_nome && `(${item.variacao_nome})`} <span className={styles.itemMuted}>(R$ {item.preco.toFixed(0)})</span>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1.5 bg-zinc-900 rounded p-1 mr-2">
+                                        <button onClick={() => alterarQuantidade(item, -1)} className="text-zinc-500 hover:text-white"><Minus size={12} /></button>
+                                        <span className="text-[10px] text-white font-bold w-3 text-center">{item.quantidade}</span>
+                                        <button onClick={() => alterarQuantidade(item, 1)} className="text-zinc-500 hover:text-white"><Plus size={12} /></button>
+                                    </div>
                                     <div className={styles.resumoItemPrice}>R$ {(item.preco * item.quantidade).toFixed(0)}</div>
                                     <button 
-                                        onClick={() => setComanda(prev => prev.filter(i => i.id !== item.id))}
+                                        onClick={() => setComanda(prev => prev.filter(i => i.id !== item.id || i.variacao_id !== item.variacao_id))}
                                         title="Remover Item"
                                         style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', opacity: 0.8, transition: 'opacity 0.2s' }}
                                         onMouseOver={(e) => e.currentTarget.style.opacity = '1'}
@@ -1227,6 +1289,50 @@ export default function PDVPage() {
                         >
                             <Plus size={20} className="sm:w-6 sm:h-6" />
                             Novo Atendimento
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal de Variações */}
+            {produtoParaVariacao && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
+                    <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-xl font-black text-white leading-tight">{produtoParaVariacao.nome}</h3>
+                                <p className="text-zinc-500 text-sm">Escolha uma opção abaixo:</p>
+                            </div>
+                            <button 
+                                onClick={() => setProdutoParaVariacao(null)}
+                                className="p-2 hover:bg-white/5 rounded-full text-zinc-500 transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-1">
+                            {produtoParaVariacao.variacoes_preco?.map(v => (
+                                <button
+                                    key={v.id}
+                                    onClick={() => {
+                                        adicionarAoItem(produtoParaVariacao, 1, v)
+                                        setProdutoParaVariacao(null)
+                                        showToast('success', 'Adicionado', `${produtoParaVariacao.nome} (${v.nome})`)
+                                    }}
+                                    className="flex items-center justify-between p-4 bg-white/5 hover:bg-orange-600/20 border border-white/5 hover:border-orange-500/50 rounded-xl transition-all group text-left"
+                                >
+                                    <span className="font-bold text-white group-hover:text-orange-400 transition-colors">{v.nome}</span>
+                                    <span className="text-orange-500 font-black">R$ {v.valor.toFixed(2)}</span>
+                                </button>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={() => setProdutoParaVariacao(null)}
+                            className="w-full mt-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-bold rounded-xl transition-colors"
+                        >
+                            Cancelar
                         </button>
                     </div>
                 </div>

@@ -41,7 +41,7 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
           </p>
           <div className="pr-10">
             <span className="text-base font-extrabold text-orange-400">
-              R$ {item.price.toFixed(2).replace('.', ',')}
+              {item.tem_variacoes ? 'Ver opções' : `R$ ${item.price.toFixed(2).replace('.', ',')}`}
             </span>
           </div>
         </div>
@@ -49,10 +49,10 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
         {/* Botão + canto inferior direito */}
         <button
           onClick={(e) => onAdd(item, e)}
-          className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-orange-600 hover:bg-orange-500 text-white flex items-center justify-center shadow-lg active:scale-95 transition-all"
-          aria-label={`Adicionar ${item.name}`}
+          className={`absolute bottom-3 right-3 h-9 rounded-full ${item.tem_variacoes ? 'px-3 bg-neutral-800 border border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white' : 'w-9 bg-orange-600 hover:bg-orange-500 text-white'} flex items-center justify-center shadow-lg active:scale-95 transition-all`}
+          aria-label={item.tem_variacoes ? 'Ver opções' : `Adicionar ${item.name}`}
         >
-          <Plus size={20} strokeWidth={3} />
+          {item.tem_variacoes ? <span className="text-[10px] font-bold uppercase tracking-wider">Escolher</span> : <Plus size={20} strokeWidth={3} />}
         </button>
       </div>
     );
@@ -83,10 +83,10 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
           {/* Botão de Carrinho Flutuante (Laranja Neon) */}
           <button
             onClick={(e) => onAdd(item, e)}
-            className="absolute bottom-2 right-2 bg-orange-600 hover:bg-orange-500 text-white p-2.5 rounded-xl shadow-lg transform transition-transform active:scale-95 flex items-center justify-center"
-            aria-label="Adicionar"
+            className={`absolute bottom-2 right-2 ${item.tem_variacoes ? 'px-3 h-8 bg-neutral-900 border border-orange-600 rounded-lg text-orange-500' : 'bg-orange-600 hover:bg-orange-500 text-white p-2.5 rounded-xl'} shadow-lg transform transition-transform active:scale-95 flex items-center justify-center`}
+            aria-label={item.tem_variacoes ? 'Escolher' : 'Adicionar'}
           >
-            <ShoppingCart size={18} fill="currentColor" />
+            {item.tem_variacoes ? <span className="text-[10px] font-bold uppercase">Escolher</span> : <ShoppingCart size={18} fill="currentColor" />}
           </button>
         </div>
 
@@ -101,7 +101,7 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
 
           <div className="flex items-center justify-between">
             <span className="text-base font-bold text-orange-500">
-              R$ {item.price.toFixed(2).replace('.', ',')}
+              {item.tem_variacoes ? 'Ver opções' : `R$ ${item.price.toFixed(2).replace('.', ',')}`}
             </span>
             <div className="flex items-center gap-1 text-xs text-neutral-400 font-bold">
               <Star size={12} className={item.isTopSeller ? "text-orange-500" : "text-yellow-400"} fill="currentColor" />
@@ -152,16 +152,20 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
 
         <div className="flex items-center justify-between mt-auto">
           <span className="text-xl font-bold text-orange-400">
-            R$ {item.price.toFixed(2).replace('.', ',')}
+            {item.tem_variacoes ? 'Ver opções' : `R$ ${item.price.toFixed(2).replace('.', ',')}`}
           </span>
 
           <button
             onClick={(e) => onAdd(item, e)}
-            className="flex items-center gap-1 bg-orange-600 hover:bg-orange-500 text-white px-3 py-2 rounded-lg transition-colors duration-200 active:scale-95 shadow-md"
-            aria-label={`Adicionar ${item.name} ao carrinho`}
+            className={`flex items-center gap-1 ${item.tem_variacoes ? 'bg-neutral-800 border border-orange-500 text-orange-500 hover:bg-orange-600 hover:text-white' : 'bg-orange-600 hover:bg-orange-500 text-white'} px-3 py-2 rounded-lg transition-colors duration-200 active:scale-95 shadow-md`}
+            aria-label={item.tem_variacoes ? 'Escolher opções' : `Adicionar ${item.name} ao carrinho`}
           >
-            <Plus size={18} />
-            <span className="text-sm font-semibold">Adicionar</span>
+            {item.tem_variacoes ? <span className="text-sm font-bold">Escolher</span> : (
+              <>
+                <Plus size={18} />
+                <span className="text-sm font-semibold">Adicionar</span>
+              </>
+            )}
           </button>
         </div>
       </div>
