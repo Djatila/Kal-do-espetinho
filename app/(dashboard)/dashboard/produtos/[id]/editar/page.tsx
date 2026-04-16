@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { ArrowLeft, X } from 'lucide-react'
-import Link from 'next/link'
 import { useToast } from '@/components/ui/Toast'
 import { Upload, ImageIcon } from 'lucide-react'
 
@@ -49,7 +48,7 @@ export default function EditarProdutoPage() {
 
         if (error) {
             showToast('error', 'Erro ao carregar', error.message)
-            router.push('/dashboard/produtos')
+            router.back()
         } else if (data) {
             setFormData({
                 nome: data.nome,
@@ -98,8 +97,7 @@ export default function EditarProdutoPage() {
             setLoading(false)
         } else {
             showToast('success', 'Produto atualizado!', 'As alterações foram salvas com sucesso.')
-            router.push('/dashboard/produtos')
-            router.refresh()
+            router.back()
         }
     }
 
@@ -140,11 +138,9 @@ export default function EditarProdutoPage() {
     return (
         <div className="flex flex-col gap-6 max-w-2xl mx-auto">
             <div className="flex items-center gap-4">
-                <Link href="/dashboard/produtos">
-                    <Button variant="ghost">
+                <Button variant="ghost" onClick={() => router.back()}>
                         <ArrowLeft size={20} />
                     </Button>
-                </Link>
                 <h1 className="text-2xl font-bold">Editar Produto</h1>
             </div>
 
@@ -349,9 +345,7 @@ export default function EditarProdutoPage() {
                         </div>
 
                         <div className="flex justify-end gap-4 mt-4">
-                            <Link href="/dashboard/produtos">
-                                <Button type="button" variant="secondary">Cancelar</Button>
-                            </Link>
+                            <Button type="button" variant="secondary" onClick={() => router.back()}>Cancelar</Button>
                             <Button type="submit" disabled={loading}>
                                 {loading ? 'Salvando...' : 'Salvar Alterações'}
                             </Button>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
@@ -10,16 +11,31 @@ import { useToast } from '@/components/ui/Toast'
 import { ConfirmModal } from '@/components/ui/ConfirmModal'
 
 export default function ProdutosPage() {
+    const router = useRouter()
+    const searchParams = useSearchParams()
+
     const [produtos, setProdutos] = useState<any[]>([])
     const [filteredProdutos, setFilteredProdutos] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
-    const [searchTerm, setSearchTerm] = useState('')
-    const [filterCategoria, setFilterCategoria] = useState('all')
-    const [filterStatus, setFilterStatus] = useState('all')
     const [deleteModalOpen, setDeleteModalOpen] = useState(false)
     const [productToDelete, setProductToDelete] = useState<string | null>(null)
     const supabase = createClient()
     const { showToast } = useToast()
+
+    // Filtros persistidos na URL
+    const searchTerm = searchParams.get('q') || ''
+    const filterCategoria = searchParams.get('categoria') || 'all'
+    const filterStatus = searchParams.get('status') || 'all'
+
+    function setFilter(key: string, value: string) {
+        const params = new URLSearchParams(searchParams.toString())
+        if (!value || value === 'all' || value === '') {
+            params.delete(key)
+        } else {
+            params.set(key, value)
+        }
+        router.replace(`/dashboard/produtos?${params.toString()}`, { scroll: false })
+    }
 
     async function loadProdutos() {
         setLoading(true)
@@ -130,13 +146,13 @@ export default function ProdutosPage() {
                                 placeholder="Buscar produto..."
                                 className="w-full pl-10 pr-3 py-2 border border-input rounded-md text-sm"
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                onChange={(e) => setFilter('q', e.target.value)}
                             />
                         </div>
                         <select
                             className="px-3 py-2 border border-input rounded-md text-sm"
                             value={filterCategoria}
-                            onChange={(e) => setFilterCategoria(e.target.value)}
+                            onChange={(e) => setFilter('categoria', e.target.value)}
                         >
                             <option value="all">Todas as categorias</option>
                             {categorias.map(cat => (
@@ -146,7 +162,7 @@ export default function ProdutosPage() {
                         <select
                             className="px-3 py-2 border border-input rounded-md text-sm"
                             value={filterStatus}
-                            onChange={(e) => setFilterStatus(e.target.value)}
+                            onChange={(e) => setFilter('status', e.target.value)}
                         >
                             <option value="all">Todos os status</option>
                             <option value="ativo">Ativos</option>
