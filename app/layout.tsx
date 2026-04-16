@@ -14,8 +14,6 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Kal do Espetinho",
     description: "Confira nosso cardápio completo e faça o seu pedido online!",
-    url: "https://kal-do-espetinho.vercel.app",
-    siteName: "Kal do Espetinho",
     images: [{ url: "https://kal-do-espetinho.vercel.app/og-logo.png?v=2", width: 800, height: 800, alt: "Kal do Espetinho Logo" }],
     type: "website",
   },
