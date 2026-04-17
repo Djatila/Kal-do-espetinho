@@ -32,33 +32,32 @@ Este arquivo serve como Memória de Longo Prazo para situar o assistente IA sobr
 
 ## 🚀 Estado Atual
 - **Cardápio Público:** Funcional com carrinho, sistema dual de cliente (Crédito/Informal) e suporte a complementos em tempo real.
-- **Admin Dashboard:** Kanban de pedidos funcional, editor de produtos, gestão de promoções e configurações globais.
-- **PDV (Atendente):** Refatorado para persistir aberto após adições, permitindo vendas rápidas em lote.
-- **Seleção de Sabores (Agrupamento):** Lógica inteligente implementada para fundir o mesmo sabor com múltiplos preços/tamanhos (ex: Sucos) em um único botão, com atualização dinâmica de valores na Sessão 2.
-- **UX/UI:** Implementado auto-rolagem (scroll) automática para as porções ao selecionar um sabor e limpeza visual do 'Total' até a conclusão do item.
-- **Realtime:** Implementado para novos pedidos (som de bip) e atualizações de status.
-- **IA:** Assistente Gemini integrado para suporte ao cliente no cardápio.
+- **Logística de Entrega:** Fluxo dinâmico implementado. O sistema agora diferencia "Pronto para Retirada" de "Pedido Pronto" (Delivery), e inclui o novo status "Saiu para entrega" com feedback visual no admin e cliente.
+- **Navegação e Categorias:** Corrigido o bug de visibilidade das categorias (Lost Start) e padronizado o termo "Todos". O menu agora é 100% responsivo e acessível.
+- **UX/UI Admin:** Adicionada animação `rubberBand` (pulo elástico) nos status dos pedidos para feedback tátil/visual de ações bem-sucedidas.
+- **Bug Fixes:** Resolvidos erros de tipagem TypeScript que afetavam o build na Vercel e corrigida a constraint do banco de dados no Supabase.
 
 ---
 
 ## 📋 Próximos Passos (Prioridades)
-1. **Refatoração:** Quebrar `app/cardapio/page.tsx` (>2000 linhas) em componentes menores.
-2. **Performance:** Otimizar carregamento de imagens e limites de cache (Vercel/CDN).
-3. **Dashboard:** Implementar relatórios financeiros mais detalhados baseados na tabela `fluxo_caixa`.
-4. **Fidelidade:** Planejar sistema de pontuação para clientes frequentes.
+1. **Monitoramento Logístico:** Validar o recebimento dos webhooks n8n para o novo status "Saiu para entrega".
+2. **Performance:** Otimizar carregamento de mídias e logos (fixação do logo circular).
+3. **Refatoração:** Concluir a modularização da `app/cardapio/page.tsx` para os novos subcomponentes criados.
+4. **Fidelidade:** Iniciar o planejamento do sistema de pontuação para clientes frequentes.
 
 ---
 
 ## 📏 Regras e Padrões
 - **Design:** Dark Mode como padrão, acentos em Laranja (`#f97316`), estética premium e "limpa", botões de fechar (X) com efeito Neon Orange.
+- **Animações:** Uso de `rubberBand` para gatilhos de status e `animate-bounce` para indicadores de quantidade (carrinho).
+- **Flexbox:** Evitar `justify-center` em listas horizontais com scroll para prevenir o bug de "Lost Start"; usar `justify-start` com padding adequado.
 - **Código:**
   - Componentes Funcionais com TypeScript.
-  - Preferência por `lucide-react` para ícones.
-  - Supabase: Uso de `createClient` (SSR/Browser) conforme o contexto.
+  - Tipagem rigorosa para `OrderStatus` (centralizar em `types.ts`).
   - Nomenclatura: PascalCase para componentes, camelCase para funções/variáveis.
 - **Banco de Dados:** Regras de negócio pesadas (totais, estatísticas) devem ser mantidas via Triggers no Supabase sempre que possível.
 - **Mobile First:** A maioria dos usuários acessa via celular; interações devem ser otimizadas para touch.
 
 ---
 
-*Última atualização: 2026-04-17 (Refinação de Lógica PDV e Agrupamento de Sabores)*
+*Última atualização: 2026-04-17 (Refinação de Status de Entrega, Animações Admin e Fix de Categorias)*
