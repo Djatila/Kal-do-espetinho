@@ -1707,21 +1707,62 @@ REGRAS FUNDAMENTAIS:
 
             {/* Modal de Seleção de Sabor / Porção */}
             {produtoParaVariacao && (() => {
-                // Normaliza opcoes para sempre ser objeto
-                const opcoesNorm: { nome: string, preco?: number }[] = Array.isArray((produtoParaVariacao as any).opcoes)
+                // Normaliza e agrupa opcoes dinamicamente
+                const opcoesRaw: { nome: string, preco?: number }[] = Array.isArray((produtoParaVariacao as any).opcoes)
                     ? (produtoParaVariacao as any).opcoes.map((o: any) => typeof o === 'string' ? { nome: o } : o)
-                    : []
+                    : [];
+
+                const opcoesMap = new Map<string, { nome: string, preco?: number, precos?: Record<string, number> }>();
+                const nomesVariacoesMap = (produtoParaVariacao.variacoes_preco || []).map((v: any) => ({
+                    original: v.nome,
+                    clean: v.nome.trim().toLowerCase()
+                }));
+
+                opcoesRaw.forEach(opt => {
+                    let baseName = opt.nome;
+                    let foundSizeOriginal: string | null = null;
+
+                    for (const size of nomesVariacoesMap) {
+                        const suffix = ' ' + size.clean;
+                        if (opt.nome.toLowerCase().trim().endsWith(suffix)) {
+                            const rawBase = opt.nome.toLowerCase().trim().replace(new RegExp(suffix + '$', 'i'), '').trim();
+                            // Capitalize first letter
+                            baseName = rawBase.charAt(0).toUpperCase() + rawBase.slice(1);
+                            foundSizeOriginal = size.original;
+                            break;
+                        }
+                    }
+
+                    if (foundSizeOriginal && opt.preco != null) {
+                        let existing = opcoesMap.get(baseName);
+                        if (!existing) {
+                            existing = { nome: baseName, precos: {} };
+                            opcoesMap.set(baseName, existing);
+                        }
+                        if (!existing.precos) existing.precos = {};
+                        existing.precos[foundSizeOriginal] = opt.preco;
+                    } else {
+                        opcoesMap.set(opt.nome, { ...opt });
+                    }
+                });
+
+                const opcoesNorm = Array.from(opcoesMap.values());
+
+                const optObj = opcaoInterna ? opcoesNorm.find(o => o.nome === opcaoInterna) : undefined;
+                const precosEspecificos = optObj?.precos || {};
+                const hasPrecosEspecificos = Object.keys(precosEspecificos).length > 0;
 
                 // Calcula preço a exibir em tempo real
-                const precoOpcao = opcaoInterna ? opcoesNorm.find(o => o.nome === opcaoInterna)?.preco : undefined
-                const precoVariacao = variacaoInterna?.valor
-                // Regra: preco do sabor > preco da porção > preco base
-                const precoFinal = precoOpcao ?? precoVariacao ?? produtoParaVariacao.preco
+                const precoOpcao = optObj?.preco;
+                const precoVariacao = variacaoInterna ? (precosEspecificos[variacaoInterna.nome] ?? variacaoInterna.valor) : undefined;
                 
-                const missingOpcao = produtoParaVariacao.tem_opcoes && opcoesNorm.length > 0 && !opcaoInterna
-                // Se o sabor selecionado já tem preço próprio, a porção é dispensada
-                const missingVariacao = produtoParaVariacao.tem_variacoes && !variacaoInterna && precoOpcao == null
-                const canAdd = !missingOpcao && !missingVariacao
+                // Regra: preco da variação > preco do sabor > preco base
+                const precoFinal = precoVariacao ?? precoOpcao ?? produtoParaVariacao.preco;
+                
+                const missingOpcao = produtoParaVariacao.tem_opcoes && opcoesNorm.length > 0 && !opcaoInterna;
+                // Se o sabor selecionado já tem preço próprio E não tem preços por variação, a porção é dispensada
+                const missingVariacao = produtoParaVariacao.tem_variacoes && !variacaoInterna && (precoOpcao == null || hasPrecosEspecificos);
+                const canAdd = !missingOpcao && !missingVariacao;
 
                 // Ordem dos passos: sabores primeiro, porções depois
                 const stepSabor = 1
@@ -1792,7 +1833,7 @@ REGRAS FUNDAMENTAIS:
                                                             opcaoInterna === opcao.nome ? 'text-white' : 'text-neutral-300'
                                                         }`}>{opcao.nome}</span>
                                                     </div>
-                                                    {opcao.preco != null && (
+                                                    {opcao.preco != null && !opcao.precos && (
                                                         <div className={`mt-2 ml-5 px-2 py-0.5 rounded-md text-[10px] font-black tracking-tighter w-fit shadow-lg ${
                                                             opcaoInterna === opcao.nome 
                                                                 ? 'bg-purple-500 text-white animate-pulse' 
@@ -1807,15 +1848,17 @@ REGRAS FUNDAMENTAIS:
                                     </div>
                                 )}
 
-                                {/* ── PORÇÕES / TAMANHOS — só exibe se o sabor não tem preço próprio ── */}
-                                {produtoParaVariacao.tem_variacoes && produtoParaVariacao.variacoes_preco && precoOpcao == null && (
+                                {/* ── PORÇÕES / TAMANHOS — só exibe se o sabor não tem preço próprio, ou se tiver config "precos" ── */}
+                                {produtoParaVariacao.tem_variacoes && produtoParaVariacao.variacoes_preco && (precoOpcao == null || hasPrecosEspecificos) && (
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between">
                                             <p className="text-[11px] font-black text-orange-500 uppercase tracking-widest">{stepPorcao}. Escolha a Porção</p>
                                             {missingVariacao && <span className="text-[9px] bg-orange-500/10 text-orange-500 px-2 py-0.5 rounded-full animate-pulse font-bold">Obrigatório</span>}
                                         </div>
                                         <div className="flex flex-col gap-2">
-                                            {produtoParaVariacao.variacoes_preco.map((v) => (
+                                            {produtoParaVariacao.variacoes_preco.map((v) => {
+                                                const precoV = precosEspecificos[v.nome] ?? v.valor;
+                                                return (
                                                 <button
                                                     key={v.id}
                                                     onClick={() => setVariacaoInterna(v)}
@@ -1835,9 +1878,10 @@ REGRAS FUNDAMENTAIS:
                                                             variacaoInterna?.id === v.id ? 'text-white' : 'text-neutral-300'
                                                         }`}>{v.nome}</span>
                                                     </div>
-                                                    <span className="text-sm font-black text-orange-500">R$ {Number(v.valor).toFixed(2).replace('.', ',')}</span>
+                                                    <span className="text-sm font-black text-orange-500">R$ {Number(precoV).toFixed(2).replace('.', ',')}</span>
                                                 </button>
-                                            ))}
+                                                )
+                                            })}
                                         </div>
                                     </div>
                                 )}
@@ -1846,7 +1890,7 @@ REGRAS FUNDAMENTAIS:
                             {/* Botão de Adicionar com preview de preço */}
                             <div className="px-5 pb-5 pt-3 bg-neutral-900 border-t border-neutral-800 flex flex-col gap-2">
                                 {/* Preview de preço */}
-                                {(opcaoInterna || variacaoInterna) && (
+                                {canAdd && (
                                     <div className="flex items-center justify-between bg-neutral-800/60 rounded-xl px-4 py-2">
                                         <span className="text-xs text-neutral-500 font-bold uppercase tracking-wider">Total por item</span>
                                         <span className="text-lg font-black text-orange-400">R$ {Number(precoFinal).toFixed(2).replace('.', ',')}</span>
@@ -1860,8 +1904,8 @@ REGRAS FUNDAMENTAIS:
                                         
                                         // Passa o preço correto já calculado
                                         const variacaoFinal = variacaoInterna 
-                                            ? (precoOpcao != null ? { ...variacaoInterna, valor: precoOpcao } : variacaoInterna)
-                                            : (precoOpcao != null ? { id: 'opcao', nome: '', valor: precoOpcao } : undefined)
+                                            ? { ...variacaoInterna, valor: precoVariacao }
+                                            : (precoOpcao != null ? { id: 'opcao', nome: '', valor: precoOpcao } : undefined);
                                         
                                         adicionarAoCarrinho(
                                             { ...produtoParaVariacao, preco: precoFinal },

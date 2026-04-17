@@ -1436,10 +1436,63 @@ export default function PDVPage() {
             )}
 
             {/* Modal de Variações e Sabores */}
-            {produtoParaVariacao && (
+            {produtoParaVariacao && (() => {
+                const opcoesRaw: { nome: string, preco?: number }[] = Array.isArray((produtoParaVariacao as any).opcoes)
+                    ? (produtoParaVariacao as any).opcoes.map((o: any) => typeof o === 'string' ? { nome: o } : o)
+                    : [];
+
+                const opcoesMap = new Map<string, { nome: string, preco?: number, precos?: Record<string, number> }>();
+                const nomesVariacoesMap = (produtoParaVariacao.variacoes_preco || []).map((v: any) => ({
+                    original: v.nome,
+                    clean: v.nome.trim().toLowerCase()
+                }));
+
+                opcoesRaw.forEach(opt => {
+                    let baseName = opt.nome;
+                    let foundSizeOriginal: string | null = null;
+
+                    for (const size of nomesVariacoesMap) {
+                        const suffix = ' ' + size.clean;
+                        if (opt.nome.toLowerCase().trim().endsWith(suffix)) {
+                            const rawBase = opt.nome.toLowerCase().trim().replace(new RegExp(suffix + '$', 'i'), '').trim();
+                            // Capitalize first letter
+                            baseName = rawBase.charAt(0).toUpperCase() + rawBase.slice(1);
+                            foundSizeOriginal = size.original;
+                            break;
+                        }
+                    }
+
+                    if (foundSizeOriginal && opt.preco != null) {
+                        let existing = opcoesMap.get(baseName);
+                        if (!existing) {
+                            existing = { nome: baseName, precos: {} };
+                            opcoesMap.set(baseName, existing);
+                        }
+                        if (!existing.precos) existing.precos = {};
+                        existing.precos[foundSizeOriginal] = opt.preco;
+                    } else {
+                        opcoesMap.set(opt.nome, { ...opt });
+                    }
+                });
+
+                const opcoesNorm = Array.from(opcoesMap.values());
+                
+                const optObj = opcaoSelecionadaPDV ? opcoesNorm.find(o => o.nome === opcaoSelecionadaPDV) : undefined;
+                const precosEspecificos = optObj?.precos || {};
+                const hasPrecosEspecificos = Object.keys(precosEspecificos).length > 0;
+                
+                const precoOpcao = optObj?.preco;
+                const missingOpcao = produtoParaVariacao.tem_opcoes && opcoesNorm.length > 0 && !opcaoSelecionadaPDV;
+                const missingVariacao = produtoParaVariacao.tem_variacoes && !variacaoSelecionadaPDV && (precoOpcao == null || hasPrecosEspecificos);
+                const canAdd = !missingOpcao && !missingVariacao;
+
+                const stepSabor = 1;
+                const stepPorcao = produtoParaVariacao.tem_opcoes ? 2 : 1;
+
+                return (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-                        <div className="flex justify-between items-center mb-6">
+                    <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl flex flex-col max-h-[92vh]">
+                        <div className="flex justify-between items-center mb-6 shrink-0">
                             <div>
                                 <h3 className="text-xl font-black text-white leading-tight">{produtoParaVariacao.nome}</h3>
                                 <p className="text-zinc-500 text-sm">Configure o item abaixo:</p>
@@ -1450,31 +1503,34 @@ export default function PDVPage() {
                                     setOpcaoSelecionadaPDV(null)
                                     setVariacaoSelecionadaPDV(null)
                                 }}
-                                className="p-2 hover:bg-white/5 rounded-full text-zinc-500 transition-colors"
+                                className="p-2 hover:bg-orange-600 rounded-full text-white bg-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.8)] transition-all active:scale-95"
                             >
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div className="flex flex-col gap-6 max-h-[60vh] overflow-y-auto pr-1">
+                        <div className="flex flex-col gap-6 overflow-y-auto pr-1 flex-1 min-h-[40vh] custom-scrollbar">
                             {/* Sabores */}
-                            {produtoParaVariacao.tem_opcoes && produtoParaVariacao.opcoes?.opcoes && (
+                            {produtoParaVariacao.tem_opcoes && opcoesNorm.length > 0 && (
                                 <div className="space-y-3">
-                                    <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">1. Escolha o Sabor</p>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest">{stepSabor}. Escolha o Sabor</p>
+                                        {missingOpcao && <span className="text-[9px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full animate-pulse font-bold">Obrigatório</span>}
+                                    </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        {produtoParaVariacao.opcoes.opcoes.map((opt: any) => (
+                                        {opcoesNorm.map((opt: any) => (
                                             <button
                                                 key={opt.nome}
                                                 onClick={() => setOpcaoSelecionadaPDV(opt.nome)}
-                                                className={`p-3 rounded-xl border text-sm font-bold transition-all ${
+                                                className={`p-3 rounded-xl border text-sm font-bold transition-all text-left flex flex-col gap-1 ${
                                                     opcaoSelecionadaPDV === opt.nome 
                                                         ? 'bg-purple-600/20 border-purple-500 text-white' 
                                                         : 'bg-white/5 border-white/5 text-zinc-400 hover:border-white/20'
                                                 }`}
                                             >
-                                                {opt.nome}
-                                                {opt.preco != null && (
-                                                    <div className="text-[9px] text-purple-400 mt-1">
+                                                <span>{opt.nome}</span>
+                                                {opt.preco != null && !opt.precos && (
+                                                    <div className="text-[9px] text-purple-400">
                                                         + R$ {Number(opt.preco).toFixed(2)}
                                                     </div>
                                                 )}
@@ -1484,14 +1540,19 @@ export default function PDVPage() {
                                 </div>
                             )}
 
-                            {/* Variações / Tamanhos (Só exibe se o sabor selecionado não tem preço fixo) */}
-                            {produtoParaVariacao.tem_variacoes && produtoParaVariacao.variacoes_preco && (
+                            {/* Variações / Tamanhos */}
+                            {produtoParaVariacao.tem_variacoes && produtoParaVariacao.variacoes_preco && (precoOpcao == null || hasPrecosEspecificos) && (
                                 <div className="space-y-3">
-                                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
-                                        {produtoParaVariacao.tem_opcoes ? '2. Escolha o Tamanho' : 'Escolha a Opção'}
-                                    </p>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
+                                            {stepPorcao}. {produtoParaVariacao.tem_opcoes ? 'Escolha o Tamanho' : 'Escolha a Opção'}
+                                        </p>
+                                        {missingVariacao && <span className="text-[9px] bg-orange-500/10 text-orange-400 px-2 py-0.5 rounded-full animate-pulse font-bold">Obrigatório</span>}
+                                    </div>
                                     <div className="flex flex-col gap-2">
-                                        {produtoParaVariacao.variacoes_preco.map(v => (
+                                        {produtoParaVariacao.variacoes_preco.map(v => {
+                                            const precoV = precosEspecificos[v.nome] ?? v.valor;
+                                            return (
                                             <button
                                                 key={v.id}
                                                 onClick={() => setVariacaoSelecionadaPDV(v)}
@@ -1502,46 +1563,47 @@ export default function PDVPage() {
                                                 }`}
                                             >
                                                 <span className="font-bold">{v.nome}</span>
-                                                <span className="text-orange-500 font-black">R$ {v.valor.toFixed(2)}</span>
+                                                <span className="text-orange-500 font-black">R$ {precoV.toFixed(2)}</span>
                                             </button>
-                                        ))}
+                                            )
+                                        })}
                                     </div>
                                 </div>
                             )}
                         </div>
 
-                        <div className="mt-8 pt-4 border-t border-white/5 space-y-3">
+                        <div className="mt-6 pt-4 border-t border-white/5 space-y-4 shrink-0">
                             {/* Resumo de Preço */}
-                            <div className="flex items-center justify-between">
-                                <span className="text-zinc-500 text-sm font-bold">Total do Item:</span>
-                                <span className="text-2xl font-black text-white">
-                                    R$ {(() => {
-                                        const opt = produtoParaVariacao.opcoes?.opcoes?.find((o:any) => o.nome === opcaoSelecionadaPDV);
-                                        if (opt?.preco != null) return Number(opt.preco).toFixed(2);
-                                        if (variacaoSelecionadaPDV) return variacaoSelecionadaPDV.valor.toFixed(2);
-                                        return produtoParaVariacao.preco.toFixed(2);
-                                    })()}
-                                </span>
-                            </div>
+                            {canAdd && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-zinc-500 text-sm font-bold">Total do Item:</span>
+                                    <span className="text-2xl font-black text-white">
+                                        R$ {(() => {
+                                            if (variacaoSelecionadaPDV) return (precosEspecificos[variacaoSelecionadaPDV.nome] ?? variacaoSelecionadaPDV.valor).toFixed(2);
+                                            if (precoOpcao != null) return Number(precoOpcao).toFixed(2);
+                                            return produtoParaVariacao.preco.toFixed(2);
+                                        })()}
+                                    </span>
+                                </div>
+                            )}
 
                             <button
+                                disabled={!canAdd}
                                 onClick={() => {
-                                    const optObj = produtoParaVariacao.opcoes?.opcoes?.find((o:any) => o.nome === opcaoSelecionadaPDV);
-                                    const finalPrice = optObj?.preco != null ? Number(optObj.preco) 
-                                                     : variacaoSelecionadaPDV ? variacaoSelecionadaPDV.valor 
-                                                     : produtoParaVariacao.preco;
+                                    const finalPrice = variacaoSelecionadaPDV 
+                                                     ? (precosEspecificos[variacaoSelecionadaPDV.nome] ?? variacaoSelecionadaPDV.valor)
+                                                     : (precoOpcao != null ? Number(precoOpcao) : produtoParaVariacao.preco);
 
-                                    // Adicionar o item com os metadados corretos
+                                    const optRealNome = opcaoSelecionadaPDV || undefined;
                                     const itemComanda: any = {
                                         ...produtoParaVariacao,
                                         preco: finalPrice,
-                                        opcao_selecionada: opcaoSelecionadaPDV || undefined,
+                                        opcao_selecionada: optRealNome,
                                         variacao_id: variacaoSelecionadaPDV?.id,
                                         variacao_nome: variacaoSelecionadaPDV?.nome
                                     };
-
+                                    
                                     setComanda(prev => {
-                                        // Busca item identico (mesmo id, sabor e variação)
                                         const idx = prev.findIndex(i => 
                                             i.id === itemComanda.id && 
                                             i.opcao_selecionada === itemComanda.opcao_selecionada && 
@@ -1554,15 +1616,17 @@ export default function PDVPage() {
                                         return [...prev, { ...itemComanda, quantidade: 1 }];
                                     });
 
-                                    setProdutoParaVariacao(null);
                                     setOpcaoSelecionadaPDV(null);
                                     setVariacaoSelecionadaPDV(null);
                                     showToast('success', 'Adicionado!', `${produtoParaVariacao.nome}`);
                                 }}
-                                disabled={(produtoParaVariacao.tem_opcoes && !opcaoSelecionadaPDV) || (produtoParaVariacao.tem_variacoes && !variacaoSelecionadaPDV && !(produtoParaVariacao.opcoes?.opcoes?.find((o:any) => o.nome === opcaoSelecionadaPDV)?.preco != null))}
-                                className="w-full py-4 bg-orange-600 hover:bg-orange-700 disabled:opacity-30 disabled:cursor-not-allowed text-white font-black rounded-xl transition-all shadow-lg shadow-orange-600/20 active:scale-95"
+                                className={`w-full py-4 rounded-xl font-black text-lg transition-all ${
+                                    canAdd 
+                                        ? 'bg-orange-600 hover:bg-orange-500 text-white shadow-lg active:scale-95' 
+                                        : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
+                                }`}
                             >
-                                ADICIONAR À COMANDA
+                                {canAdd ? 'ADICIONAR À COMANDA' : (missingOpcao ? 'ESCOLHA O SABOR' : 'ESCOLHA O TAMANHO')}
                             </button>
                             
                             <button
@@ -1578,7 +1642,8 @@ export default function PDVPage() {
                         </div>
                     </div>
                 </div>
-            )}
+                );
+            })()}
         </div>
     )
 }
