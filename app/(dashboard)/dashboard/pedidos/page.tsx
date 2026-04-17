@@ -36,7 +36,7 @@ interface Pedido {
     taxa_entrega: number
     total: number
     observacoes: string | null
-    status: 'pendente' | 'confirmado' | 'preparando' | 'pronto' | 'entregue' | 'cancelado'
+    status: 'pendente' | 'confirmado' | 'preparando' | 'pronto' | 'saiu_para_entrega' | 'entregue' | 'cancelado'
     created_at: string
     updated_at: string
     garcom_nome?: string | null
