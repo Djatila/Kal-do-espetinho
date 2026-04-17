@@ -33,23 +33,24 @@ Este arquivo serve como Memória de Longo Prazo para situar o assistente IA sobr
 ## 🚀 Estado Atual
 - **Cardápio Público:** Funcional com carrinho, sistema dual de cliente (Crédito/Informal) e suporte a complementos em tempo real.
 - **Admin Dashboard:** Kanban de pedidos funcional, editor de produtos, gestão de promoções e configurações globais.
+- **PDV (Atendente):** Refatorado para persistir aberto após adições, permitindo vendas rápidas em lote.
+- **Seleção de Sabores (Agrupamento):** Lógica inteligente implementada para fundir o mesmo sabor com múltiplos preços/tamanhos (ex: Sucos) em um único botão, com atualização dinâmica de valores na Sessão 2.
+- **UX/UI:** Implementado auto-rolagem (scroll) automática para as porções ao selecionar um sabor e limpeza visual do 'Total' até a conclusão do item.
 - **Realtime:** Implementado para novos pedidos (som de bip) e atualizações de status.
 - **IA:** Assistente Gemini integrado para suporte ao cliente no cardápio.
-- **Recente:** Correção de logos circulares para compartilhamento social (WhatsApp) e tags Open Graph.
 
 ---
 
 ## 📋 Próximos Passos (Prioridades)
 1. **Refatoração:** Quebrar `app/cardapio/page.tsx` (>2000 linhas) em componentes menores.
-2. **Precificação:** Finalizar sistema de preços baseado em sabores/variações premium.
-3. **UX/UI:** Polimento no modal de seleção de opções e transições mobile.
-4. **Performance:** Otimizar carregamento de imagens e limites de cache (Vercel/CDN).
-5. **Dashboard:** Implementar relatórios financeiros mais detalhados baseados na tabela `fluxo_caixa`.
+2. **Performance:** Otimizar carregamento de imagens e limites de cache (Vercel/CDN).
+3. **Dashboard:** Implementar relatórios financeiros mais detalhados baseados na tabela `fluxo_caixa`.
+4. **Fidelidade:** Planejar sistema de pontuação para clientes frequentes.
 
 ---
 
 ## 📏 Regras e Padrões
-- **Design:** Dark Mode como padrão, acentos em Laranja (`#f97316`), estética premium e "limpa".
+- **Design:** Dark Mode como padrão, acentos em Laranja (`#f97316`), estética premium e "limpa", botões de fechar (X) com efeito Neon Orange.
 - **Código:**
   - Componentes Funcionais com TypeScript.
   - Preferência por `lucide-react` para ícones.
@@ -60,4 +61,4 @@ Este arquivo serve como Memória de Longo Prazo para situar o assistente IA sobr
 
 ---
 
-*Última atualização: 2026-04-17*
+*Última atualização: 2026-04-17 (Refinação de Lógica PDV e Agrupamento de Sabores)*

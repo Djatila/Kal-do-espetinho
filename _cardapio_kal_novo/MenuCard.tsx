@@ -6,9 +6,10 @@ interface MenuCardProps {
   item: MenuItem;
   onAdd: (item: MenuItem, event: React.MouseEvent) => void;
   variant?: 'standard' | 'minimal' | 'lista';
+  customBadge?: string;
 }
 
-const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }) => {
+const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard', customBadge }) => {
 
   // === ESTILO LISTA (HORIZONTAL - COR LARANJA NEON KAL) ===
   if (variant === 'lista') {
@@ -28,14 +29,22 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard' }
 
         {/* Conteúdo central */}
         <div className="flex-1 py-3 pr-4 min-w-0">
-          {item.isTopSeller && (
-            <span className="inline-block bg-gradient-to-r from-red-600 to-orange-500 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider mb-1 shadow-sm">
-              O Mais Vendido 🔥
+          {(customBadge || item.isTopSeller) && (
+            <span className={`inline-flex items-center gap-1 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider mb-1 shadow-sm ${customBadge ? 'bg-gradient-to-r from-amber-600 to-yellow-500' : 'bg-gradient-to-r from-red-600 to-orange-500'}`}>
+              {customBadge ? <><Star size={8} fill="currentColor" /> {customBadge}</> : 'O MAIS VENDIDO 🔥'}
             </span>
           )}
-          <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors pr-2">
-            {item.name}
-          </h3>
+          <div className="flex justify-between items-start pr-2">
+            <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors">
+              {item.name}
+            </h3>
+            {item.rating && (
+              <div className="flex items-center gap-1 text-[10px] text-neutral-400 font-bold ml-2 shrink-0">
+                <Star size={10} className="text-yellow-400" fill="currentColor" />
+                {item.rating}
+              </div>
+            )}
+          </div>
           <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed mb-2 pr-10">
             {item.description}
           </p>

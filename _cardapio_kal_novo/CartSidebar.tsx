@@ -18,6 +18,7 @@ interface CartSidebarProps {
   limiteCredito?: number;
   creditoUtilizado?: number;
   isComplement?: boolean;
+  complementOrderNumber?: number | null;
   initialPaymentMethod?: string;
 }
 
@@ -37,6 +38,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
   limiteCredito = 0,
   creditoUtilizado = 0,
   isComplement = false,
+  complementOrderNumber = null,
   initialPaymentMethod = ''
 }) => {
   // Estado do formulário
@@ -214,7 +216,7 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
         <div className="p-5 border-b border-neutral-800 flex justify-between items-center bg-neutral-950 shrink-0">
           <h2 className="text-xl font-display font-bold text-orange-500 flex items-center gap-2">
             <ShoppingBag className="text-orange-500" />
-            Finalizar Pedido
+            {isComplement ? `Adicionar ao Pedido #${complementOrderNumber}` : 'Finalizar Pedido'}
           </h2>
           <button onClick={onClose} className="text-neutral-400 hover:text-white transition-colors"><X size={24} /></button>
         </div>
@@ -470,10 +472,10 @@ const CartSidebar: React.FC<CartSidebarProps> = ({
             <button
               onClick={handleCheckout}
               disabled={isSubmitting}
-              className="w-full bg-orange-600 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-neon hover:shadow-neon-strong mt-2"
+              className={`w-full ${isComplement ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'} disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-neon hover:shadow-neon-strong mt-2`}
             >
               {isSubmitting ? 'Enviando...' : (
-                <><Send size={20} /> Finalizar Pedido</>
+                <><Send size={20} /> {isComplement ? `ADICIONAR AO PEDIDO #${complementOrderNumber}` : 'FINALIZAR PEDIDO'}</>
               )}
             </button>
           </div>

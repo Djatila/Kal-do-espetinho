@@ -1,0 +1,233 @@
+.confirmacao {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.85);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.3s ease;
+    overflow-y: auto;
+}
+
+.confirmacaoCard {
+    background-color: #1e2633;
+    border-radius: 1.75rem;
+    width: 100%;
+    max-width: 440px;
+    max-height: 95vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    animation: scaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Esconde a scrollbar mas mantém a funcionalidade */
+.confirmacaoCard::-webkit-scrollbar { display: none; }
+.confirmacaoCard { -ms-overflow-style: none; scrollbar-width: none; }
+
+.contentBody {
+    padding: 1.25rem 1.25rem 1rem;
+    text-align: center;
+}
+
+.confirmacaoIcone {
+    width: 52px;
+    height: 52px;
+    background-color: transparent;
+    color: #22c55e;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 0.6rem;
+    border: 2.5px solid #22c55e;
+}
+
+.confirmacaoCard h1 {
+    font-size: 1.8rem;
+    margin: 0 0 0.85rem 0;
+    color: #ffffff;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+}
+
+.pedidoHeaderBox {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0.5rem 0 0.85rem;
+    padding: 0.75rem 1rem;
+    background-color: #28303e;
+    border-radius: 1rem;
+    border: 2px dashed #f59e0b;
+    box-shadow: 0 0 16px rgba(245, 158, 11, 0.08);
+}
+
+.numeroPedido {
+    font-size: 1.3rem;
+    margin: 0;
+    color: #f59e0b;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.numeroPedido strong {
+    font-weight: 800;
+}
+
+.botaoAdicionar {
+    padding: 0.55rem 1rem;
+    background: linear-gradient(135deg, #ffc107, #ff9800);
+    color: #000;
+    border: none;
+    border-radius: 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.botaoAdicionar:hover {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+}
+
+.instrucaoTexto {
+    color: #ffffff;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+    font-weight: 400;
+}
+
+.textoEntrega {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    margin-bottom: 0.85rem;
+}
+
+.limiteCard {
+    background-color: #161c27;
+    padding: 0.75rem 1rem;
+    border-radius: 0.85rem;
+    margin: 0 auto 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    width: 100%;
+}
+
+.limiteLabel {
+    color: #94a3b8;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+.limiteValor {
+    color: #22c55e;
+    font-size: 1.25rem;
+    font-weight: 800;
+}
+
+.botaoNovoPedido {
+    width: 100%;
+    padding: 0.8rem;
+    background: linear-gradient(135deg, #22c55e, #10b981);
+    color: #ffffff;
+    font-weight: 900;
+    font-size: 1rem;
+    border: none;
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
+    margin-bottom: 0.75rem;
+}
+
+.botaoNovoPedido:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(16, 185, 129, 0.4);
+    filter: brightness(1.1);
+}
+
+.botaoCancelar {
+    width: 100%;
+    padding: 0.8rem;
+    background-color: #2a1e24;
+    color: #ff4b4b;
+    font-weight: 800;
+    font-size: 0.92rem;
+    border: 1px solid #3f262b;
+    border-radius: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+}
+
+.botaoCancelar:hover {
+    background-color: #35252d;
+    border-color: #ff4b4b;
+}
+
+.statusFooter {
+    background-color: #232a35;
+    padding: 0.85rem 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.statusLabel {
+    color: #8c909a;
+    font-size: 0.82rem;
+    margin: 0;
+    padding: 0;
+}
+
+.statusIndicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1.25rem;
+    background: rgba(245, 158, 11, 0.05);
+    border: 1px solid #c08b49;
+    border-radius: 2rem;
+    color: #f59e0b;
+    font-weight: 800;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+}

@@ -15,6 +15,7 @@ interface ItemPedido {
     quantidade: number
     preco: number
     subtotal: number
+    novo?: boolean
 }
 
 interface Pedido {
@@ -54,6 +55,7 @@ const STATUS_CONFIG = {
     confirmado: { label: 'Confirmado', color: '#3b82f6', icon: CheckCircle },
     preparando: { label: 'Preparando', color: '#8b5cf6', icon: Package },
     pronto: { label: 'Pronto', color: '#22c55e', icon: CheckCircle },
+    saiu_para_entrega: { label: 'Saiu p/ Entrega', color: '#ec4899', icon: Truck },
     entregue: { label: 'Entregue', color: '#10b981', icon: Truck },
     cancelado: { label: 'Cancelado', color: '#ef4444', icon: XCircle }
 }
@@ -310,9 +312,16 @@ export default function PedidosPage() {
                             .maybeSingle()
                             .then(({ data }) => {
                                 if (data) {
+                                    console.log(`✅ Dados atualizados do Pedido #${data.numero_pedido} recebidos. Itens:`, data.itens?.length);
                                     setPedidos(prev => prev.map(p => p.id === data.id ? data as Pedido : p))
-                                    // Also update selected modal if open
-                                    setPedidoSelecionado(prev => prev?.id === data.id ? data as Pedido : prev)
+                                    // REFORÇO: Forçar atualização do modal selecionado com uma nova referência de objeto
+                                    setPedidoSelecionado(prev => {
+                                        if (prev?.id === data.id) {
+                                            console.log('🔄 Atualizando modal aberto com novos dados...');
+                                            return { ...data } as Pedido;
+                                        }
+                                        return prev;
+                                    });
                                 }
                             })
                     } else if (payload.eventType === 'DELETE') {
@@ -554,10 +563,16 @@ export default function PedidosPage() {
         })
     }
 
-    function getProximoStatus(statusAtual: Pedido['status']): Pedido['status'] | null {
-        const fluxo: Pedido['status'][] = ['pendente', 'confirmado', 'preparando', 'pronto', 'entregue']
+    function getProximoStatus(pedido: Pedido): Pedido['status'] | null {
+        const statusAtual = pedido.status
+        let fluxo: Pedido['status'][] = ['pendente', 'confirmado', 'preparando', 'pronto', 'entregue']
+        
+        if (pedido.tipo_entrega === 'delivery') {
+            fluxo = ['pendente', 'confirmado', 'preparando', 'pronto', 'saiu_para_entrega', 'entregue']
+        }
+
         const indiceAtual = fluxo.indexOf(statusAtual)
-        return indiceAtual < fluxo.length - 1 ? fluxo[indiceAtual + 1] : null
+        return indiceAtual !== -1 && indiceAtual < fluxo.length - 1 ? fluxo[indiceAtual + 1] : null
     }
 
     function imprimirPedido(pedido: Pedido) {
@@ -773,7 +788,7 @@ export default function PedidosPage() {
                     </div>
                     ${pedido.itens.map(item => `
                         <div class="infoItem">
-                            <span>${item.quantidade}x ${item.nome}</span>
+                            <span>${item.quantidade}x ${item.nome}${item.novo ? ' <strong style="color: #10b981">[NOVO]</strong>' : ''}</span>
                             <span>R$ ${item.subtotal.toFixed(2)}</span>
                         </div>
                     `).join('')}
@@ -923,7 +938,7 @@ export default function PedidosPage() {
                         const statusKey = pedido.status || 'pendente'
                         const currentStatusConfig = STATUS_CONFIG[statusKey as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.pendente
                         const StatusIcon = currentStatusConfig.icon
-                        const proximoStatus = getProximoStatus(pedido.status)
+                        const proximoStatus = getProximoStatus(pedido)
 
                         return (
                             <div
@@ -952,7 +967,8 @@ export default function PedidosPage() {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         {!(pedido.status === 'cancelado' && pedido.observacoes === 'Cancelado pelo cliente') && (
                                             <div
-                                                className={styles.statusBadge}
+                                                key={`${pedido.id}-${pedido.status}`}
+                                                className={clsx(styles.statusBadge, styles.statusBadgeAnimated)}
                                                 style={{
                                                     backgroundColor: `${currentStatusConfig.color}20`,
                                                     color: currentStatusConfig.color
@@ -1121,19 +1137,19 @@ export default function PedidosPage() {
                                             </p>
                                         </div>
                                     )}
-                                    {pedido.itens.map((item, idx) => {
-                                        // Verificar se é item complementar
+                                    {pedido.itens.map((item: any, idx) => {
+                                        // Verificar se é item complementar pelo histórico ou pela flag nova
                                         const qtdInicial = pedido.historico_complementos?.reduce((acc, comp) => {
                                             const itemComp = comp.itens.find(i => i.id === item.id)
                                             return acc + (itemComp?.quantidade || 0)
                                         }, 0) || 0
 
-                                        const isComplementar = qtdInicial > 0
+                                        const isComplementar = item.novo || qtdInicial > 0
 
                                         return (
                                             <div
                                                 key={idx}
-                                                className={`${styles.item} ${isComplementar ? styles.itemComplementar : ''}`}
+                                                className={`${styles.item} ${isComplementar ? styles.itemComplementar : ''} ${item.novo ? styles.itemNovoHighlight : ''}`}
                                             >
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                                                     <span>
@@ -1461,36 +1477,64 @@ export default function PedidosPage() {
 
                             <div className={styles.secao}>
                                 <h3>Itens do Pedido</h3>
-                                {(isEditing ? (editData.itens || []) : (pedidoSelecionado.itens || [])).map((item, idx) => (
-                                    <div key={idx} className={styles.itemDetalhe} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', padding: '10px 12px', background: '#1c1c1c', borderRadius: '8px', marginBottom: '4px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1, minWidth: 0 }}>
-                                            <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap', flexShrink: 0 }}>{item.quantidade}x</span>
-                                            <span style={{ fontWeight: 500, color: '#e2e8f0', lineHeight: '1.4', wordBreak: 'break-word' }}>{item.nome}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                                            <span style={{ fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', fontSize: '0.95rem' }}>R$ {item.subtotal.toFixed(2)}</span>
-                                            {isEditing ? (
-                                                <button
-                                                    onClick={() => removerItemEdit(idx)}
-                                                    className={styles.itemRemoveBtn}
-                                                    title="Remover Item da Edição"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            ) : (
-                                                <button
-                                                    onClick={() => removerItemPedido(pedidoSelecionado, idx)}
-                                                    className={styles.itemRemoveBtn}
-                                                    title="Remover Item"
-                                                    disabled={pedidoSelecionado.status === 'cancelado'}
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
+                                {(isEditing ? (editData.itens || []) : (pedidoSelecionado.itens || [])).map((item: any, idx) => {
+                                    // Lógica de destaque também no Modal
+                                    const qtdInicial = pedidoSelecionado.historico_complementos?.reduce((acc: number, comp: any) => {
+                                        const itemComp = comp.itens.find((i: any) => i.id === item.id)
+                                        return acc + (itemComp?.quantidade || 0)
+                                    }, 0) || 0
 
-                                ))}
+                                    const isComplementar = item.novo || qtdInicial > 0;
+
+                                    return (
+                                        <div 
+                                            key={idx} 
+                                            className={styles.itemDetalhe} 
+                                            style={{ 
+                                                display: 'flex', 
+                                                justifyContent: 'space-between', 
+                                                alignItems: 'flex-start', 
+                                                gap: '12px', 
+                                                padding: '10px 12px', 
+                                                background: item.novo ? 'rgba(34, 197, 94, 0.15)' : '#1c1c1c', 
+                                                borderLeft: item.novo ? '4px solid #22c55e' : 'none',
+                                                borderRadius: '8px', 
+                                                marginBottom: '4px' 
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', flex: 1, minWidth: 0 }}>
+                                                <span style={{ color: '#94a3b8', fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap', flexShrink: 0 }}>{item.quantidade}x</span>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    <span style={{ fontWeight: 500, color: '#e2e8f0', lineHeight: '1.4', wordBreak: 'break-word' }}>
+                                                        {item.nome}
+                                                        {isComplementar && <span className={styles.badgeNovo} style={{ verticalAlign: 'middle' }}>NOVO</span>}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                                                <span style={{ fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap', fontSize: '0.95rem' }}>R$ {item.subtotal.toFixed(2)}</span>
+                                                {isEditing ? (
+                                                    <button
+                                                        onClick={() => removerItemEdit(idx)}
+                                                        className={styles.itemRemoveBtn}
+                                                        title="Remover Item da Edição"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => removerItemPedido(pedidoSelecionado, idx)}
+                                                        className={styles.itemRemoveBtn}
+                                                        title="Remover Item"
+                                                        disabled={pedidoSelecionado.status === 'cancelado'}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
 
                                 {/* Adicionar Novo Item no Modo Edição */}
                                 {isEditing && (
