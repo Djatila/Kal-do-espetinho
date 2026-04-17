@@ -97,6 +97,13 @@ export default function PDVPage() {
     const [garcomId, setGarcomId] = useState<string>('')
     const [garcomNome, setGarcomNome] = useState<string>('')
 
+    // Estados do Modal de Criação de Mesa
+    const [isAddMesaModalOpen, setIsAddMesaModalOpen] = useState(false)
+    const [newMesaNome, setNewMesaNome] = useState('')
+    const [newMesaCliente, setNewMesaCliente] = useState('')
+    const [newMesaTelefone, setNewMesaTelefone] = useState('')
+    const [criandoMesa, setCriandoMesa] = useState(false)
+
     // Estado para Gorjeta / Cota
     const [tipoExtra, setTipoExtra] = useState<'Gorjeta' | 'Cota Artística' | null>(null);
     const [extraValorInput, setExtraValorInput] = useState('');
@@ -406,6 +413,66 @@ export default function PDVPage() {
         setMesaEscolhida(null)
     }
 
+    const handleCreateMesaAndSelect = async () => {
+        const mesaInput = newMesaNome.trim()
+        if (!mesaInput) return
+        
+        setCriandoMesa(true)
+        
+        try {
+            // Verifica se a mesa já existe
+            let { data: mesaExistente } = await supabase
+                .from('mesas')
+                .select('*')
+                .ilike('numero_mesa', mesaInput)
+                .maybeSingle()
+
+            let novaMesa = mesaExistente
+
+            if (!novaMesa) {
+                // Se não existir, tenta criar
+                const { data, error } = await supabase
+                    .from('mesas')
+                    .insert({
+                        numero_mesa: mesaInput,
+                        status: 'livre'
+                    })
+                    .select()
+                    .single()
+
+                if (error || !data) {
+                    console.error('Erro ao criar mesa:', error)
+                    showToast('error', 'Erro', `Falha ao criar: ${error?.message || 'Tente outro nome'}`)
+                    setCriandoMesa(false)
+                    return
+                }
+                novaMesa = data
+            } else if (novaMesa.status === 'ocupada' || novaMesa.status === 'em_atendimento') {
+                showToast('error', 'Mesa Ocupada', `A mesa ${novaMesa.numero_mesa} já está em uso!`)
+                setCriandoMesa(false)
+                return
+            }
+
+            setCriandoMesa(false)
+
+            setIsAddMesaModalOpen(false)
+            const cName = newMesaCliente
+            const cPhone = newMesaTelefone
+            setNewMesaNome('')
+            setNewMesaCliente('')
+            setNewMesaTelefone('')
+
+            await selecionarMesa(novaMesa)
+            if (cName) setNomeCliente(cName)
+            if (cPhone) setTelefone(cPhone)
+            
+        } catch (error: any) {
+            console.error('Erro inesperado:', error)
+            showToast('error', 'Erro', `Erro: ${error.message}`)
+            setCriandoMesa(false)
+        }
+    }
+
     async function loadProdutos() {
         setLoading(true)
         const { data, error } = await supabase
@@ -676,8 +743,18 @@ export default function PDVPage() {
                         <span className="text-[10px] sm:text-xs bg-black/20 px-2 py-1 rounded-full uppercase tracking-wider text-center leading-tight whitespace-normal">Viagem/Delivery</span>
                     </button>
 
+                    {/* Botão de Adicionar Nova Mesa */}
+                    <button
+                        onClick={() => setIsAddMesaModalOpen(true)}
+                        className="bg-zinc-800 text-white rounded-xl p-4 sm:p-6 flex flex-col items-center justify-center gap-2 sm:gap-3 hover:bg-zinc-700 transition transform hover:scale-105 shadow-md border border-dashed border-zinc-500"
+                    >
+                        <Plus className="w-8 h-8 sm:w-10 sm:h-10 text-orange-500" />
+                        <span className="font-bold text-base sm:text-xl">Nova Mesa</span>
+                        <span className="text-[10px] sm:text-xs bg-black/20 px-2 py-1 rounded-full uppercase tracking-wider text-center leading-tight whitespace-normal text-zinc-400">Atendimento</span>
+                    </button>
+
                     {/* Cards das Mesas Dinâmicas */}
-                    {mesas.map(m => {
+                    {mesas.filter(m => m.status !== 'livre').map(m => {
                         const isEmAtendimento = m.status === 'em_atendimento'
                         const isOcupada = m.status === 'ocupada'
                         const borderClass = isEmAtendimento
@@ -717,11 +794,68 @@ export default function PDVPage() {
                     })}
                 </div>
                 
-                {mesas.length === 0 && (
+                {mesas.filter(m => m.status !== 'livre').length === 0 && (
                     <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-xl border border-white/10 mt-4">
                         <Square size={48} className="text-muted-foreground mb-4 opacity-50" />
-                        <p className="text-white/70">Nenhuma mesa foi configurada ainda.</p>
-                        <p className="text-white/50 text-sm mt-1">Vá na aba "Mesas" para cadastrar.</p>
+                        <p className="text-white/70">Nenhuma mesa em atendimento no momento.</p>
+                        <p className="text-white/50 text-sm mt-1">Gere uma nova mesa clicando em <strong>Nova Mesa</strong> ou selecione <strong>Balcão</strong>.</p>
+                    </div>
+                )}
+                
+                {isAddMesaModalOpen && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm shadow-xl">
+                        <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-xl w-full max-w-sm shadow-2xl">
+                            <h2 className="text-xl font-bold text-white mb-4">Nova Mesa / Atendimento</h2>
+                            <div className="flex flex-col gap-3">
+                                <div>
+                                    <label className="text-xs text-zinc-400 mb-1 block">Nome / Número da Mesa  *</label>
+                                    <input 
+                                        type="text" 
+                                        value={newMesaNome} 
+                                        onChange={e => setNewMesaNome(e.target.value)} 
+                                        placeholder="Ex: Mesa 12 ou Varanda" 
+                                        className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white focus:border-orange-500 outline-none"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-zinc-400 mb-1 block">Nome do Cliente (Opcional)</label>
+                                    <input 
+                                        type="text" 
+                                        value={newMesaCliente} 
+                                        onChange={e => setNewMesaCliente(e.target.value)} 
+                                        placeholder="Nome do cliente (se souber)" 
+                                        className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white focus:border-orange-500 outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs text-zinc-400 mb-1 block">Telefone do Cliente (Opcional)</label>
+                                    <input 
+                                        type="text" 
+                                        value={newMesaTelefone} 
+                                        onChange={e => setNewMesaTelefone(e.target.value)} 
+                                        placeholder="Telefone (se souber)" 
+                                        className="w-full bg-black border border-zinc-800 rounded-lg p-3 text-white focus:border-orange-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-3 mt-6">
+                                <button 
+                                    onClick={() => setIsAddMesaModalOpen(false)} 
+                                    disabled={criandoMesa}
+                                    className="flex-1 p-3 bg-zinc-800 text-white rounded-lg font-bold hover:bg-zinc-700 transition"
+                                >
+                                    Cancelar
+                                </button>
+                                <button 
+                                    onClick={handleCreateMesaAndSelect} 
+                                    disabled={criandoMesa || !newMesaNome.trim()}
+                                    className="flex-1 p-3 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition disabled:opacity-50"
+                                >
+                                    {criandoMesa ? 'Criando...' : 'Confirmar'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
