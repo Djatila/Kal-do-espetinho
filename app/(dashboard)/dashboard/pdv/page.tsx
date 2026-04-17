@@ -1521,7 +1521,12 @@ export default function PDVPage() {
                                         {opcoesNorm.map((opt: any) => (
                                             <button
                                                 key={opt.nome}
-                                                onClick={() => setOpcaoSelecionadaPDV(opt.nome)}
+                                                onClick={() => {
+                                                    setOpcaoSelecionadaPDV(opt.nome)
+                                                    setTimeout(() => {
+                                                        document.getElementById('pdv-sessao-2')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                    }, 100);
+                                                }}
                                                 className={`p-3 rounded-xl border text-sm font-bold transition-all text-left flex flex-col gap-1 ${
                                                     opcaoSelecionadaPDV === opt.nome 
                                                         ? 'bg-purple-600/20 border-purple-500 text-white' 
@@ -1542,7 +1547,7 @@ export default function PDVPage() {
 
                             {/* Variações / Tamanhos */}
                             {produtoParaVariacao.tem_variacoes && produtoParaVariacao.variacoes_preco && (precoOpcao == null || hasPrecosEspecificos) && (
-                                <div className="space-y-3">
+                                <div id="pdv-sessao-2" className="space-y-3 scroll-mt-4">
                                     <div className="flex items-center justify-between">
                                         <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest">
                                             {stepPorcao}. {produtoParaVariacao.tem_opcoes ? 'Escolha o Tamanho' : 'Escolha a Opção'}

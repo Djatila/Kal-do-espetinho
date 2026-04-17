@@ -1814,7 +1814,12 @@ REGRAS FUNDAMENTAIS:
                                             {opcoesNorm.map((opcao) => (
                                                 <button
                                                     key={opcao.nome}
-                                                    onClick={() => setOpcaoInterna(opcao.nome)}
+                                                    onClick={() => {
+                                                        setOpcaoInterna(opcao.nome)
+                                                        setTimeout(() => {
+                                                            document.getElementById('online-sessao-2')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                                        }, 100);
+                                                    }}
                                                     className={`flex flex-col items-start rounded-2xl border text-left transition-all active:scale-95 ${
                                                         opcao.preco != null ? 'p-3' : 'py-2 px-3'
                                                     } ${
@@ -1850,7 +1855,7 @@ REGRAS FUNDAMENTAIS:
 
                                 {/* ── PORÇÕES / TAMANHOS — só exibe se o sabor não tem preço próprio, ou se tiver config "precos" ── */}
                                 {produtoParaVariacao.tem_variacoes && produtoParaVariacao.variacoes_preco && (precoOpcao == null || hasPrecosEspecificos) && (
-                                    <div className="space-y-3">
+                                    <div id="online-sessao-2" className="space-y-3 scroll-mt-4">
                                         <div className="flex items-center justify-between">
                                             <p className="text-[11px] font-black text-orange-500 uppercase tracking-widest">{stepPorcao}. Escolha a Porção</p>
                                             {missingVariacao && <span className="text-[9px] bg-orange-500/10 text-orange-500 px-2 py-0.5 rounded-full animate-pulse font-bold">Obrigatório</span>}
