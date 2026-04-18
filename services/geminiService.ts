@@ -1,5 +1,3 @@
-
-import { GoogleGenAI } from "@google/genai";
 import { MenuItem } from "../types";
 
 export const getGeminiResponse = async (
@@ -7,37 +5,31 @@ export const getGeminiResponse = async (
   systemInstruction: string,
   currentMenu: MenuItem[]
 ): Promise<string> => {
-  // Always initialize GoogleGenAI using a named parameter with process.env.API_KEY
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
   try {
-    // Context preparation for the model
-    const menuList = currentMenu.map(item => 
-      `- ${item.name} (${item.category}): R$ ${item.price.toFixed(2)} | ${item.description}`
-    ).join('\n');
+    const menuList = currentMenu.map(item => {
+      const price = item.price ?? (item as any).preco ?? 0;
+      return `- ${item.name ?? (item as any).nome} (${item.category}): R$ ${Number(price).toFixed(2)} | ${item.description ?? (item as any).descricao}`;
+    }).join('\n');
 
-    const fullSystemInstruction = `${systemInstruction}
-    
-    [CONTEXTO DO CARDÁPIO ATUAL]:
-    ${menuList}
-    `;
-
-    // Always use ai.models.generateContent with model and prompt content
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: userMessage,
-      config: {
-        systemInstruction: fullSystemInstruction,
-      },
+    const response = await fetch('/api/bot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userMessage,
+        systemInstruction,
+        currentMenuString: menuList
+      })
     });
 
-    // Access the text property directly from the response object
-    return response.text || "Hmm, não consegui pensar em uma resposta. Pode tentar de novo? 🤔";
+    if (!response.ok) {
+        throw new Error('Falha na resposta do servidor');
+    }
+
+    const data = await response.json();
+    return data.text || "Hmm, não consegui pensar em uma resposta. Pode tentar de novo? 🤔";
 
   } catch (error: any) {
-    console.error("Erro no serviço Gemini:", error);
-    
-    // Generic error handling for the UI
+    console.error("Erro no serviço Gemini (Client):", error);
     return "Tive um pequeno problema técnico ao consultar o cardápio. Tente novamente! 🍢";
   }
 };

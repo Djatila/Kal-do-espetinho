@@ -44,7 +44,7 @@ export async function POST(req: Request) {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    model: "google/gemini-2.5-flash", // modelo de ótimo custo benefício no openrouter
+                    model: "google/gemini-2.0-flash-001", // modelo de ótimo custo benefício no openrouter
                     messages: [
                         { role: "system", content: fullSystemInstruction },
                         { role: "user", content: userMessage }
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
             // Original Google Gen AI
             const ai = new GoogleGenAI({ apiKey });
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-1.5-flash',
                 contents: userMessage,
                 config: {
                     systemInstruction: fullSystemInstruction,
