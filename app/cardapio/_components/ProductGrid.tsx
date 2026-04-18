@@ -32,7 +32,7 @@ export function ProductGrid({
     <main id="menu" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {highlights.length > 0 && (
         <div className="mb-10">
-          <h2 className="text-xl font-display font-bold text-white mb-6 text-center sm:text-left border-l-4 border-orange-500 pl-3">
+          <h2 className="text-xl font-display font-bold text-white mb-6 border-l-4 border-orange-500 pl-3">
             ⭐ Promoções/Recomendações
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -65,6 +65,7 @@ export function ProductGrid({
                         item={highlightItemAdapter} 
                         variant="lista"
                         customBadge={(item as any).titulo_destaque || 'RECOMENDAÇÃO DO CHEFE KAL'}
+                        isHighlight={true}
                         onAdd={(itemData, e) => onAdd(item, undefined, undefined, e as React.MouseEvent)} 
                     />
                 </div>

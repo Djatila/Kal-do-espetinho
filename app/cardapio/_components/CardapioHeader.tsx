@@ -41,15 +41,15 @@ export function CardapioHeader({
 
   return (
     <nav className="fixed top-0 w-full z-30 bg-black/80 backdrop-blur-md border-b border-orange-900/30">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-20">
           
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <div className="flex items-center gap-2 cursor-pointer -mt-2" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
             <div className="bg-orange-600 p-2 rounded-lg shadow-neon">
               <Flame className="text-white" size={24} fill="currentColor" />
             </div>
             <div className="flex flex-col justify-center">
-              <h1 className="text-xl sm:text-2xl font-display font-bold text-white tracking-wider leading-none uppercase">
+              <h1 className="text-xl sm:text-2xl font-display font-bold text-white tracking-wider leading-none uppercase whitespace-nowrap">
                 {restoNome ? `${restoNome} ` : ''}
                 {ultimaPalavra ? <span className="text-orange-500">{ultimaPalavra}</span> : nomeRestaurante}
               </h1>

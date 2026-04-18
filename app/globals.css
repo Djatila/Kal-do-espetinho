@@ -3,6 +3,45 @@
 @tailwind utilities;
 
 :root {
+  --background: #0a0a0a;
+  --foreground: #f8fafc;
+
+  --card: #111111;
+  --card-foreground: #f8fafc;
+
+  --popover: #111111;
+  --popover-foreground: #f8fafc;
+
+  --primary: #f97316;
+  --primary-foreground: #ffffff;
+
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+
+  --destructive: #7f1d1d;
+  --destructive-foreground: #f8fafc;
+
+  --border: #262626;
+  --input: #262626;
+  --ring: #ff9800;
+
+  --radius: 0.5rem;
+
+  /* Cores Neon Kal */
+  --neon-400: #fb923c;
+  --neon-500: #f97316;
+  --neon-600: #ea580c;
+
+  color-scheme: dark;
+}
+
+.light {
   --background: #f8f9fa;
   --foreground: #1a1a1a;
 
@@ -13,7 +52,6 @@
   --popover-foreground: #1a1a1a;
 
   --primary: #e65100;
-  /* Orange 900-ish */
   --primary-foreground: #ffffff;
 
   --secondary: #f1f5f9;
@@ -32,46 +70,7 @@
   --input: #e2e8f0;
   --ring: #e65100;
 
-  --radius: 0.5rem;
-
-  /* Cores Neon Kal */
-  --neon-400: #fb923c;
-  --neon-500: #f97316;
-  --neon-600: #ea580c;
-
   color-scheme: light;
-}
-
-.dark {
-  --background: #0f172a;
-  --foreground: #f8fafc;
-
-  --card: #1e293b;
-  --card-foreground: #f8fafc;
-
-  --popover: #1e293b;
-  --popover-foreground: #f8fafc;
-
-  --primary: #ff9800;
-  --primary-foreground: #0f172a;
-
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-
-  --accent: #1e293b;
-  --accent-foreground: #f8fafc;
-
-  --destructive: #7f1d1d;
-  --destructive-foreground: #f8fafc;
-
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #ff9800;
-
-  color-scheme: dark;
 }
 
 button {

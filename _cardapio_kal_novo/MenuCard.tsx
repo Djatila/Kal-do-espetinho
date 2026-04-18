@@ -7,19 +7,21 @@ interface MenuCardProps {
   onAdd: (item: MenuItem, event: React.MouseEvent) => void;
   variant?: 'standard' | 'minimal' | 'lista';
   customBadge?: string;
+  isHighlight?: boolean;
 }
 
-const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard', customBadge }) => {
+const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard', customBadge, isHighlight }) => {
 
   // === ESTILO LISTA (HORIZONTAL - COR LARANJA NEON KAL) ===
   if (variant === 'lista') {
+    const imgSize = isHighlight ? '112px' : '88px';
     return (
       <div
-        className="group relative flex items-center gap-3 bg-neutral-900 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border border-orange-500/20 hover:border-orange-500/60"
-        style={{ borderLeft: '4px solid #f97316' }}
+        className={`group relative flex items-center gap-3 bg-neutral-900 rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 border border-orange-500/20 hover:border-orange-500/60 ${isHighlight ? 'my-2' : ''}`}
+        style={{ borderLeft: isHighlight ? '5px solid #f97316' : '4px solid #f97316' }}
       >
         {/* Imagem quadrada à esquerda */}
-        <div className="relative flex-shrink-0 overflow-hidden" style={{ minWidth: '96px', width: '96px', height: '96px', borderRadius: '0 12px 12px 0' }}>
+        <div className="relative flex-shrink-0 overflow-hidden" style={{ minWidth: imgSize, width: imgSize, height: imgSize, borderRadius: '0 12px 12px 0' }}>
           <img
             src={item.image || '/placeholder-food.jpg'}
             alt={item.name}
@@ -28,28 +30,28 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard', 
         </div>
 
         {/* Conteúdo central */}
-        <div className="flex-1 py-3 pr-4 min-w-0">
+        <div className={`flex-1 py-3 pr-4 min-w-0 ${isHighlight ? 'py-4' : ''}`}>
           {(customBadge || item.isTopSeller) && (
-            <span className={`inline-flex items-center gap-1 text-white text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-wider mb-1 shadow-sm ${customBadge ? 'bg-gradient-to-r from-amber-600 to-yellow-500' : 'bg-gradient-to-r from-red-600 to-orange-500'}`}>
+            <span className={`inline-flex items-center gap-1 text-white ${isHighlight ? 'text-[10px]' : 'text-[9px]'} font-black px-2 py-0.5 rounded uppercase tracking-wider mb-1 shadow-sm ${customBadge ? 'bg-gradient-to-r from-amber-600 to-yellow-500' : 'bg-gradient-to-r from-red-600 to-orange-500'}`}>
               {customBadge ? <><Star size={8} fill="currentColor" /> {customBadge}</> : 'O MAIS VENDIDO 🔥'}
             </span>
           )}
           <div className="flex justify-between items-start pr-2">
-            <h3 className="text-sm font-bold text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors">
+            <h3 className={`${isHighlight ? 'text-base font-black' : 'text-sm font-bold'} text-white leading-tight line-clamp-2 mb-0.5 group-hover:text-orange-400 transition-colors`}>
               {item.name}
             </h3>
             {item.rating && (
-              <div className="flex items-center gap-1 text-[10px] text-neutral-400 font-bold ml-2 shrink-0">
+              <div className="flex items-center gap-1 text-[10px] text-neutral-400 font-bold ml-2 shrink-0 mt-1">
                 <Star size={10} className="text-yellow-400" fill="currentColor" />
                 {item.rating}
               </div>
             )}
           </div>
-          <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed mb-2 pr-10">
+          <p className={`${isHighlight ? 'text-sm' : 'text-xs'} text-neutral-400 line-clamp-2 leading-relaxed mb-2 pr-10`}>
             {item.description}
           </p>
           <div className="pr-10">
-            <span className="text-base font-extrabold text-orange-400">
+            <span className={`${isHighlight ? 'text-lg font-black' : 'text-base font-extrabold'} text-orange-400`}>
               {item.tem_variacoes ? 'Ver opções' : `R$ ${item.price.toFixed(2).replace('.', ',')}`}
             </span>
           </div>
@@ -58,10 +60,10 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard', 
         {/* Botão + canto inferior direito */}
         <button
           onClick={(e) => onAdd(item, e)}
-          className={`absolute bottom-3 right-3 h-9 rounded-full ${item.tem_variacoes ? 'px-3 bg-neutral-800 border border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white' : 'w-9 bg-orange-600 hover:bg-orange-500 text-white'} flex items-center justify-center shadow-lg active:scale-95 transition-all`}
+          className={`absolute bottom-3 right-3 ${isHighlight ? 'h-10' : 'h-9'} rounded-full ${item.tem_variacoes ? 'px-3 bg-neutral-800 border border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white' : `${isHighlight ? 'w-10' : 'w-9'} bg-orange-600 hover:bg-orange-500 text-white`} flex items-center justify-center shadow-lg active:scale-95 transition-all`}
           aria-label={item.tem_variacoes ? 'Ver opções' : `Adicionar ${item.name}`}
         >
-          {item.tem_variacoes ? <span className="text-[10px] font-bold uppercase tracking-wider">Escolher</span> : <Plus size={20} strokeWidth={3} />}
+          {item.tem_variacoes ? <span className="text-[10px] font-bold uppercase tracking-wider">Escolher</span> : <Plus size={isHighlight ? 22 : 20} strokeWidth={3} />}
         </button>
       </div>
     );
