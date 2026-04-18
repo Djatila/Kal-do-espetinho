@@ -17,7 +17,8 @@ export function useCardapioData() {
         banner_url: '',
         banner_titulo: 'SABOR PREMIUM',
         banner_subtitulo: 'O melhor espetinho da cidade em um ambiente exclusivo.',
-        produtos_destaque_bolha: []
+        produtos_destaque_bolha: [],
+        mensagem_boas_vindas_bot: ''
     })
     const [promoSettings, setPromoSettings] = useState<PromoSettings>({
         isActive: false,
@@ -79,7 +80,8 @@ export function useCardapioData() {
                 banner_url: configData.banner_url || '',
                 banner_titulo: configData.banner_titulo || 'SABOR PREMIUM',
                 banner_subtitulo: configData.banner_subtitulo || 'O melhor espetinho da cidade em um ambiente exclusivo.',
-                produtos_destaque_bolha: configData.produtos_destaque_bolha || []
+                produtos_destaque_bolha: configData.produtos_destaque_bolha || [],
+                mensagem_boas_vindas_bot: configData.mensagem_boas_vindas_bot || ''
             }
             setConfiguracao(configParsed)
 

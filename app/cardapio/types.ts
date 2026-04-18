@@ -72,6 +72,7 @@ export interface ConfiguracaoCardapio {
     promo_preco?: number
     promo_imagem_url?: string
     promo_badge_texto?: string
+    mensagem_boas_vindas_bot?: string
 }
 
 export interface PromoSettings {
