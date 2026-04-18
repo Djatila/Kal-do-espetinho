@@ -74,7 +74,7 @@ export function CardapioHeader({
             </button>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 translate-y-3">
             {/* Infos do Cliente (se logado) */}
             {tipoCliente && (
               <div className="flex items-center gap-2 sm:gap-3">
