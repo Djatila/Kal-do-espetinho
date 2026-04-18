@@ -31,7 +31,7 @@ export function ProductGrid({
   return (
     <main id="menu" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       {highlights.length > 0 && (
-        <div className="mb-10">
+        <div className="mb-4">
           <h2 className="text-xl font-display font-bold text-white mb-6 border-l-4 border-orange-500 pl-3">
             ⭐ Promoções/Recomendações
           </h2>
@@ -72,11 +72,11 @@ export function ProductGrid({
               )
             })}
           </div>
-          <hr className="border-neutral-800 mt-8" />
+          <hr className="border-neutral-800 mt-4" />
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl sm:text-3xl font-display font-bold text-white border-l-4 border-orange-500 pl-4">
           {selectedCategory === 'todos' ? 'Nosso Cardápio' : selectedCategory}
         </h2>
