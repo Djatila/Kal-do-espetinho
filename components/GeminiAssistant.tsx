@@ -155,13 +155,13 @@ const GeminiAssistant: React.FC<GeminiAssistantProps> = ({ systemInstruction, me
       {/* Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`group flex items-center gap-2 bg-neutral-900 border border-orange-500/50 text-white p-4 rounded-full shadow-neon hover:shadow-neon-strong transition-all duration-300 hover:scale-105 ${isOpen ? 'bg-orange-600 border-orange-600' : ''}`}
+        className={`group flex items-center gap-2 bg-neutral-900 border border-orange-500/50 text-white p-3.5 rounded-full shadow-neon hover:shadow-neon-strong transition-all duration-300 hover:scale-105 ${isOpen ? 'bg-orange-600 border-orange-600' : ''}`}
       >
         <div className="relative">
-          <MessageCircle size={24} className={isOpen ? 'text-white' : 'text-orange-500'} />
+          <MessageCircle size={21} className={isOpen ? 'text-white' : 'text-orange-500'} />
           {!isOpen && <span className="absolute -top-1 -right-1 w-3 h-3 bg-orange-500 rounded-full animate-ping"></span>}
         </div>
-        <span className={`font-bold font-display ${isOpen ? 'text-white' : 'text-orange-500'} hidden sm:inline`}>
+        <span className={`font-bold font-display ${isOpen ? 'text-white' : 'text-orange-500'} hidden sm:inline text-sm`}>
           {isOpen ? 'Fechar Chat' : 'Ajuda / Dicas'}
         </span>
       </button>
