@@ -40,7 +40,7 @@ export function CardapioHeader({
   const restoNome = partesNome.join(' ')
 
   return (
-    <nav className="fixed top-0 w-full z-30 bg-black/80 backdrop-blur-md border-b border-orange-900/30">
+    <nav className="fixed top-0 w-full z-30 bg-neutral-950 border-b border-orange-900/30 shadow-2xl">
       <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
         <div className="flex items-center justify-between h-20">
           
@@ -86,7 +86,7 @@ export function CardapioHeader({
                 </div>
                 
                 {/* Avatar Pill (Como no print) */}
-                <div className="flex items-center gap-2 bg-neutral-900 border border-orange-500/20 px-2 py-1.5 rounded-full shadow-inner">
+                <div className="flex items-center gap-2 bg-orange-600/10 border border-orange-500/40 px-2 py-1.5 rounded-full shadow-inner ring-1 ring-orange-500/10">
                    <div className="w-6 h-6 rounded-full bg-orange-600 flex items-center justify-center text-white">
                       <span className="text-[10px] font-black uppercase">{dadosCliente.nome?.charAt(0) || 'K'}</span>
                    </div>
