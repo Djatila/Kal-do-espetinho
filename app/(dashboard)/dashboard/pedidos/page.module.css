@@ -92,7 +92,8 @@
 
 .pedidoCard {
     background: var(--card);
-    border: 1px solid var(--border);
+    border: 1px solid rgba(249, 115, 22, 0.25);
+    box-shadow: 0 0 8px rgba(249, 115, 22, 0.08); /* Glow leve neon */
     border-radius: 1rem;
     padding: 1.5rem;
     cursor: pointer;
@@ -101,8 +102,8 @@
 
 .pedidoCard:hover {
     transform: translateY(-4px);
-    box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.15);
-    border-color: var(--primary);
+    box-shadow: 0 12px 24px -10px rgba(249, 115, 22, 0.3), 0 0 12px rgba(249, 115, 22, 0.15);
+    border-color: rgba(249, 115, 22, 0.6);
 }
 
 .pedidoHeader {
