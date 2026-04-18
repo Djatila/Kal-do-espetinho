@@ -27,6 +27,9 @@ export default function ProdutosPage() {
     const filterCategoria = searchParams.get('categoria') || 'all'
     const filterStatus = searchParams.get('status') || 'all'
 
+    // Estado local para o input de busca (evita travamentos)
+    const [localSearch, setLocalSearch] = useState(searchTerm)
+
     function setFilter(key: string, value: string) {
         const params = new URLSearchParams(searchParams.toString())
         if (!value || value === 'all' || value === '') {
@@ -36,6 +39,16 @@ export default function ProdutosPage() {
         }
         router.replace(`/dashboard/produtos?${params.toString()}`, { scroll: false })
     }
+
+    // Debounce: atualiza a URL apenas depois que o usuário parar de digitar
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localSearch !== searchTerm) {
+                setFilter('q', localSearch)
+            }
+        }, 400)
+        return () => clearTimeout(timer)
+    }, [localSearch, searchTerm, searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
     async function loadProdutos() {
         setLoading(true)
@@ -145,8 +158,8 @@ export default function ProdutosPage() {
                                 type="text"
                                 placeholder="Buscar produto..."
                                 className="w-full pl-10 pr-3 py-2 border border-input rounded-md text-sm"
-                                value={searchTerm}
-                                onChange={(e) => setFilter('q', e.target.value)}
+                                value={localSearch}
+                                onChange={(e) => setLocalSearch(e.target.value)}
                             />
                         </div>
                         <select
