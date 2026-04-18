@@ -19,6 +19,7 @@ import { Produto, VariacaoPreco } from './types'
 // --- Components Globais ---
 import CartSidebar from '@/_cardapio_kal_novo/CartSidebar'
 import { ClienteIdentificationModal } from '@/components/cliente/ClienteIdentificationModal'
+import GeminiAssistant from '@/components/GeminiAssistant'
 // --- Components Locais ---
 import { HeroSection } from './_components/HeroSection'
 import { CardapioHeader } from './_components/CardapioHeader'
@@ -567,6 +568,11 @@ export default function CardapioNovo() {
             <ClienteIdentificationModal 
                 isOpen={mostrarIdentificacao}
                 onClienteIdentified={handleClienteIdentified}
+            />
+
+            <GeminiAssistant 
+                systemInstruction={configuracao?.mensagem_boas_vindas_bot || ""} 
+                menuItems={produtos as any} 
             />
         </div>
     )
