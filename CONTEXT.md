@@ -31,33 +31,31 @@ Este arquivo serve como Memória de Longo Prazo para situar o assistente IA sobr
 ---
 
 ## 🚀 Estado Atual
-- **Cardápio Público:** Funcional com carrinho, sistema dual de cliente (Crédito/Informal) e suporte a complementos em tempo real.
-- **Logística de Entrega:** Fluxo dinâmico implementado. O sistema agora diferencia "Pronto para Retirada" de "Pedido Pronto" (Delivery), e inclui o novo status "Saiu para entrega" com feedback visual no admin e cliente.
-- **Navegação e Categorias:** Corrigido o bug de visibilidade das categorias (Lost Start) e padronizado o termo "Todos". O menu agora é 100% responsivo e acessível.
-- **UX/UI Admin:** Adicionada animação `rubberBand` (pulo elástico) nos status dos pedidos para feedback tátil/visual de ações bem-sucedidas.
-- **Bug Fixes:** Resolvidos erros de tipagem TypeScript que afetavam o build na Vercel e corrigida a constraint do banco de dados no Supabase.
+- **Cardápio Público:** Funcional com carrinho, sistema dual de cliente (Crédito/Informal) e suporte a complementos em tempo real. O assistente Kal AI foi restaurado e agora é processado via server-side bridge. Os selos de recomendação foram simplificados (estrela agora é parte do texto).
+- **Dashboard Admin:** Cards de pedidos com bordas neon laranja pulsantes. Selos de "Gorjeta" e "Cota Artística" reorganizados para aparecerem abaixo do número do pedido, melhorando a escaneabilidade.
+- **Otimização de Performance:** Campo de busca no admin agora possui *debounce* e estado local, eliminando o lag de digitação.
+- **Logística de Entrega:** Fluxo dinâmico implementado com suporte ao status "Saiu para entrega".
+- **Estabilidade:** Build da Vercel corrigido após resolução de conflitos de tipos.
 
 ---
 
 ## 📋 Próximos Passos (Prioridades)
-1. **Monitoramento Logístico:** Validar o recebimento dos webhooks n8n para o novo status "Saiu para entrega".
-2. **Performance:** Otimizar carregamento de mídias e logos (fixação do logo circular).
-3. **Refatoração:** Concluir a modularização da `app/cardapio/page.tsx` para os novos subcomponentes criados.
-4. **Fidelidade:** Iniciar o planejamento do sistema de pontuação para clientes frequentes.
+1. **Refatoração:** Concluir a modularização total da `app/cardapio/page.tsx` aproveitando os novos subcomponentes.
+2. **Fidelidade:** Iniciar o planejamento do sistema de pontuação/fidelidade para clientes recorrentes.
+3. **Monitoramento:** Validar a experiência do chat Kal AI com usuários reais para ajustes finos de contexto.
+4. **Logística:** Monitorar webhooks para garantir que o novo status "Saiu para entrega" dispare as notificações corretamente.
 
 ---
 
 ## 📏 Regras e Padrões
-- **Design:** Dark Mode como padrão, acentos em Laranja (`#f97316`), estética premium e "limpa", botões de fechar (X) com efeito Neon Orange.
-- **Animações:** Uso de `rubberBand` para gatilhos de status e `animate-bounce` para indicadores de quantidade (carrinho).
-- **Flexbox:** Evitar `justify-center` em listas horizontais com scroll para prevenir o bug de "Lost Start"; usar `justify-start` com padding adequado.
+- **Design:** Dark Mode como padrão, acentos em Laranja (`#f97316`), estética premium, botões Neon Orange e cards com *glow* sutil no dashboard.
+- **Animações:** Uso de `rubberBand` para status e `flyToCart` para adição de itens.
+- **Segurança IA:** Nunca chamar chaves de API diretamente no frontend; usar sempre o bridge `/api/bot`.
 - **Código:**
   - Componentes Funcionais com TypeScript.
-  - Tipagem rigorosa para `OrderStatus` (centralizar em `types.ts`).
-  - Nomenclatura: PascalCase para componentes, camelCase para funções/variáveis.
-- **Banco de Dados:** Regras de negócio pesadas (totais, estatísticas) devem ser mantidas via Triggers no Supabase sempre que possível.
-- **Mobile First:** A maioria dos usuários acessa via celular; interações devem ser otimizadas para touch.
+  - Tipagem rigorosa para `ConfiguracaoCardapio` e `OrderStatus`.
+- **Mobile First:** Interface focada em touch e navegação rápida via polegar.
 
 ---
 
-*Última atualização: 2026-04-17 (Refinação de Status de Entrega, Animações Admin e Fix de Categorias)*
+*Última atualização: 2026-04-18 (Refinamento de layouts de selos no cardápio e dashboard, Otimização de busca, Restauração Kal AI)*

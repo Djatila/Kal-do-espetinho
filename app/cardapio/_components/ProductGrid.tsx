@@ -64,7 +64,7 @@ export function ProductGrid({
                     <MenuCard 
                         item={highlightItemAdapter} 
                         variant="lista"
-                        customBadge={(item as any).titulo_destaque || 'RECOMENDAÇÃO DO CHEFE KAL'}
+                        customBadge={(item as any).titulo_destaque || '⭐ RECOMENDAÇÃO DO CHEFE KAL'}
                         isHighlight={true}
                         onAdd={(itemData, e) => onAdd(item, undefined, undefined, e as React.MouseEvent)} 
                     />

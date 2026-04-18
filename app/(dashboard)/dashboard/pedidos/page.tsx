@@ -951,18 +951,20 @@ export default function PedidosPage() {
                                 onClick={() => setPedidoSelecionado(pedido)}
                             >
                                 <div className={styles.pedidoHeader}>
-                                    <div className={styles.pedidoNumero} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                    <div className={styles.pedidoNumero} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                         <span>Pedido #{pedido.numero_pedido}</span>
-                                        {Array.isArray(pedido.itens) && pedido.itens.some((item: any) => item.nome === 'Gorjeta') && (
-                                            <span style={{ backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#fdba74', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '12px', border: '1px solid rgba(249,115,22,0.3)', display: 'flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
-                                                ⭐ Gorjeta
-                                            </span>
-                                        )}
-                                        {Array.isArray(pedido.itens) && pedido.itens.some((item: any) => item.nome === 'Cota Artística') && (
-                                            <span style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#d8b4fe', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '12px', border: '1px solid rgba(168,85,247,0.3)', display: 'flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
-                                                🎵 Cota Artística
-                                            </span>
-                                        )}
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                            {Array.isArray(pedido.itens) && pedido.itens.some((item: any) => item.nome === 'Gorjeta') && (
+                                                <span style={{ backgroundColor: 'rgba(249, 115, 22, 0.15)', color: '#fdba74', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '12px', border: '1px solid rgba(249,115,22,0.3)', display: 'flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                                    ⭐ Gorjeta
+                                                </span>
+                                            )}
+                                            {Array.isArray(pedido.itens) && pedido.itens.some((item: any) => item.nome === 'Cota Artística') && (
+                                                <span style={{ backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#d8b4fe', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '12px', border: '1px solid rgba(168,85,247,0.3)', display: 'flex', alignItems: 'center', gap: '2px', lineHeight: 1 }}>
+                                                    🎵 Cota Artística
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                         {!(pedido.status === 'cancelado' && pedido.observacoes === 'Cancelado pelo cliente') && (

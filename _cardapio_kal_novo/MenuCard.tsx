@@ -33,7 +33,7 @@ const MenuCard: React.FC<MenuCardProps> = ({ item, onAdd, variant = 'standard', 
         <div className={`flex-1 py-3 pr-4 min-w-0 ${isHighlight ? 'py-4' : ''}`}>
           {(customBadge || item.isTopSeller) && (
             <span className={`inline-flex items-center gap-1 text-white ${isHighlight ? 'text-[10px]' : 'text-[9px]'} font-black px-2 py-0.5 rounded uppercase tracking-wider mb-1 shadow-sm ${customBadge ? 'bg-gradient-to-r from-amber-600 to-yellow-500' : 'bg-gradient-to-r from-red-600 to-orange-500'}`}>
-              {customBadge ? <><Star size={8} fill="currentColor" /> {customBadge}</> : 'O MAIS VENDIDO 🔥'}
+              {customBadge ? customBadge : 'O MAIS VENDIDO 🔥'}
             </span>
           )}
           <div className="flex justify-between items-start pr-2">
