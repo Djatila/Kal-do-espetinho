@@ -32,7 +32,7 @@ Este arquivo serve como Memória de Longo Prazo para situar o assistente IA sobr
 
 ## 🚀 Estado Atual
 - **Cardápio Público:** Funcional com carrinho, sistema dual de cliente (Crédito/Informal) e suporte a complementos em tempo real. O assistente Kal AI foi restaurado e agora é processado via server-side bridge. Os selos de recomendação foram simplificados (estrela agora é parte do texto).
-- **Dashboard Admin:** Cards de pedidos com bordas neon laranja pulsantes. Selos de "Gorjeta" e "Cota Artística" reorganizados para aparecerem abaixo do número do pedido, melhorando a escaneabilidade.
+- **Dashboard Admin:** Cards de pedidos com bordas neon laranja pulsantes. Selos de "Gorjeta" e "Cota Artística" reorganizados para escaneabilidade. Interface do PDV atualizada para renderizar detalhes/descrições (ex.: lata/litro) abaixo do nome dos produtos.
 - **Otimização de Performance:** Campo de busca no admin agora possui *debounce* e estado local, eliminando o lag de digitação.
 - **Logística de Entrega:** Fluxo dinâmico implementado com suporte ao status "Saiu para entrega".
 - **Estabilidade:** Build da Vercel corrigido após resolução de conflitos de tipos.
@@ -58,4 +58,4 @@ Este arquivo serve como Memória de Longo Prazo para situar o assistente IA sobr
 
 ---
 
-*Última atualização: 2026-04-18 (Refinamento de layouts de selos no cardápio e dashboard, Otimização de busca, Restauração Kal AI)*
+*Última atualização: 2026-04-20 (Refinamento na visualização de detalhes dos produtos no PDV Atendente)*

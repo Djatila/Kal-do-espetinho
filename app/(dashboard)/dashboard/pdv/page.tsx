@@ -1144,7 +1144,12 @@ export default function PDVPage() {
                                 <div className={styles.productIconWrapper}>
                                     {getCategoryIcon(produto.categoria)}
                                 </div>
-                                <div className={styles.productName}>{produto.nome}</div>
+                                <div className="flex flex-col items-center gap-0.5">
+                                    <div className={styles.productName}>{produto.nome}</div>
+                                    {produto.descricao && (
+                                        <div className={styles.productDescription}>{produto.descricao}</div>
+                                    )}
+                                </div>
 
                                 <div className={styles.cardActionArea}>
                                     {!hasVariations && (
